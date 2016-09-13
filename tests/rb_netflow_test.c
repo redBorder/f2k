@@ -33,6 +33,9 @@ int nf_test_teardown(void **state) {
 	freeHostsList(readOnlyGlobals.rb_databases.ip_name_as_list);
 	freeHostsList(readOnlyGlobals.rb_databases.nets_name_as_list);
 	deleteGeoIPDatabases();
+	if (readOnlyGlobals.zk.zh != NULL) {
+		stop_f2k_zk();
+	}
 	free(readWriteGlobals);
 	return 0;
 }
@@ -130,7 +133,6 @@ static struct string_list *test_flow_i(const struct test_params *params,
 
 	if (params->zk_url) {
 		init_f2k_zk(params->zk_url);
-		stop_f2k_zk();
 	}
 
 	check_if_reload(&readOnlyGlobals.rb_databases);

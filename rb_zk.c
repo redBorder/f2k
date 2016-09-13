@@ -123,6 +123,13 @@ static void zk_template_root_completed(int rc,const struct String_vector *string
     return;
   }
 
+  if (strings->count == 0) {
+    pthread_mutex_lock(&data->mtx);
+    pthread_cond_signal(&data->cv);
+    pthread_mutex_unlock(&data->mtx);
+    return;
+  }
+
   data->pending_childs = strings->count;
   for(i=0;i<strings->count;++i) {
     char buf[BUFSIZ];
