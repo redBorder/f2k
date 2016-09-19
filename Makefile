@@ -55,7 +55,7 @@ clean: bin-clean
 
 run_tests = tests/run_tests.sh $(1) $(TESTS_C:.c=)
 run_valgrind = $(VALGRIND) --tool=$(1) $(SUPPRESSIONS_VALGRIND_ARG) --xml=yes \
-					--xml-file=$(2) $(3)  &>/dev/null
+					--xml-file=$(2) $(3) >/dev/null 2>&1
 
 tests: $(TESTS_XML)
 	$(call run_tests, -cvdh)
@@ -82,7 +82,7 @@ tests/%.drd.xml: tests/%.test $(MAXMIND_DB)
 	-$(call run_valgrind,drd,"$@","./$<")
 
 tests/%.xml: tests/%.test $(MAXMIND_DB)
-	CMOCKA_XML_FILE="$@" CMOCKA_MESSAGE_OUTPUT=XML "./$<" &>/dev/null
+	CMOCKA_XML_FILE="$@" CMOCKA_MESSAGE_OUTPUT=XML "./$<" >/dev/null 2>&1
 
 TEST_DEPS := tests/rb_netflow_test.o tests/rb_json_test.o
 tests/0023-testPrintbuf.test: TEST_DEPS =
