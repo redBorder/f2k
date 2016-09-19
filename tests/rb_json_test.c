@@ -2,7 +2,6 @@
 
 #undef NDEBUG
 #include "rb_json_test.h"
-#include <assert.h>
 #include <setjmp.h>
 #include <cmocka.h>
 
@@ -56,7 +55,7 @@ static void assertEqual(const int64_t a, const int64_t b,const char *key,const c
 	if(a != b) {
 		fprintf(stderr,"[%s integer value mismatch] Actual: %ld, Expected: %ld in %s\n",
 			key,a,b,src);
-		assert(a==b);
+		assert_true(a==b);
 	}
 }
 
@@ -69,12 +68,12 @@ static void rb_assert_json_value(const struct checkdata_value *chk_value,const j
 	if(chk_value->value == NULL && json_value != NULL) {
 		fprintf(stderr,"Json key %s with value %s, should not exists in (%s)\n",
 			chk_value->key,json_string_value(json_value),src);
-		assert(!json_value);
+		assert_true(!json_value);
 	}
 
 	if(NULL==json_value) {
 		fprintf(stderr,"Json value %s does not exists in %s\n",chk_value->key,src);
-		assert(json_value);
+		assert_true(json_value);
 	}
 	switch(json_typeof(json_value)){
 	case JSON_INTEGER:
@@ -91,11 +90,11 @@ static void rb_assert_json_value(const struct checkdata_value *chk_value,const j
 			fprintf(stderr,"[Actual:%s][Expected:%s] in (%s)\n",
 				json_str_value,chk_value->value,src);
 		}
-		assert(0==strcmp(json_str_value,chk_value->value));
+		assert_true(0==strcmp(json_str_value,chk_value->value));
 	}
 	break;
 	default:
-		assert(!"You should not be here");
+		assert_true(!"You should not be here");
 	}
 }
 
@@ -105,7 +104,7 @@ void rb_assert_json(const char *str,const struct checkdata *checkdata){
 	json_t *root = json_loads(str, 0, &error);
 	if(root==NULL){
 		fprintf(stderr,"[EROR PARSING JSON][%s][%s]\n",error.text,error.source);
-		assert(0);
+		assert_true(0);
 	}
 
 	for(i=0;i<checkdata->size;++i){

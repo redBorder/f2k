@@ -19,8 +19,6 @@
 
 #undef NDEBUG
 
-#include <assert.h>
-
 #include "printbuf.h"
 #include <stdio.h>
 
@@ -67,4 +65,3 @@ int main(){
 
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }
-
