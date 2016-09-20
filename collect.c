@@ -866,7 +866,6 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
         goodTemplate = 0;
       }
 
-
       if(goodTemplate) {
         worker->stats.num_good_templates_received++;
 
