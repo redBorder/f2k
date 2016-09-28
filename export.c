@@ -45,6 +45,15 @@ struct flowCache *new_flowCache(){
 }
 
 void associateSensor(struct flowCache *flowCache, struct sensor *sensor){
+  if(NULL == flowCache) {
+    traceEvent(TRACE_ERROR,"Invalid address");
+    return;
+  }
+  if(NULL == sensor) {
+    traceEvent(TRACE_ERROR,"Invalid address");
+    return;
+  }
+
   flowCache->sensor = sensor;
 }
 
@@ -85,6 +94,11 @@ int guessDirection(struct flowCache *cache){
   // if(cache->macs.direction != DIRECTION_UNSET){
   //  return 1; /* no need to guess */
   //}
+
+  if(NULL == cache) {
+    traceEvent(TRACE_ERROR,"Invalid address");
+    return 0;
+  }
 
   if(sensor_has_mac_db(cache->sensor)) {
     const uint64_t src_mac_as_num = net2number((const char *)cache->macs.src_mac,6);
@@ -301,6 +315,7 @@ size_t print_biflow_direction(struct printbuf *kafka_line_buffer,
 size_t print_direction(struct printbuf *kafka_line_buffer,const char * buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   assert(kafka_line_buffer);
+  assert(flowCache);
 
   if(flowCache->macs.direction == DIRECTION_UNSET){
     /* Sorry, can't do nothing */
@@ -404,9 +419,15 @@ size_t print_ssid_name(struct printbuf * kafka_line_buffer,
 
 static void ipv4buf_to_6(char ipv6[16],const char *buffer){
   // @TODO memset(ipv6,0,sizeof(ipv6));
-int i;
-  for (i = 0; i < 10; ++i)
+  if(NULL == buffer) {
+    traceEvent(TRACE_ERROR,"Invalid address");
+    return;
+  }
+
+  int i;
+  for (i = 0; i < 10; i++)
     ipv6[i] = 0;
+
   ipv6[10] = 0xFF;
   ipv6[11] = 0xFF;
   ipv6[12] = buffer[0];
@@ -422,6 +443,11 @@ static size_t print_net_name0(struct printbuf *kafka_line_buffer,const char *buf
 
   char ipv6[16];
   ipv4buf_to_6(ipv6,buffer);
+
+  if(NULL == flowCache || NULL == buffer || NULL == kafka_line_buffer ) {
+    traceEvent(TRACE_ERROR,"Invalid address");
+    return 0;
+  }
 
   /* First try: Has the sensor a home net that contains this ip? */
   const char *sensor_home_net = network_name(flowCache->sensor,ipv6);
@@ -469,6 +495,11 @@ size_t print_net(struct printbuf * kafka_line_buffer,
 
   char ipv6[16];
   ipv4buf_to_6(ipv6,buffer);
+
+  if(NULL == flowCache || NULL == buffer || NULL == kafka_line_buffer ) {
+    traceEvent(TRACE_ERROR,"Invalid address");
+    return 0;
+  }
 
   /* First try: Has the sensor a home net that contains this ip? */
   const char *sensor_home_net = network_ip(flowCache->sensor,ipv6);
@@ -543,6 +574,7 @@ size_t print_ipv4_src_addr(struct printbuf * kafka_line_buffer,
   assert(buffer);
   assert(real_field_len==4);
   assert(real_field_len_offset==0);
+  assert(flowCache);
 
   ipv4buf_to_6(flowCache->address.src,buffer);
   const uint32_t ipv4 = net2number(buffer,4);
@@ -556,6 +588,11 @@ size_t print_ipv4_dst_addr(struct printbuf * kafka_line_buffer,
   assert(buffer);
   assert(real_field_len==4);
   assert(real_field_len_offset==0);
+
+  if(NULL == flowCache || NULL == buffer || NULL == kafka_line_buffer ) {
+    traceEvent(TRACE_ERROR,"Invalid address");
+    return 0;
+  }
 
   ipv4buf_to_6(flowCache->address.dst,buffer);
   const uint32_t ipv4 = net2number(buffer,4);
@@ -872,6 +909,11 @@ size_t print_src_port(struct printbuf * kafka_line_buffer,
   assert(kafka_line_buffer);
   assert(buffer);
 
+  if(NULL == flowCache || NULL == buffer || NULL == kafka_line_buffer ) {
+    traceEvent(TRACE_ERROR,"Invalid address");
+    return 0;
+  }
+
   const uint16_t port = net2number(buffer,real_field_len);
   flowCache->ports.src = port;
   return print_port0(kafka_line_buffer,port);
@@ -883,6 +925,11 @@ size_t print_dst_port(struct printbuf * kafka_line_buffer,
   assert(kafka_line_buffer);
   assert(buffer);
 
+  if(NULL == buffer || NULL == kafka_line_buffer || NULL == flowCache) {
+    traceEvent(TRACE_ERROR,"Invalid address");
+    return 0;
+  }
+
   const uint16_t port = net2number(buffer,real_field_len);
   flowCache->ports.dst = port;
   return print_port0(kafka_line_buffer,port);
@@ -893,6 +940,11 @@ size_t print_srv_port(struct printbuf * kafka_line_buffer,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   assert(kafka_line_buffer);
   assert(buffer);
+
+  if(NULL == buffer || NULL == kafka_line_buffer || NULL == flowCache) {
+    traceEvent(TRACE_ERROR,"Invalid address");
+    return 0;
+  }
 
   if(flowCache->ports.src && flowCache->ports.dst)
     return print_port0(kafka_line_buffer,min(flowCache->ports.src,flowCache->ports.dst));

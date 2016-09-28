@@ -1634,6 +1634,7 @@ int parseHostsList_File(char * filename,PARSEHOSTSLIST_ORDER order){
 }
 
 void parseHostsList(char * etc_path){
+  assert(etc_path);
   size_t len_etc_path = strlen(etc_path);
   // Maximum use of buffer
   char * buf = calloc((len_etc_path + strlen("/networks") + 1),sizeof(char));

@@ -861,14 +861,13 @@ static int addJsonSensorsNetwork(const char *network, json_t *network_json,
 
 
 static struct rb_sensors_db *allocate_rb_sensors_db() {
-	struct rb_sensors_db *database = calloc(1,sizeof(*database));
-
-	if(NULL==database) {
-		traceEvent(TRACE_ERROR,"Could not allocate database.\n");
-	} else {
-		#ifdef RB_DATABASE_MAGIC
-		database->magic = RB_DATABASE_MAGIC;
-		#endif
+  struct rb_sensors_db *database = calloc(1,sizeof(*database));
+  if(NULL==database) {
+    traceEvent(TRACE_ERROR, "Memory error");
+  } else {
+#ifdef RB_DATABASE_MAGIC
+    database->magic = RB_DATABASE_MAGIC;
+#endif
 		listener_list_init(&database->new_listeners);
 		rd_avl_init(&database->sensors.avl,compare_sensors_networks,
 								RD_AVL_F_LOCKS);
@@ -878,9 +877,9 @@ static struct rb_sensors_db *allocate_rb_sensors_db() {
 								RD_AVL_F_LOCKS);
 		rd_memctx_init(&database->bad_sensors.memctx, NULL,
 					RD_MEMCTX_F_TRACK | RD_MEMCTX_F_LOCK);
-	}
+  }
 
-	return database;
+  return database;
 }
 
 static int read_rb_config_sensors_networks(struct rb_sensors_db *database,
@@ -913,12 +912,15 @@ struct rb_sensors_db *read_rb_config(const char *json_path, listener_list *list,
   json_error_t error;
   struct rb_sensors_db * database = allocate_rb_sensors_db();
 
-  if(database) {
-    database->root = json_load_file(json_path,0,&error);
-    if(NULL==database->root)
-      traceEvent(TRACE_ERROR,"Could not load %s, line %d column %d: %s.",json_path,
-         error.line,error.column,error.text);
+  if(NULL == database) {
+    traceEvent(TRACE_ERROR,"Invalid address");
+    return NULL;
   }
+
+  database->root = json_load_file(json_path,0,&error);
+  if(NULL==database->root)
+    traceEvent(TRACE_ERROR,"Could not load %s, line %d column %d: %s.",json_path,
+       error.line,error.column,error.text);
 
   if(database && database->root) {
     json_t *sensors_networks = json_object_get(database->root, "sensors_networks");
@@ -1037,6 +1039,8 @@ void save_template_async(struct sensor *sensor,
 /// @TODO const?
 struct sensor *get_sensor(struct rb_sensors_db *database, uint64_t ip,
 							uint16_t dst_port) {
+  assert(database);
+
   struct sensors_network proposed_sensors_network = dummy_sensors_network(ip);
 
   struct sensors_network *found_sensor_network = RD_AVL_FIND(

@@ -844,6 +844,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
                 "Broken flow format (bad length) [received: %zd]"
                 "[displ: %zd][stillToProcess: %zd][available: %zd]",
                 bufferLen, displ, stillToProcess, (displ+stillToProcess));
+              free(fields);
               return 0;
             }
 
@@ -924,6 +925,11 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
         worker->stats.num_good_templates_received++;
 
         struct flowSetV9Ipfix *new_template = malloc(sizeof(*new_template));
+        if(new_template == NULL) {
+          traceEvent(TRACE_WARNING, "Not enough memory");
+          free(fields);
+          break;
+        }
 
         /// @TODO save the fields directly in a new malloced template.
         new_template->templateInfo.flowsetLen = len + sizeof(header);
@@ -952,6 +958,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
         if(readOnlyGlobals.enable_debug)
           traceEvent(TRACE_INFO, ">>>>> Skipping bad template [id=%d]", template.templateId);
         worker->stats.num_bad_templates_received++;
+        free(fields);
       }
 
       displ += len, stillToProcess -= len;
@@ -1448,6 +1455,12 @@ static struct string_list *dissectNetFlow(worker_t *worker,
                       struct sensor *sensor_object,
                       const uint32_t netflow_device_ip, const uint16_t dst_port,
                       const uint8_t *buffer, const ssize_t bufferLen) {
+  NetFlow5Record *the5Record = (NetFlow5Record*)buffer;
+
+  assert(worker);
+  assert(sensor_object);
+  assert(buffer);
+
   if(unlikely(NULL == readOnlyGlobals.rb_databases.sensors_info)) {
     traceEvent(TRACE_ERROR, "Can't get a sensor list");
     return NULL;
@@ -1455,7 +1468,6 @@ static struct string_list *dissectNetFlow(worker_t *worker,
 
   worker->stats.num_dissected_flow_packets++;
 
-  NetFlow5Record *the5Record = (NetFlow5Record*)buffer;
   const uint16_t flowVersion = ntohs(((NetFlow5Record *) buffer)->flowHeader.version);
 
 #ifdef DEBUG_FLOWS

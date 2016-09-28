@@ -42,7 +42,9 @@ struct port_collector{
   TAILQ_ENTRY(port_collector) list_entry;
 };
 
-void listener_list_append(listener_list *l1,struct port_collector *collector){
+void listener_list_append(listener_list *l1, struct port_collector *collector) {
+  assert(l1);
+  assert(collector);
   TAILQ_INSERT_TAIL(l1,collector,list_entry);
 }
 
@@ -203,7 +205,7 @@ void wakeUpListenerList(listener_list *list) {
 struct port_collector *createNetFlowListener(enum transport_proto proto,uint16_t collectorInPort){
   struct port_collector *collector = calloc(1,sizeof(*collector));
   if(NULL == collector) {
-    traceEvent(TRACE_ERROR,"Can't allocate collector struct (out of memory?)");
+    traceEvent(TRACE_ERROR,"Invalid address");
     return NULL;
   }
 
@@ -234,6 +236,9 @@ static int is_present(const struct port_collector *collector,const listener_list
 enum purge_type {present,not_present};
 static void purgeListeners(listener_list *original,listener_list *compare,
                                                    enum purge_type type) {
+  assert(original);
+  assert(compare);
+
   struct port_collector *i = listener_list_head(original);
   while(i) {
     struct port_collector *next = listener_list_next(i);
