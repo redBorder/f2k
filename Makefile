@@ -99,12 +99,15 @@ tests/%.xml: tests/%.test $(MAXMIND_DB)
 	@echo -e '\033[1;34m[Testing ]\033[0m\t $<'
 	@CMOCKA_XML_FILE="$@" CMOCKA_MESSAGE_OUTPUT=XML "./$<" >/dev/null 2>&1
 
-TEST_DEPS := tests/rb_netflow_test.o tests/rb_json_test.o
-tests/0023-testPrintbuf.test: TEST_DEPS =
+MALLOC_FUNCTIONS := $(strip malloc calloc realloc strdup __strdup)
+WRAP_ALLOC_FUNCTIONS := $(foreach fn, $(MALLOC_FUNCTIONS)\
+	,-Wl,-u,$(fn) -Wl,-wrap,$(fn))
+TEST_DEPS := tests/rb_netflow_test.o tests/rb_json_test.o tests/rb_mem_wraps.o
+tests/0023-testPrintbuf.test: TEST_DEPS = tests/rb_mem_wraps.o
 tests/%.test: CPPFLAGS := -I. $(CPPFLAGS)
 tests/%.test: tests/%.o tests/%.objdeps $(TEST_DEPS) $(OBJS)
 	@echo -e '\033[1;32m[Building]\033[0m\t $@'
-	@$(CC) $(CPPFLAGS) $(LDFLAGS) $< $(shell cat $(@:.test=.objdeps)) $(TEST_DEPS) -o $@ $(LIBS) -lcmocka >/dev/null 2>&1
+	@$(CC) $(CPPFLAGS) $(LDFLAGS) $< $(WRAP_ALLOC_FUNCTIONS) $(shell cat $(@:.test=.objdeps)) $(TEST_DEPS) -o $@ $(LIBS) -lcmocka > /dev/null
 
 get_maxmind_db = wget $(1) -O $@.gz; gunzip $@
 

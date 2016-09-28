@@ -96,6 +96,9 @@ static int load_geoip_databases(const char *geoip_path) {
 
 static struct string_list *test_flow_i(const struct test_params *params,
 							worker_t *worker) {
+	const size_t mem_stash = mem_wraps_get_fail_in();
+	mem_wraps_set_fail_in(0); // no fail in initialization
+
 	if (params->host_list_path) {
 		if (readOnlyGlobals.rb_databases.hosts_database_path) {
 			free(readOnlyGlobals.rb_databases.hosts_database_path);
@@ -178,7 +181,7 @@ static struct string_list *test_flow_i(const struct test_params *params,
 		pthread_mutex_lock(&worker->templates_queue.rfq_lock);
 		pthread_mutex_lock(&worker->packetsQueue.rfq_lock);
 
-
+		mem_wraps_set_fail_in(mem_stash); // fail beyond this point
 		struct string_list *ret = dissectNetFlow(worker, sensor_object,
 			netflow_device_ip, dst_port, record, record_len);
 		rb_sensor_decref(sensor_object);
@@ -230,7 +233,11 @@ void testFlow(void **state) {
 	struct nf_test_state *st = *state;
 	assert_true(st->magic == NF_TEST_STATE_MAGIC);
 
-	worker_t *worker = new_collect_worker();
+	worker_t *worker = NULL;
+	// Repeat if we are testing memory
+	while (!worker) {
+		worker = new_collect_worker();
+	}
 
 	for (i=0; i<st->params.records_size; ++i) {
 		st->ret.sl[i] = test_flow_i(&st->params.records[i], worker);
