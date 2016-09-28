@@ -80,6 +80,7 @@ static int mac_direction(int known_src,int known_dst) {
   return: 1 if guessed/already setted. 0 if couldn't set
 */
 int guessDirection(struct flowCache *cache){
+  static const char zeros[sizeof(cache->address.src)] = {0};
   // Don't trust in flow direction unless there is no choice
   // if(cache->macs.direction != DIRECTION_UNSET){
   //  return 1; /* no need to guess */
@@ -105,7 +106,8 @@ int guessDirection(struct flowCache *cache){
     }
   }
 
-  if(0 == cache->address.src || 0 == cache->address.dst){
+  if (0 == memcmp(cache->address.src, zeros, sizeof(cache->address.src)) ||
+      0 == memcmp(cache->address.dst, zeros, sizeof(cache->address.dst))) {
     /* Can't guess direction */
     return -1;
   }
