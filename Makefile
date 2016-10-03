@@ -87,6 +87,9 @@ tests/%.xml: tests/%.test $(MAXMIND_DB)
 TEST_DEPS := tests/rb_netflow_test.o tests/rb_json_test.o
 tests/0023-testPrintbuf.test: TEST_DEPS =
 tests/%.test: CPPFLAGS := -I. $(CPPFLAGS)
+MALLOC_FUNCTIONS := $(strip malloc calloc strdup realloc)
+WRAP_ALLOC_FUNCTIONS := $(foreach fn, $(MALLOC_FUNCTIONS)\
+	,-Wl,-u,$(fn) -Wl,-wrap,$(fn))
 tests/%.test: tests/%.o tests/%.objdeps $(TEST_DEPS) $(OBJS)
 	$(CC) $(CPPFLAGS) $(LDFLAGS) $< $(shell cat $(@:.test=.objdeps)) $(TEST_DEPS) -o $@ $(LIBS) -lcmocka
 
