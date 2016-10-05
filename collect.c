@@ -886,7 +886,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
         new_template->fields                  = fields;
 
         // Save template for future use
-        if(readOnlyGlobals.templates_database_path && strlen(readOnlyGlobals.templates_database_path) > 0)
+        if(strlen(readOnlyGlobals.templates_database_path) > 0)
           saveGoodTemplateInFile(new_template);
 #ifdef HAVE_ZOOKEEPER
         if(readOnlyGlobals.zk.zh)
@@ -920,10 +920,6 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
   *readed = displ;
 
   return 1;
-}
-
-static inline uint32_t *ipv6_ptr_to_ipv4_ptr(const uint8_t *ipv6) {
-  return (uint32_t *)&ipv6[12];
 }
 
 /** Dissect a netflow V9/V10 set with a given template
