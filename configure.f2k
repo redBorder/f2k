@@ -1,0 +1,121 @@
+#!/bin/bash
+#
+
+mkl_require good_cflags
+mkl_require atomics must pass
+mkl_require socket
+mkl_require gitversion as GITVERSION
+
+mkl_mkvar_append CPPFLAGS CPPFLAGS "-DFORTIFY_SOURCE=2"
+mkl_mkvar_append CPPFLAGS CPPFLAGS "-DNDEBUG"
+#mkl_mkvar_append CPPFLAGS CPPFLAGS "-ftrack-macro-expansion=2 -Wextra -Wcast-qual -Wshadow -Wsign-conversion -Wno-used"
+#mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wjump-misses-init" # New in gcc 4.5
+#mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wdouble-promotion" # New in gcc 4.6
+#mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wunused-local-typedefs" # New in gcc 4.7
+mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wcast-align -Wdisabled-optimization -Winit-self -Wlogical-op"
+mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wmissing-include-dirs -Wstrict-overflow=5 -Wundef -Wswitch-default"
+mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wmissing-declarations -Wdisabled-optimization"
+
+
+mkl_toggle_option "Standard" WITH_LIBRDKAFKA   "--enable-librdkafka"  "librdkafka: For kafka export" "y"
+mkl_toggle_option "Standard" WITH_CISCO_URL    "--enable-ciscourl"    "Cisco URL flows decoding" "y"
+mkl_toggle_option "Standard" WITH_RBMAC_VENDOR "--enable-rbmacvendor" "RedBorder MACs vendor library" "y"
+mkl_toggle_option "Standard" WITH_GEOIP        "--enable-geoip"       "MaxMind (r) GeoIP library" "y"
+mkl_toggle_option "Standard" WITH_SFLOW        "--enable-sflow"       "S-FLOW Support" "n"
+mkl_toggle_option "Standard" WITH_ZOOKEEPER    "--enable-zookeeper"   "Apache Zookeeper support" "y"
+mkl_toggle_option "Standard" WITH_UDNS         "--enable-udns"        "Michael Tokarev reverse-DNS support" "y"
+
+
+function checks_librdkafka {
+    # Check that librdkafka is available, and allow to link it statically.
+    mkl_meta_set "librdkafka" "desc" "librdkafka is available at http://github.com/edenhill/librdkafka."
+    mkl_meta_set "librdkafka" "deb" "librdkafka-dev"
+    mkl_lib_check --static=-lrdkafka "librdkafka" "" fail CC "-lrdkafka -lpthread -lz" \
+       "#include <librdkafka/rdkafka.h>"
+
+}
+
+function checks {
+    mkl_define_set "OS name" "osName" "`uname`"
+
+    mkl_lib_check --static=-lrd "librd" "" fail CC "-lrd -lpthread -lz -lrt" \
+       "#include <librd/rd.h>"
+
+    mkl_lib_check "pcap" "" fail CC "-lpcap"
+
+    # -lrd required
+    if [ "x$WITH_LIBRDKAFKA" == "xy" ]; then
+        checks_librdkafka
+        mkl_define_set "Magnus Edenhill librdkafka" "HAVE_LIBRDKAFKA" "1"
+    fi
+
+    if [ "x$WITH_CISCO_URL" == "xy" ]; then
+        mkl_define_set "Cisco URL flows" "HAVE_CISCO_URL" "1"
+    fi
+
+    if [ "x$WITH_RBMAC_VENDOR" == "xy" ]; then
+        mkl_lib_check "rb_mac_vendor" HAVE_RB_MAC_VENDORS fail CC "-lrb_mac_vendors" \
+            "#include <rb_mac_vendors.h>"\
+        #mkl_define_set "RedBorder Macs vendors library" "HAVE_RB_MACS_VENDOR" "1"
+    fi
+
+    if [ "x$WITH_GEOIP" == "xy" ]; then
+        mkl_lib_check "geoip" HAVE_GEOIP fail CC "-lGeoIP" \
+            "#include <GeoIP.h>
+             void *f();void *f(){return GeoIP_org_by_ipnum;}
+             void *g();void *g(){return GeoIP_org_by_ipnum_v6;}"
+        mkl_define_set "GeoIP V6 Support" "HAVE_GEOIP_IPv6" "1"
+    fi
+
+    if [ "x$WITH_ZOOKEEPER" == "xy" ]; then
+        mkl_lib_check "zookeeper" HAVE_ZOOKEEPER fail CC "-lzookeeper_mt" \
+            "#include <zookeeper/zookeeper.h>"
+        mkl_define_set "Zookeeper Support" "HAVE_ZOOKEEPER" "1"
+    fi
+
+
+    if [ "x$WITH_SFLOW" == "xy" ]; then
+        mkl_err "Sflow support is in a experimental phase"
+    fi
+
+    if [ "x$WITH_UDNS" == "xy" ]; then
+        mkl_lib_check "udns" HAVE_UDNS fail CC "-ludns" \
+            "#include <udns.h>
+            void *f();void *f(){return dns_init;}"
+    fi
+
+    mkl_lib_check HAVE_JSON HAVE_JSON fail CC "-ljansson" "#include <jansson.h>"
+
+    mkl_compile_check optreset "HAVE_OPTRESET" disable CC "" "optreset = 1;"
+
+    mkl_lib_check pthread HAVE_LIBPTHREAD fail CC "-lpthread" \
+        "#include <pthread.h>
+         void *f();void *f(){return pthread_mutex_init;}"
+
+    mkl_compile_check pthread_setaffinity_np HAVE_PTHREAD_SET_AFFINITY disable CC "-lpthread" \
+        "#include <pthread.h>
+         void *f(){return pthread_setaffinity_np;}"
+
+    mkl_compile_check sin6_len HAVE_SIN6_LEN disable CC "" \
+        "#include <sys/socket.h>
+         #include <netinet/in.h>
+         #include <netinet/ip6.h>
+         int f(){struct sockaddr_in6 addr;addr.sin6_len = sizeof(struct sockaddr_in6);}"
+
+    mkl_lib_check "netfilter" HAVE_NETFILTER disable CC "-lnetfilter_queue" \
+        "#include <netinet/in.h>
+         #include <libnetfilter_queue/libnetfilter_queue.h>"
+
+    mkl_compile_check sctp HAVE_SCTP disable CC "" \
+        "#include <netinet/in.h>
+         #include <netinet/sctp.h>
+         #include <sys/socket.h>"
+
+    mkl_compile_check pcap_next_ex HAVE_PCAP_NEXT_EX disable CC "-lpcap" \
+        "#include <pcap/pcap.h>
+         void *f();void *f(){return pcap_next_ex;}"
+
+    mkl_lib_check pf_ring HAVE_PF_RING disable CC "-lpfring" \
+        "#include <pfring.h>
+         void *f();void *f(){return pfring_open;}"
+}

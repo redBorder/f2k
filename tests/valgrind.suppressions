@@ -1,0 +1,18 @@
+{
+   writing a struct with padding (we should look this in a future)
+   Memcheck:Param
+   write(buf)
+   fun:__write_nocancel
+   fun:_IO_file_write@@GLIBC_2.2.5
+   fun:_IO_do_write@@GLIBC_2.2.5
+   fun:_IO_file_close_it@@GLIBC_2.2.5
+   fun:fclose@@GLIBC_2.2.5
+   fun:saveTemplateInFile
+   fun:saveGoodTemplateInFile
+   fun:dissectNetFlowV9V10Template
+   fun:dissectNetFlowV9V10Set
+   fun:dissectNetflowV9V10
+   fun:dissectNetFlow
+   fun:test_flow_i
+}
+

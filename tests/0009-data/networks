@@ -1,0 +1,8 @@
+google4 8.8.4.0/24
+
+default 0.0.0.0
+loopback 127.0.0.0
+link-local 169.254.0.0
+
+private1 192.168.0.0/16
+google8 8.8.8.0/24
