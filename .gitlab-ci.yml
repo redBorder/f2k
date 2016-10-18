@@ -1,0 +1,32 @@
+image: rb-cbuilds-nprobe:latest
+
+stages:
+  - build
+  - test
+
+compile-gcc-4.8:
+  stage: build
+  script:
+    - scl enable devtoolset-2 bash
+    - source /opt/rh/devtoolset-2/enable
+    - ./configure --disable-udns
+    - make
+  tags:
+    - c
+
+compile:
+  stage: build
+  script:
+    - ./configure --disable-udns
+    - make
+  artifacts:
+    untracked: true
+  tags:
+    - c
+
+test:
+  stage: test
+  script:
+    - CFLAGS=-w make -s tests
+  tags:
+    - c

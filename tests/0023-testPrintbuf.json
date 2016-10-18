@@ -1,0 +1,17 @@
+{
+  "sensors": [
+	{
+		"sensor_name":"test1",
+		"sensor_ip":"4.3.2.0/24",
+	        "home_nets": [
+			{ "network":"10.13.30.0/16", "network_name":"users" }
+		]
+
+
+	},{
+
+		"sensor_name":"test2",
+		"sensor_ip":"4.3.3.0/24"
+	}
+  ] 
+}

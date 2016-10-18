@@ -1,0 +1,29 @@
+# Basics
+/f2k
+*.o
+*.d
+
+# mklove
+Makefile.config
+config.cache
+config.log
+config.log.old
+/config.h
+/version.c
+
+# GeoIP
+/GeoIPASNum.dat
+/GeoIPASNumv6.dat
+/GeoLiteCity.dat
+/GeoLiteCityv6.dat
+/GeoIP.dat
+
+# Tests
+/tests/*.test
+/tests/*.xml
+/tests/*.dat
+*.gcda
+*.gcno
+/coverage.info
+/coverage.out
+/coverage.out.html/

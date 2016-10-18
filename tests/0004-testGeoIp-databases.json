@@ -1,0 +1,4 @@
+{
+	"as-path":"tests/asn.dat",
+	"country-path":"tests/country.dat"
+}
