@@ -1,0 +1,25 @@
+include ../Makefile.config
+
+CC ?= cc
+TEST_PROGS := ${TEST_SRCS:%.c=%.test}
+CFLAGS += -g
+CFLAGS += -fstack-protector -DFORTIFY_SOURCE=2 --param=ssp-buffer-size=4 -Wformat
+       -Werror=format-security -DFORTIFY_SOURCE=2
+CFLAGS += -Wall -Wfloat-equal -Wpointer-arith -O0 -I../
+LDFLAGS += -lpthread -lrt -lz -lrd -lcmocka
+
+# Profiling
+#CFLAGS += -O0 -pg
+#LDFLAGS += -pg
+
+all: test
+
+%.test: %.c %.objdeps
+	@printf "\033[1m\033[33mBuilding $@\033[1m\033[0m\n"
+	@$(CC) $(CFLAGS) $(CPPFLAGS) $< `cat $(subst .c,.objdeps,$<)` -o $@ $(LDFLAGS) $(LIBS)
+
+test: $(TEST_PROGS)
+	@./run_tests.sh
+
+clean:
+	rm -f $(TEST_PROGS)
