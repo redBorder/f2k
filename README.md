@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/redBorder/f2k.svg?branch=master)](https://travis-ci.org/redBorder/f2k)
+
 # Flow 2 Kafka (f2k)
 
 Netflow to
@@ -152,4 +154,3 @@ All [librdkafka options](https://github.com/edenhill/librdkafka/blob/master/CONF
   Recommended options are:
 - `-X=socket.max.fails=3`,
 - `-X=delivery.report.only.error=true`,
-
