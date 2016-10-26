@@ -773,8 +773,13 @@ size_t printNetflowRecordWithTemplate(struct printbuf * kafka_line_buffer, const
 #endif
 #endif
       default:
-        if(NULL==templateElement->export_fn && readOnlyGlobals.enable_debug)
-          traceEvent(TRACE_ERROR,"Unknown template id %s(%d).\n",templateElement->jsonElementName,templateElement->templateElementId);
+        if (NULL == templateElement->export_fn &&
+                                        NULL == templateElement->postTemplate &&
+                                        readOnlyGlobals.enable_debug) {
+          traceEvent(TRACE_ERROR, "Unknown template id %s(%d).\n",
+            templateElement->jsonElementName,
+            templateElement->templateElementId);
+        }
         break;
     };
 
