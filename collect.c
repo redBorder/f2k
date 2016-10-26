@@ -1474,10 +1474,10 @@ static void *netFlowConsumerLoop(void *vworker) {
       freeQueuedPacket(packet);
     } else if (ATOMIC_OP(fetch, add, &worker->run.value, 0) == 0) {
       /* No pending packet & don't keep running */
+      worker->stats.last_flow_processed_timestamp = time(NULL);
       break;
     }
 
-    worker->stats.last_flow_processed_timestamp = time(NULL);
   }
 
   return NULL;
