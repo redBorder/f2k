@@ -17,14 +17,14 @@ mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wmissing-include-dirs -Wstrict-overflow=5 -
 mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wmissing-declarations -Wdisabled-optimization"
 
 
-mkl_toggle_option "Standard" WITH_LIBRDKAFKA   "--enable-librdkafka"  "librdkafka: For kafka export" "y"
-mkl_toggle_option "Standard" WITH_CISCO_URL    "--enable-ciscourl"    "Cisco URL flows decoding" "y"
-mkl_toggle_option "Standard" WITH_RBMAC_VENDOR "--enable-rbmacvendor" "RedBorder MACs vendor library" "y"
-mkl_toggle_option "Standard" WITH_GEOIP        "--enable-geoip"       "MaxMind (r) GeoIP library" "y"
-mkl_toggle_option "Standard" WITH_SFLOW        "--enable-sflow"       "S-FLOW Support" "n"
-mkl_toggle_option "Standard" WITH_ZOOKEEPER    "--enable-zookeeper"   "Apache Zookeeper support" "y"
-mkl_toggle_option "Standard" WITH_UDNS         "--enable-udns"        "Michael Tokarev reverse-DNS support" "y"
-
+mkl_toggle_option "Standard" WITH_LIBRDKAFKA        "--enable-librdkafka"        "librdkafka: For kafka export" "y"
+mkl_toggle_option "Standard" WITH_CISCO_URL         "--enable-ciscourl"          "Cisco URL flows decoding" "y"
+mkl_toggle_option "Standard" WITH_RBMAC_VENDOR      "--enable-rbmacvendor"       "RedBorder MACs vendor library" "y"
+mkl_toggle_option "Standard" WITH_GEOIP             "--enable-geoip"             "MaxMind (r) GeoIP library" "y"
+mkl_toggle_option "Standard" WITH_SFLOW             "--enable-sflow"             "S-FLOW Support" "n"
+mkl_toggle_option "Standard" WITH_ZOOKEEPER         "--enable-zookeeper"         "Apache Zookeeper support" "y"
+mkl_toggle_option "Standard" WITH_UDNS              "--enable-udns"              "Michael Tokarev reverse-DNS support" "y"
+mkl_toggle_option "Feature"  WITH_INTEGRATION_TESTS "--enable-integration-tests" "Run integration tests" "n"
 
 function checks_librdkafka {
     # Check that librdkafka is available, and allow to link it statically.
@@ -82,6 +82,10 @@ function checks {
         mkl_lib_check "udns" HAVE_UDNS fail CC "-ludns" \
             "#include <udns.h>
             void *f();void *f(){return dns_init;}"
+    fi
+
+    if [[ "x$WITH_INTEGRATION_TESTS" == "xy" ]]; then
+      mkl_define_set "" "TESTS_ZK_HOST" "172.26.0.2:2181"
     fi
 
     mkl_lib_check HAVE_JSON HAVE_JSON fail CC "-ljansson" "#include <jansson.h>"
