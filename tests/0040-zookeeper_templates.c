@@ -18,6 +18,7 @@
  */
 
 #include "f2k.h"
+#include "integration_tests.h"
 #include "rb_netflow_test.h"
 
 #include <setjmp.h>
@@ -137,13 +138,14 @@ static const struct TestV10Flow v10Flow = {
         },
 };
 
+#ifdef TESTS_ZK_HOST
 static int prepare_test_nf_template_save0(void **state, uint8_t *record,
                                           size_t record_size,
                                           const struct checkdata *checkdata,
                                           size_t checkdata_sz) {
   struct test_params test_params = {.config_json_path =
                                         "./tests/0000-testFlowV5.json",
-                                    .zk_url = "localhost:2181",
+                                    .zk_url = TESTS_ZK_HOST,
                                     .templates_zk_node = "/f2k/templates",
                                     .netflow_src_ip = 0x04030201,
                                     .netflow_dst_port = 2055,
@@ -157,11 +159,15 @@ static int prepare_test_nf_template_save0(void **state, uint8_t *record,
 }
 
 static int prepare_test_nf_template_save(void **state) {
+  SKIP_IF_NOT_INTEGRATION;
+
   return prepare_test_nf_template_save0(state, (uint8_t *)&v10Template,
                                         sizeof(v10Template), NULL, 0);
 }
 
 static int prepare_test_nf_template_load(void **state) {
+  SKIP_IF_NOT_INTEGRATION;
+
   static const struct checkdata_value checkdata_value[] = {
       {.key = "type", .value = "netflowv10"},
       {.key = "flow_sequence", .value = "1080"},
@@ -187,14 +193,23 @@ static int prepare_test_nf_template_load(void **state) {
   return prepare_test_nf_template_save0(state, (uint8_t *)&v10Flow,
                                         sizeof(v10Flow), &checkdata, 1);
 }
+#else // TESTS_ZK_HOST
+
+static void skip_test() { skip(); }
+
+#endif // TESTS_ZK_HOST
 
 int main() {
+#ifdef TESTS_ZK_HOST
   const struct CMUnitTest tests[] = {
       cmocka_unit_test_setup_teardown(testFlow, prepare_test_nf_template_save,
                                       check_flow),
       cmocka_unit_test_setup_teardown(testFlow, prepare_test_nf_template_load,
                                       check_flow),
   };
-
   return cmocka_run_group_tests(tests, nf_test_setup, nf_test_teardown);
+#else
+  const struct CMUnitTest tests[] = {cmocka_unit_test(skip_test)};
+  return cmocka_run_group_tests(tests, NULL, NULL);
+#endif // TESTS_ZK_HOST
 }
