@@ -1,0 +1,45 @@
+sudo: required
+
+language: c
+
+notifications:
+  email: false
+
+branches:
+  only:
+    - master
+    - develop
+    - "/^[0-9]+\\.[0-9]+\\.[0-9]+/"
+
+services:
+  - docker
+
+install:
+  - sudo apt-get install -y docker-engine
+  - pip install --user cpp-coveralls
+
+script:
+  - docker network create --subnet=172.26.0.0/24 test
+  - docker run -d --net test --ip 172.26.0.2 --name zookeeper wurstmeister/zookeeper
+  - docker run -v $(pwd):/app redborder/build-dockerfiles:f2k ./configure --disable-udns
+  - docker run -v $(pwd):/app redborder/build-dockerfiles:f2k make
+  - docker run -v $(pwd):/app --net test -e CFLAGS=-w redborder/build-dockerfiles:f2k make tests
+
+after_success:
+  - docker run -v $(pwd):/app redborder/build-dockerfiles:f2k make clean
+  - docker run -v $(pwd):/app redborder/build-dockerfiles:f2k ./configure --enable-coverage
+  - docker run -v $(pwd):/app -e CFLAGS=-w --link kafka --net test redborder/build-dockerfiles:f2k make coverage
+  - docker run -v $(pwd):/app redborder/build-dockerfiles:f2k lcov --remove tests/coverage.info 'tests/*' '/usr/*' --output-file tests/coverage.info
+  - docker run -v $(pwd):/app redborder/build-dockerfiles:f2k lcov --list tests/coverage.info
+  - coveralls --exclude /usr/lib --exclude tests --gcov-options '\-lp'
+
+before_deploy:
+  - tar -cvzf f2k-${TRAVIS_TAG}.tar.gz f2k
+
+deploy:
+  provider: releases
+  api_key:
+    secure: YWOfroVEPC+4IfQrSvaP8HExFpFzSYjnOh/tvNA63iOxYi4SuR04NfjgtQMEnlJsRV05HM6LqAUyyzQhGgfqjvO3CACtGXtzFixDFKo3hdpJ0RmCeRcQSDLDTCYpuyMFXuCrqmT6INRLRa7E7wnYdaJI5lfZjqGit7wlbYpFOzSeKqFHNrMxpp74owRXvAuGLh6VMT4FpvBxuxWE7+Xos35eNR5WmSQwMIAw5LNE5QqJB1Fu0UjYNkSaLRecN8rsf8EXwJg7HA7Gw1CacSccuar4jhdo1pOWPUP1OZTP772Y3r/vtWXqmmTcoh1BcsUbt5v4HVS7cqHJDVffGegtYvQobkOPaHf3fsPcW0OgwrRTJUD3GwPRNQSvZG5r+ZZdKDs4f72brldVZl0HYI3zjZoGUOTThGsrU1l5uiDkbMnOO9wq14r2wKIFl9l3iS88KF23G4C+pLCrIUVxEglFLVh6dVoYMkHXTHaPoZiDwVPXzsiIsGxqxYitAHX7aOgm9F/JYKjEVVzbA0f2PW9A7LC0+AptqJEfRgC6Z798PAKgRcQBaM/7l5wHBySngTK6ZzjuRPq8DtKRr/ZRGRoBqnwUSTdBoYp27Ij7kf6cVgaZa+xa8Y3pyVVdev3bHG7v02a5oJ/Gzr425iR8Rs+MSEfGQdlNjXWkGHs3Yxu2X5k=
+  file: f2k-${TRAVIS_TAG}.tar.gz
+  on:
+    tags: true
