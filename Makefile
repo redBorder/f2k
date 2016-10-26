@@ -51,52 +51,60 @@ version.c:
 install: bin-install
 
 clean: bin-clean
-	rm -f $(TESTS) $(TESTS_OBJS) $(TESTS_XML) $(COV_FILES)
+	@echo -e '\033[1;33m[Workdir cleaned]\033[0m\t $<'
+	@rm -f $(TESTS) $(TESTS_OBJS) $(TESTS_XML) $(COV_FILES)
 
 run_tests = tests/run_tests.sh $(1) $(TESTS_C:.c=)
 run_valgrind = $(VALGRIND) --tool=$(1) $(SUPPRESSIONS_VALGRIND_ARG) --xml=yes \
 					--xml-file=$(2) $(3)  &>/dev/null
 
 setup-tests:
-	docker network create --subnet=172.26.0.0/24 test
-	docker run -d --net test --ip 172.26.0.2 --name zookeeper wurstmeister/zookeeper
+	@echo -e '\033[1;33m[Initializing Zookeeper container...]\033[0m\t $<'
+	@docker network create --subnet=172.26.0.0/24 test
+	@docker run -d --net test --ip 172.26.0.2 --name zookeeper wurstmeister/zookeeper
 
 teardown-tests:
-	docker rm -f zookeeper
-	docker network rm test
+	@echo -e '\033[1;33m[Cleaning Zookeeper container...]\033[0m\t $<'
+	@-docker rm -f zookeeper
+	@-docker network rm test
 
 tests: $(TESTS_XML)
-	$(call run_tests, -cvdh)
+	@$(call run_tests, -cvdh)
 
 checks: $(TESTS_CHECKS_XML)
-	$(call run_tests,-c)
+	@$(call run_tests,-c)
 
 memchecks: $(TESTS_MEM_XML)
-	$(call run_tests,-v)
+	@$(call run_tests,-v)
 
 drdchecks: $(TESTS_DRD_XML)
-	$(call run_tests,-d)
+	@$(call run_tests,-d)
 
 helchecks: $(TESTS_HELGRIND_XML)
-	$(call run_tests,-h)
+	@$(call run_tests,-h)
 
 tests/%.mem.xml: tests/%.test $(MAXMIND_DB)
-	-$(call run_valgrind,memcheck,"$@","./$<")
+	@echo -e '\033[1;34m[Checking memory ]\033[0m\t $<'
+	-@$(call run_valgrind,memcheck,"$@","./$<")
 
 tests/%.helgrind.xml: tests/%.test $(MAXMIND_DB)
-	-$(call run_valgrind,helgrind,"$@","./$<")
+	@echo -e '\033[1;34m[Checking concurrency with HELGRIND]\033[0m\t $<'
+	-@$(call run_valgrind,helgrind,"$@","./$<")
 
 tests/%.drd.xml: tests/%.test $(MAXMIND_DB)
-	-$(call run_valgrind,drd,"$@","./$<")
+	@echo -e '\033[1;34m[Checking concurrency with DRD]\033[0m\t $<'
+	-@$(call run_valgrind,drd,"$@","./$<")
 
 tests/%.xml: tests/%.test $(MAXMIND_DB)
-	CMOCKA_XML_FILE="$@" CMOCKA_MESSAGE_OUTPUT=XML "./$<" &>/dev/null
+	@echo -e '\033[1;34m[Testing ]\033[0m\t $<'
+	@CMOCKA_XML_FILE="$@" CMOCKA_MESSAGE_OUTPUT=XML "./$<" >/dev/null 2>&1
 
 TEST_DEPS := tests/rb_netflow_test.o tests/rb_json_test.o
 tests/0023-testPrintbuf.test: TEST_DEPS =
 tests/%.test: CPPFLAGS := -I. $(CPPFLAGS)
 tests/%.test: tests/%.o tests/%.objdeps $(TEST_DEPS) $(OBJS)
-	$(CC) $(CPPFLAGS) $(LDFLAGS) $< $(shell cat $(@:.test=.objdeps)) $(TEST_DEPS) -o $@ $(LIBS) -lcmocka
+	@echo -e '\033[1;32m[Building]\033[0m\t $@'
+	@$(CC) $(CPPFLAGS) $(LDFLAGS) $< $(shell cat $(@:.test=.objdeps)) $(TEST_DEPS) -o $@ $(LIBS) -lcmocka >/dev/null 2>&1
 
 get_maxmind_db = wget $(1) -O $@.gz; gunzip $@
 

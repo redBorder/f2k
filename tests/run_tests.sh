@@ -21,7 +21,7 @@ function valgrind_xml_error_text {
   echo "$TEXT"
 }
 
-TITLE="RUNNING TESTS"
+TITLE="TESTS RESULTS"
 printf "\n\e[1m\e[34m%*s\e[0m\n" $(((${#TITLE}+$COLUMNS)/2)) "$TITLE"
 printf "\e[1m\e[34m=====================================================================================================\e[0m\n"
 printf "\n"
@@ -75,8 +75,13 @@ for FILE in $*; do
     TIME=$(xml-printf '%s' $RESULT_XML ://testcase[$i]@time)
     NAME=$(xml-printf '%s' $RESULT_XML ://testcase[$i]@name)
     FAIL=$(xml-printf '%s' $RESULT_XML ://testcase[$i])
+    xml-printf '%s' $RESULT_XML ://testcase[$i]/skipped >/dev/null 2>&1
+    SKIPPED=$?
 
-    if [ -z "$FAIL" ] && [ $MEM_ERRORS -eq 0 ] && [ $HELGRIND_ERRORS -eq 0 ] && [ $DRD_ERRORS -eq 0 ]; then
+    if [ "$SKIPPED" -eq 0 ]; then
+      # Skipped tests
+      printf "\t\e[90m ○ %s \e[0m(Skipped)\e[0m\n" "$NAME"
+    elif [ -z "$FAIL" ] && [ $MEM_ERRORS -eq 0 ] && [ $HELGRIND_ERRORS -eq 0 ] && [ $DRD_ERRORS -eq 0 ]; then
       # No errors at all
       printf "\t\e[32m ✔ %s \e[0m(%sms)\e[0m\n" "$NAME" "$TIME"
       ((SUCCESSES++))
