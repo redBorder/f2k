@@ -57,6 +57,14 @@ run_tests = tests/run_tests.sh $(1) $(TESTS_C:.c=)
 run_valgrind = $(VALGRIND) --tool=$(1) $(SUPPRESSIONS_VALGRIND_ARG) --xml=yes \
 					--xml-file=$(2) $(3)  &>/dev/null
 
+setup-tests:
+	docker network create --subnet=172.26.0.0/24 test
+	docker run -d --net test --ip 172.26.0.2 --name zookeeper wurstmeister/zookeeper
+
+teardown-tests:
+	docker rm -f zookeeper
+	docker network rm test
+
 tests: $(TESTS_XML)
 	$(call run_tests, -cvdh)
 
