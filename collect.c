@@ -782,6 +782,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
             traceEvent(TRACE_WARNING, "Bad length [expected=%d][real=%lu]",
                        template.fieldCount * 4,
                        numEntries + sizeof(FlowSet));
+            free(fields);
           } else {
             goodTemplate = 1;
 
@@ -790,6 +791,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
                 "Broken flow format (bad length) [received: %zd]"
                 "[displ: %zd][stillToProcess: %zd][available: %zd]",
                 bufferLen, displ, stillToProcess, (displ+stillToProcess));
+              free(fields);
               return 0;
             }
 
@@ -864,6 +866,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
 
       if((template.flowsetLen > 1500) || (accumulatedLen > 1500)) {
         goodTemplate = 0;
+        free(fields);
       }
 
 
