@@ -27,16 +27,28 @@ int nf_test_setup(void **state) {
 
 int nf_test_teardown(void **state) {
 	(void)state;
-	if (readOnlyGlobals.rb_databases.sensors_info) {
-		delete_rb_sensors_db(readOnlyGlobals.rb_databases.sensors_info);
+	size_t i;
+
+	IPNameAssoc *hosts_lists[] = {
+		readOnlyGlobals.rb_databases.ip_name_as_list,
+		readOnlyGlobals.rb_databases.nets_name_as_list,
+	};
+
+	for (i=0; i<RD_ARRAYSIZE(hosts_lists); ++i) {
+		freeHostsList(hosts_lists[i]);
 	}
-	freeHostsList(readOnlyGlobals.rb_databases.ip_name_as_list);
-	freeHostsList(readOnlyGlobals.rb_databases.nets_name_as_list);
 	deleteGeoIPDatabases();
 	if (readOnlyGlobals.zk.zh != NULL) {
 		stop_f2k_zk();
+		readOnlyGlobals.zk.zh = NULL;
+	}
+
+	if (readOnlyGlobals.rb_databases.sensors_info) {
+		delete_rb_sensors_db(readOnlyGlobals.rb_databases.sensors_info);
+		readOnlyGlobals.rb_databases.sensors_info = NULL;
 	}
 	free(readWriteGlobals);
+	readWriteGlobals = NULL;
 	return 0;
 }
 
@@ -132,6 +144,10 @@ static struct string_list *test_flow_i(const struct test_params *params,
 	}
 
 	if (params->zk_url) {
+		if (readOnlyGlobals.zk.zh) {
+			stop_f2k_zk();
+			readOnlyGlobals.zk.zh = NULL;
+		}
 		init_f2k_zk(params->zk_url);
 	}
 
@@ -141,18 +157,38 @@ static struct string_list *test_flow_i(const struct test_params *params,
 	const uint16_t dst_port = params->netflow_dst_port;
 	const uint8_t *record = params->record;
 	const size_t record_len = params->record_size;
-        struct sensor *sensor_object = get_sensor(
+	struct sensor *sensor_object = get_sensor(
 		readOnlyGlobals.rb_databases.sensors_info, netflow_device_ip,
 		dst_port);
-        if (sensor_object) {
-  		worker_t *worker = sensor_worker(sensor_object);
+	if (sensor_object) {
+		// wait until worker end to process all templates
+		while (true) {
+			pthread_mutex_lock(&worker->templates_queue.rfq_lock);
+			const int cnt = worker->templates_queue.rfq_cnt;
+			pthread_mutex_unlock(&worker->templates_queue.rfq_lock);
+
+			if (cnt > 0) {
+				usleep(1);
+			} else {
+				break;
+			}
+		}
+
+		// Let's lock to make drd & helgrind happy
+		pthread_mutex_lock(&worker->templates_queue.rfq_lock);
+		pthread_mutex_lock(&worker->packetsQueue.rfq_lock);
+
+
 		struct string_list *ret = dissectNetFlow(worker, sensor_object,
 			netflow_device_ip, dst_port, record, record_len);
 		rb_sensor_decref(sensor_object);
+
+		pthread_mutex_unlock(&worker->packetsQueue.rfq_lock);
+		pthread_mutex_unlock(&worker->templates_queue.rfq_lock);
 		return ret;
-        } else {
-        	return NULL;
-        }
+	} else {
+		return NULL;
+	}
 }
 
 static void check_string_list(struct string_list *sl,
