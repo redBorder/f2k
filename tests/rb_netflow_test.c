@@ -1,6 +1,7 @@
 // rb_netflow_test.c
 
 #include "rb_netflow_test.h"
+#include "rb_mem_wraps.h"
 
 #include "f2k.h"
 #include "collect.c"
@@ -245,4 +246,31 @@ void testFlow(void **state) {
 
 	collect_worker_done(worker);
 
+}
+
+static void free_state_returned_string_lists(struct nf_test_state *state) {
+	size_t i = 0;
+	for (i = 0; i < state->params.records_size; ++i) {
+		struct string_list *list = state->ret.sl[i];
+		state->ret.sl[i] = NULL;
+		while (list) {
+			struct string_list *aux = list;
+			list = list->next;
+
+			printbuf_free(aux->string);
+			free(aux);
+		}
+	}
+}
+
+void mem_test(void **vstate) {
+  size_t i = 1;
+  struct nf_test_state *state = *vstate;
+  do {
+    mem_wrap_fail_in = i++;
+    testFlow(vstate);
+    free_state_returned_string_lists(state);
+  } while (0 == mem_wrap_fail_in);
+  mem_wrap_fail_in = 0;
+  free(state);
 }
