@@ -1038,17 +1038,17 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
     dumpFlow(displ,init_displ + fs->flowsetLen-scopeOffset,buffer);
 #endif
 
-    struct printbuf * kafka_line_buffer = printbuf_new();
-
-    if(unlikely(!kafka_line_buffer)) {
+    struct printbuf *kafka_line_buffer = printbuf_new();
+    if (unlikely(!kafka_line_buffer)) {
       traceEvent(TRACE_ERROR,"Unable to allocate a kafka buffer.");
-      return NULL;
+      return kafka_string_list;
     }
+
     struct flowCache *flowCache = calloc(1,sizeof(flowCache[0]));
-    if(NULL == flowCache) {
+    if (unlikely(!flowCache)) {
       traceEvent(TRACE_ERROR,"Unable to allocate flow cache.");
-      free(kafka_line_buffer);
-      return NULL;
+      printbuf_free(kafka_line_buffer);
+      return kafka_string_list;
     }
     printbuf_memappend_fast(kafka_line_buffer,"{",(ssize_t)strlen("{"));
 
@@ -1570,7 +1570,7 @@ static void *netFlowConsumerLoop(void *vworker) {
 /** Creates a worker */
 worker_t *new_collect_worker() {
   worker_t *ret = calloc(1, sizeof(*ret));
-  if (NULL != ret) {
+  if (likely(ret)) {
 #ifdef WORKER_S_MAGIC
     ret->magic = WORKER_S_MAGIC;
 #endif
@@ -1595,7 +1595,7 @@ worker_t *new_collect_worker() {
 
     const int pthread_create_rc = pthread_create(&ret->tid, &tattr,
                                                       netFlowConsumerLoop, ret);
-    if (pthread_create_rc != 0) {
+    if (unlikely(pthread_create_rc != 0)) {
       char berr[BUFSIZ];
       strerror_r(errno, berr, sizeof(berr));
       traceEvent(TRACE_ERROR, "Couldn't create worker thread: %s", berr);
