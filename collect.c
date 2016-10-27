@@ -405,17 +405,17 @@ static struct string_list *dissectNetFlowV5Record(const NetFlow5Record *the5Reco
   }
 
   printbuf_memappend_fast(kafka_line_buffer, "{", (ssize_t)strlen("{"));
-  struct flowCache *flowCache = calloc(1,sizeof(flowCache[0]));
-  associateSensor(flowCache,sensor_object);
+  struct flowCache flowCache = {0};
+  associateSensor(&flowCache,sensor_object);
   uint64_t field_idx=0;
   printNetflowRecordWithTemplate(kafka_line_buffer, TEMPLATE_OF(REDBORDER_TYPE),
-    (const char *)flowVersion, 2, 0, flowCache);
+    (const char *)flowVersion, 2, 0, &flowCache);
   printNetflowRecordWithTemplate(kafka_line_buffer, TEMPLATE_OF(FLOW_SEQUENCE),
-    (const char *)&flowSecuence, sizeof(flowSecuence), 0, flowCache);
+    (const char *)&flowSecuence, sizeof(flowSecuence), 0, &flowCache);
 
   for (field_idx=0; NULL!=v5TemplateFields[field_idx]; ++field_idx) {
     dissectNetFlowV5Field(the5Record, flow_idx, field_idx, kafka_line_buffer,
-      flowCache);
+      &flowCache);
   }
 
   const uint64_t export_timestamp = flow_export_timestamp(false,
@@ -423,17 +423,15 @@ static struct string_list *dissectNetFlowV5Record(const NetFlow5Record *the5Reco
   uint64_t last_timestamp  = export_timestamp - ntohl(the5Record->flowHeader.sysUptime)/1000 + ntohl(the5Record->flowRecord[flow_idx].last)/1000;
   uint64_t first_timestamp = export_timestamp - ntohl(the5Record->flowHeader.sysUptime)/1000 + ntohl(the5Record->flowRecord[flow_idx].first)/1000;
 
-  guessDirection(flowCache);
+  guessDirection(&flowCache);
   printNetflowRecordWithTemplate(kafka_line_buffer,
-    TEMPLATE_OF(PRINT_DIRECTION), NULL, 0, 0, flowCache);
-  print_sensor_enrichment(kafka_line_buffer,flowCache);
+    TEMPLATE_OF(PRINT_DIRECTION), NULL, 0, 0, &flowCache);
+  print_sensor_enrichment(kafka_line_buffer,&flowCache);
 
   struct string_list *kafka_buffers_list = time_split_flow(kafka_line_buffer,
     last_timestamp, last_timestamp-first_timestamp,
     ntohl(the5Record->flowRecord[flow_idx].dOctets),
-    ntohl(the5Record->flowRecord[flow_idx].dPkts),flowCache);
-
-  free(flowCache);
+    ntohl(the5Record->flowRecord[flow_idx].dPkts),&flowCache);
 
   return kafka_buffers_list;
 }
