@@ -826,7 +826,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
         goodTemplate = 0;
       } else {
         if(handle_ipfix) {
-          fields = (V9V10TemplateField*)malloc(template.fieldCount * sizeof(V9V10TemplateField));
+          fields = calloc(template.fieldCount, sizeof(V9V10TemplateField));
           if(fields == NULL) {
             traceEvent(TRACE_WARNING, "Not enough memory");
             break;
@@ -877,8 +877,8 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
           }
         } else {
           /* NetFlow */
-          fields = (V9V10TemplateField*)malloc(template.fieldCount * sizeof(V9V10TemplateField));
-          if(fields == NULL) {
+          fields = calloc(template.fieldCount, sizeof(V9V10TemplateField));
+          if (unlikely(!fields)) {
             traceEvent(TRACE_WARNING, "Not enough memory");
             break;
           }
@@ -924,8 +924,8 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
       if(goodTemplate) {
         worker->stats.num_good_templates_received++;
 
-        struct flowSetV9Ipfix *new_template = malloc(sizeof(*new_template));
-        if(new_template == NULL) {
+        struct flowSetV9Ipfix *new_template = calloc(1, sizeof(*new_template));
+        if (unlikely(!new_template)) {
           traceEvent(TRACE_WARNING, "Not enough memory");
           free(fields);
           break;
