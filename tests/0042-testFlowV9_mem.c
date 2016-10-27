@@ -21,7 +21,6 @@
 #include "f2k.h"
 
 #include "rb_netflow_test.h"
-#include "rb_mem_wraps.h"
 
 #include <librd/rd.h>
 
@@ -155,28 +154,6 @@ static int prepare_test_nf9(void **state) {
 
 	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
 	return *state == NULL;
-}
-
-static void mem_test(void **vstate) {
-  size_t i = 1, k = 0;
-  struct nf_test_state *state = *vstate;
-  do {
-    mem_wrap_fail_in = i++;
-    testFlow(vstate);
-    for (k = 0; k < state->params.records_size; ++k) {
-      struct string_list *list = state->ret.sl[k];
-      state->ret.sl[k] = NULL;
-      while (list) {
-        struct string_list *aux = list;
-        list = list->next;
-
-        printbuf_free(aux->string);
-        free(aux);
-      }
-    }
-  } while (0 == mem_wrap_fail_in);
-  mem_wrap_fail_in = 0;
-  free(state);
 }
 
 int main() {
