@@ -42,12 +42,21 @@ worker_t *new_collect_worker();
 
 /// @todo delete this FW declaration
 struct queued_packet_s;
+struct flowSetV9Ipfix;
+struct sensor;
 
 /** Adds a packet to worker
   @param qpacket Packet to add
   @param worker Worker queue to add
   */
 void add_packet_to_worker(struct queued_packet_s *qpacket, worker_t *worker);
+
+/** Add a template to worker sensor
+ * @param template Template to add
+ * @param worker   Worker to add template to
+ */
+void add_template_to_worker(struct flowSetV9Ipfix *template,
+  struct sensor *sensor, worker_t *worker);
 
 /** Get workers stats
   @param worker Worker to get stats

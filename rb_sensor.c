@@ -1029,6 +1029,11 @@ void saveTemplate(struct sensor *sensor,struct flowSetV9Ipfix *template)
        template->flowLen, template->templateInfo.fieldCount);
 }
 
+void save_template_async(struct sensor *sensor,
+                                              struct flowSetV9Ipfix *template) {
+  add_template_to_worker(template, sensor, sensor->worker);
+}
+
 /// @TODO const?
 struct sensor *get_sensor(struct rb_sensors_db *database, uint64_t ip,
 							uint16_t dst_port) {

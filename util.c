@@ -157,34 +157,6 @@ char* _intoa(IpAddress addr, char* buf, size_t bufLen) {
   }
 }
 
-
-/* ********* Template queue ******* */
-void template_queue_push(queued_template_t *qtemplate, rd_fifoq_t *queue) {
-	rd_fifoq_add(queue,qtemplate);
-}
-
-/** Convenience function to pop freeing rd_fifoq_elm_t
- * @param  queue Queue to pop
- * @return       [description]
- */
-static void *rb_rd_fifoq_pop(rd_fifoq_t *queue) {
-	rd_fifoq_elm_t *fifoq_elm = rd_fifoq_pop(queue);
-	if(fifoq_elm) {
-		void *elm = fifoq_elm->rfqe_ptr;
-		rd_fifoq_elm_release(queue, fifoq_elm);
-		return elm;
-	}
-	return NULL;
-}
-
-queued_template_t *template_queue_pop(template_queue_t *queue) {
-	return rb_rd_fifoq_pop(queue);
-}
-
-/* Packet queue */
-
-/* ******************************************************************* */
-
 #ifdef HAVE_GEOIP
 static void readGeoIpDatabase(const char *path, const char *database_name, GeoIP ** geo_v4,GeoIP **geo_v6)
 {

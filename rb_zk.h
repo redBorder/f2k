@@ -29,18 +29,12 @@
 static const char ZOOKEEPER_PATH[] = "/f2k/templates";
 
 
-void zk_watcher(zhandle_t *zzh, int type, int state, const char *path,
-             void* context);
-
 /* Security threads that polls template directory periodically */
 void *zk_watchers_watcher(void *a __attribute__((unused)));
 
 void init_f2k_zk(const char *new_zk_host);
 
 void stop_f2k_zk();
-
-/* Prepare zookeeper structure */
-int zk_prepare(zhandle_t *zh);
 
 int save_in_zookeeper(zhandle_t *zh,const char *path,const char *buf,size_t bufsiz);
 

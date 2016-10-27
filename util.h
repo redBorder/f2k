@@ -46,18 +46,6 @@
 #define likely(x)       __builtin_expect(!!(x),1)
 #define unlikely(x)     __builtin_expect(!!(x),0)
 
-/* ********* Templates queue ********** */
-typedef struct queued_template_s {
-	FlowSetV9Ipfix *template;
-	struct sensor *sensor;
-} queued_template_t;
-
-typedef rd_fifoq_t template_queue_t;
-#define template_queue_init(q) rd_fifoq_init(q)
-#define template_queue_destroy(q) rd_fifoq_destroy(q);
-void template_queue_push(queued_template_t *qtemplate, rd_fifoq_t *queue);
-queued_template_t *template_queue_pop(template_queue_t *queue);
-
 /* ********* Packets queue ************ */
 typedef struct queued_packet_s {
   uint32_t netflow_device_ip;

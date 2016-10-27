@@ -72,6 +72,11 @@ struct flowSetV9Ipfix; /* FW declaration */
  * sensor, for example via file or zookeeper, please use save_template_async
  */
 void saveTemplate(struct sensor *sensor, struct flowSetV9Ipfix *template);
+
+/** Save template in sensor
+ * @param template Template to add
+ * @param worker   Worker to add template to
+ */
 void save_template_async(struct sensor *sensor,
 	struct flowSetV9Ipfix *template);
 const struct flowSetV9Ipfix *find_sensor_template(const struct sensor *sensor,const int templateId);

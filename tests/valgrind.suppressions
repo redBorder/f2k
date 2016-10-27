@@ -16,3 +16,149 @@
    fun:test_flow_i
 }
 
+{
+   Zookeeper uninitialized value
+   Memcheck:Param
+   socketcall.sendto(msg)
+   fun:send
+   fun:flush_send_queue
+   fun:zookeeper_process
+   fun:do_io
+   fun:start_thread
+   fun:clone
+}
+
+{
+   Zookeeper create data races
+   Helgrind:Race
+   ...
+   fun:zoo_create
+   fun:zk_prepare
+   fun:zk_watcher
+   fun:deliverWatchers
+   fun:process_completions
+   fun:do_completion
+   ...
+   fun:start_thread
+   fun:clone
+}
+
+{
+   Zookeeper IO data race
+   Helgrind:Race
+   ...
+   fun:do_io
+   ...
+   fun:start_thread
+   fun:clone
+}
+
+{
+   Zookeeper IO data race
+   Helgrind:Race
+   fun:queue_buffer
+   fun:queue_buffer_bytes
+   fun:zoo_*
+   ...
+}
+
+{
+   <insert_a_suppression_name_here>
+   Helgrind:Race
+   fun:zookeeper_close
+   ...
+   fun:main
+}
+
+{
+   Add completion thread race
+   Helgrind:Race
+   fun:add_completion.clone.0
+   fun:add_string_completion
+   fun:zoo_acreate
+   fun:zoo_create
+   fun:zk_prepare
+   fun:zk_watcher
+   fun:do_foreach_watcher
+   fun:deliverWatchers
+   fun:process_completions
+   fun:do_completion
+   ...
+   fun:start_thread
+   fun:clone
+}
+
+{
+   Zookeeper watcher race
+   Helgrind:Race
+   fun:zoo_set_watcher
+   fun:zk_watcher
+   fun:deliverWatchers
+   fun:process_completions
+   fun:do_completion
+   ...
+   fun:start_thread
+   fun:clone
+}
+
+{
+   ZK check
+   drd:ConflictingAccess
+   ...
+   fun:do_io
+   ...
+   fun:start_thread
+   fun:clone
+}
+
+{
+   <insert_a_suppression_name_here>
+   drd:ConflictingAccess
+   ...
+   fun:zoo_acreate
+   fun:zoo_create
+   fun:zk_prepare
+   fun:zk_watcher
+   fun:do_foreach_watcher
+   fun:deliverWatchers
+   fun:process_completions
+   fun:do_completion
+   ...
+   fun:start_thread
+   fun:clone
+}
+
+{
+   <insert_a_suppression_name_here>
+   drd:ConflictingAccess
+   fun:queue_buffer
+   fun:queue_buffer_bytes
+   fun:zoo_*
+   fun:verbose_zoo_awget_children
+   fun:load_all_templates_from_zk
+   fun:zk_watcher
+   fun:do_foreach_watcher
+   fun:deliverWatchers
+   fun:process_completions
+   fun:do_completion
+   ...
+   fun:start_thread
+   fun:clone
+}
+
+{
+   <insert_a_suppression_name_here>
+   drd:ConflictingAccess
+   fun:queue_buffer
+   fun:queue_buffer_bytes
+   fun:zoo_*
+   ...
+}
+
+{
+   <insert_a_suppression_name_here>
+   drd:ConflictingAccess
+   fun:zookeeper_close
+   ...
+   fun:main
+}

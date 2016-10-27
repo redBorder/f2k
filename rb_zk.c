@@ -23,6 +23,8 @@
 #include "rb_sensor.h"
 #include "util.h"
 
+#include <librd/rdthread.h>
+
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
@@ -30,17 +32,38 @@
 
 #ifdef HAVE_ZOOKEEPER
 
-struct zk_template_get_completed_data {
-  zhandle_t *zh;
-  unsigned int pending_childs;
-  pthread_cond_t cv;
-  pthread_mutex_t mtx;
+#ifdef HAVE_ATOMICS_32_ATOMIC
+// Atomic test & set
+#define ATOMIC_TEST_AND_SET(PTR) __atomic_test_and_set(PTR, __ATOMIC_SEQ_CST)
+#else /* HAVE_ATOMICS_32_SYNC */
+#define ATOMIC_TEST_AND_SET(PTR) __sync_val_compare_and_swap(PTR, false, true)
+#endif
+
+struct zk_template_ls_root_completed_data {
+#ifndef NDEBUG
+#define ZK_TEMPLATE_LS_ROOT_COMPLETED_DATA_MAGIC 0x3A3500333A350033
+  uint64_t magic;
+#endif
+
+  zhandle_t *zh; ///< Zookeeper handler
+  const char *root_path; ///< ZK path to save templates
+
+  // in the initial call, we stall until we get all templates
+  size_t pending_childs; ///< Pending childs templates
+  pthread_cond_t cv; ///< Condition variable to stall
+  pthread_mutex_t mtx; ///< cv mutex
+  bool path_initialized; ///< /f2k/nprobe initialized
+  bool initialized; ///< First call, have to wait all templates
 };
+
+#define assert_zk_template_get_completed_data(data) \
+              assert(ZK_TEMPLATE_LS_ROOT_COMPLETED_DATA_MAGIC == (data)->magic)
 
 static void zk_template_get_completed(int rc,const char *value,int value_len,const struct Stat *stat, const void *_data) {
   char buf[BUFSIZ];
 
-  struct zk_template_get_completed_data *data = (void *)_data;
+  struct zk_template_ls_root_completed_data *data = (void *)_data;
+  assert_zk_template_get_completed_data(data);
   readOnlyGlobals.zk.last_template_get_timestamp = time(NULL);
 
   if(rc != ZOK) {
@@ -62,7 +85,7 @@ static void zk_template_get_completed(int rc,const char *value,int value_len,con
         new_template->templateInfo.templateId);
       return;
     }
-    saveTemplate(s,new_template);
+    save_template_async(s,new_template);
     traceEvent(TRACE_NORMAL,"Added template from ZK [device %s][port %u][Id %d]",
       _intoaV4(new_template->templateInfo.netflow_device_ip, buf, sizeof(buf)),
       new_template->templateInfo.dst_port,
@@ -70,8 +93,8 @@ static void zk_template_get_completed(int rc,const char *value,int value_len,con
   }
 
   pthread_mutex_lock(&data->mtx);
-  data->pending_childs--;
-  if (data->pending_childs == 0) {
+  if (data->pending_childs > 0 && 0 == --data->pending_childs) {
+    // We were the last child to retrieve
     pthread_cond_signal(&data->cv);
   }
   pthread_mutex_unlock(&data->mtx);
@@ -99,19 +122,16 @@ static void zk_template_watcher(zhandle_t *zh,int type,int state,
   return;
 }
 
-struct zk_template_ls_root_completed_data {
-  zhandle_t *zh;
-  unsigned int pending_childs;
-  pthread_cond_t cv;
-  pthread_mutex_t mtx;
-  const char *root_path;
-};
+#define assert_zk_template_ls_root_completed_data(data) \
+  assert(ZK_TEMPLATE_LS_ROOT_COMPLETED_DATA_MAGIC == (data)->magic)
 
 static void zk_template_root_completed(int rc,const struct String_vector *strings, const void *_data) {
   assert(_data);
 
   struct zk_template_ls_root_completed_data *data = (void *)_data;
   int i;
+
+  assert_zk_template_ls_root_completed_data(data);
 
   if(rc != ZOK) {
     traceEvent(TRACE_ERROR,"Error while getting template root: %s",zerror(rc));
@@ -123,14 +143,18 @@ static void zk_template_root_completed(int rc,const struct String_vector *string
     return;
   }
 
-  if (strings->count == 0) {
+  if (!ATOMIC_TEST_AND_SET(&data->initialized)) {
+    // First call to function, the caller is still waiting to us to signal
+    // continue, so we should answer
     pthread_mutex_lock(&data->mtx);
-    pthread_cond_signal(&data->cv);
+    if (strings->count == 0) {
+      pthread_cond_signal(&data->cv);
+    } else {
+      data->pending_childs = strings->count;
+    }
     pthread_mutex_unlock(&data->mtx);
-    return;
   }
 
-  data->pending_childs = strings->count;
   for(i=0;i<strings->count;++i) {
     char buf[BUFSIZ];
     const int printf_rc = snprintf(buf,sizeof(buf),"%s/%s",data->root_path,strings->data[i]);
@@ -211,29 +235,8 @@ static void load_all_templates_from_zk(zhandle_t *zh,const char *f2k_zk_path) {
     zk_template_root_watcher,NULL,zk_template_root_completed,zoo_get_context(zh));
 }
 
-void zk_watcher(zhandle_t *zh, int type, int state, const char *path,
-             void* watcherCtx)
-{
-
-  struct zk_template_ls_root_completed_data *data = (void *)zoo_get_context(zh);
-  data->zh = zh;
-
-  if(type == ZOO_SESSION_EVENT && state == ZOO_CONNECTED_STATE){
-    load_all_templates_from_zk(zh,ZOOKEEPER_PATH);
-  } else {
-    traceEvent(TRACE_ERROR,"Can't connect to ZK: [type: %d (%s)][state: %d (%s)]",
-      type,type2String(type),state,state2String(state));
-    if(type == ZOO_SESSION_EVENT && state == ZOO_EXPIRED_SESSION_STATE) {
-      traceEvent(TRACE_ERROR,"Trying to reconnect");
-      readOnlyGlobals.zk.need_to_reconnect = 1;
-    }
-  }
-
-  zoo_set_watcher(zh,zk_watcher);
-}
-
 /* Prepare zookeeper structure */
-int zk_prepare(zhandle_t *zh) {
+static bool zk_prepare(zhandle_t *zh) {
   char aux_buf[sizeof(ZOOKEEPER_PATH)];
   strcpy(aux_buf,ZOOKEEPER_PATH);
   int last_path_printed = 0;
@@ -255,7 +258,7 @@ int zk_prepare(zhandle_t *zh) {
 
     if(create_rc != ZOK && create_rc != ZNODEEXISTS) {
       traceEvent(TRACE_ERROR,"Can't create zookeeper path [%s]: %s",ZOOKEEPER_PATH,zerror(create_rc));
-      return 0;
+      return false;
     }
 
     if(cursor) {
@@ -266,10 +269,40 @@ int zk_prepare(zhandle_t *zh) {
     }
   }
 
-  return 1;
+  return true;
+}
+
+static void zk_watcher(zhandle_t *zh, int type, int state, const char *path,
+             void* watcherCtx)
+{
+  struct zk_template_ls_root_completed_data *data = watcherCtx;
+  assert_zk_template_ls_root_completed_data(data);
+  const bool initializing = !ATOMIC_TEST_AND_SET(&data->path_initialized);
+
+  if (initializing) {
+    data->zh = zh;
+  }
+
+  if(type == ZOO_SESSION_EVENT && state == ZOO_CONNECTED_STATE){
+    if (initializing) {
+      zk_prepare(zh);
+    }
+    load_all_templates_from_zk(zh,ZOOKEEPER_PATH);
+  } else {
+    traceEvent(TRACE_ERROR,"Can't connect to ZK: [type: %d (%s)][state: %d (%s)]",
+      type,type2String(type),state,state2String(state));
+    if(type == ZOO_SESSION_EVENT && state == ZOO_EXPIRED_SESSION_STATE) {
+      traceEvent(TRACE_ERROR,"Trying to reconnect");
+      readOnlyGlobals.zk.need_to_reconnect = 1;
+    }
+  }
+
+  zoo_set_watcher(zh,zk_watcher);
 }
 
 void init_f2k_zk(const char *new_zk_host) {
+  static const int cond_timeout_ms = 3*1000;
+
   struct zk_template_ls_root_completed_data *data = NULL;
   rd_calloc_struct(&data,sizeof(*data),
     -1,ZOOKEEPER_PATH,&data->root_path,
@@ -278,39 +311,45 @@ void init_f2k_zk(const char *new_zk_host) {
   if(NULL == data) {
     traceEvent(TRACE_ERROR,"Can't allocate data (out of memory?)");
   } else {
-    data->pending_childs = 1;
+#ifndef NDEBUG
+    data->magic = ZK_TEMPLATE_LS_ROOT_COMPLETED_DATA_MAGIC;
+#endif
     pthread_mutex_init(&data->mtx, NULL);
     pthread_cond_init(&data->cv, NULL);
 
     readOnlyGlobals.zk.zk_host = strdup(new_zk_host);
     new_zk_host = NULL;
-    char strerror_buf[BUFSIZ];
     traceEvent(TRACE_INFO,"Init Zookeeper handler to %s",new_zk_host);
     assert(readOnlyGlobals.zk.zk_host);
     const int zk_read_timeout = 30000;
     pthread_mutex_lock(&data->mtx);
     readOnlyGlobals.zk.zh = zookeeper_init(readOnlyGlobals.zk.zk_host, zk_watcher, zk_read_timeout, 0, data, 0);
     if(NULL == readOnlyGlobals.zk.zh) {
+      char strerror_buf[BUFSIZ];
       strerror_r(errno,strerror_buf,sizeof(strerror_buf));
       traceEvent(TRACE_ERROR,"Can't init zookeeper: [%s]. ZK says: [%s]",strerror_buf,readOnlyGlobals.zk.log_buffer);
     } else {
       traceEvent(TRACE_NORMAL,"Connected to ZooKeeper %s",readOnlyGlobals.zk.zk_host);
     }
-    zk_prepare(readOnlyGlobals.zk.zh);
 
-    pthread_cond_wait(&data->cv, &data->mtx);
+    rd_cond_timedwait_ms(&data->cv, &data->mtx, cond_timeout_ms);
     pthread_mutex_unlock(&data->mtx);
-
-    pthread_mutex_destroy(&data->mtx);
-    pthread_cond_destroy(&data->cv);
-    free(data);
   }
+}
+
+static void destroy_zk_handler(zhandle_t *zh) {
+  struct zk_template_ls_root_completed_data *data = (void *)zoo_get_context(zh);
+  zookeeper_close(zh);
+
+  pthread_cond_destroy(&data->cv);
+  pthread_mutex_destroy(&data->mtx);
+  free(data);
 }
 
 void stop_f2k_zk() {
   traceEvent(TRACE_INFO,"Closing Zookeeper handler to %s",readOnlyGlobals.zk.zk_host);
-  if(readOnlyGlobals.zk.zh){
-    zookeeper_close(readOnlyGlobals.zk.zh);
+  if (readOnlyGlobals.zk.zh) {
+    destroy_zk_handler(readOnlyGlobals.zk.zh);
     readOnlyGlobals.zk.zh = NULL;
   }
   free(readOnlyGlobals.zk.zk_host);

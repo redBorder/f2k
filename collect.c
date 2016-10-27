@@ -62,6 +62,60 @@ struct udns_opaque {
 };
 #endif
 
+/* ********* Templates queue ********** */
+
+typedef struct queued_template_s {
+#ifndef NDEBUG
+#define QUEUED_TEMPLATE_MAGIC 0x333A3A1C333A3A1C
+  uint64_t magic;
+#endif
+  struct sensor *sensor;
+  FlowSetV9Ipfix *template;
+} queued_template_t;
+
+static queued_template_t *new_queued_template(FlowSetV9Ipfix *mtemplate,
+    struct sensor *sensor) {
+  queued_template_t *qt = calloc(1, sizeof(*qt));
+  if (qt) {
+#ifdef QUEUED_TEMPLATE_MAGIC
+    qt->magic = QUEUED_TEMPLATE_MAGIC;
+#endif
+    qt->template = mtemplate;
+    qt->sensor = sensor;
+  }
+
+  return qt;
+}
+
+typedef rd_fifoq_t template_queue_t;
+#define template_queue_init(q) rd_fifoq_init(q)
+#define template_queue_destroy(q) rd_fifoq_destroy(q);
+/* ********* Template queue ******* */
+static void template_queue_push(queued_template_t *qtemplate,
+                                                            rd_fifoq_t *queue) {
+  rd_fifoq_add(queue,qtemplate);
+}
+
+/** Convenience function to pop freeing rd_fifoq_elm_t
+ * @param  queue Queue to pop
+ * @return       [description]
+ */
+static void *rb_rd_fifoq_pop(rd_fifoq_t *queue) {
+  rd_fifoq_elm_t *fifoq_elm = rd_fifoq_pop(queue);
+  if(fifoq_elm) {
+    void *elm = fifoq_elm->rfqe_ptr;
+    rd_fifoq_elm_release(queue, fifoq_elm);
+    return elm;
+  }
+  return NULL;
+}
+
+static queued_template_t *template_queue_pop(template_queue_t *queue) {
+  return rb_rd_fifoq_pop(queue);
+}
+
+/* ******************* */
+
 void sum_worker_stats(struct worker_stats *a, const struct worker_stats *b) {
   if (b->first_flow_processed_timestamp < a->first_flow_processed_timestamp) {
     a->first_flow_processed_timestamp = b->first_flow_processed_timestamp;
@@ -1439,22 +1493,36 @@ static inline int isSflow(const uint8_t *buffer){
   return 0;
 }
 
+/** pop all templates of the template queue
+ * @param queue Template queue
+ */
+static void pop_all_templates(template_queue_t *template_queue) {
+  queued_template_t *qtemplate = NULL;
+  while((qtemplate = template_queue_pop(template_queue))) {
+    if (readOnlyGlobals.enable_debug) {
+      traceEvent(TRACE_INFO, "Adding template from sensor %s",
+        sensor_ip_string(qtemplate->sensor));
+    }
+    saveTemplate(qtemplate->sensor, qtemplate->template);
+    rb_sensor_decref(qtemplate->sensor);
+    free(qtemplate);
+  }
+}
+
 static void *netFlowConsumerLoop(void *vworker) {
   worker_t *worker = vworker;
   static const time_t timeout_ms = 800;
   // traceEvent(TRACE_NORMAL,"Creating consumer loop");
 
   while(true) {
-    queued_template_t *qtemplate = template_queue_pop(&worker->templates_queue);
-    if (qtemplate) {
-      saveTemplate(qtemplate->sensor, qtemplate->template);
-      rb_sensor_decref(qtemplate->sensor);
-      continue;
-    }
-
     QueuedPacket *packet = popPacketFromQueue_timedwait(&worker->packetsQueue,
                                                                     timeout_ms);
-    if(packet) {
+    pop_all_templates(&worker->templates_queue);
+
+    if (packet) {
+      // Consume all pending templates first
+      pop_all_templates(&worker->templates_queue);
+
       if(worker->stats.first_flow_processed_timestamp == 0) {
         worker->stats.first_flow_processed_timestamp = time(NULL);
       }
@@ -1473,11 +1541,13 @@ static void *netFlowConsumerLoop(void *vworker) {
 
       freeQueuedPacket(packet);
     } else if (ATOMIC_OP(fetch, add, &worker->run.value, 0) == 0) {
-      /* No pending packet & don't keep running */
+      // No pending packet & don't keep running
+      // Consume all pending templates to avoid memory leaks
+      pop_all_templates(&worker->templates_queue);
+
       worker->stats.last_flow_processed_timestamp = time(NULL);
       break;
     }
-
   }
 
   return NULL;
@@ -1532,6 +1602,14 @@ worker_t *new_collect_worker() {
   */
 void add_packet_to_worker(struct queued_packet_s *qpacket, worker_t *worker) {
   addPacketToQueue(qpacket, &worker->packetsQueue);
+}
+
+void add_template_to_worker(struct flowSetV9Ipfix *template,
+                                      struct sensor *sensor, worker_t *worker) {
+  queued_template_t *qtemplate = new_queued_template(template, sensor);
+  if (qtemplate) {
+    template_queue_push(qtemplate, &worker->templates_queue);
+  }
 }
 
 /** Get workers stats
