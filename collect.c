@@ -248,11 +248,13 @@ static struct string_list *time_split_flow(struct printbuf *kafka_line_buffer,
     printbuf_memappend_fast(kafka_line_buffer,"}",(ssize_t)strlen("}"));
     /// @TODO make a function that create a list with 1 node
     ret = calloc(1,sizeof(ret[0]));
-    if(NULL != ret) {
+    if (likely(ret)) {
       ret->string = kafka_line_buffer;
       ret->client_mac = flowCache->client_mac;
     } else {
-      traceEvent(TRACE_ERROR,"Can't allocate string list node (out of memory?)");
+      traceEvent(TRACE_ERROR,
+        "Can't allocate string list node (out of memory?)");
+      printbuf_free(kafka_line_buffer);
     }
   }
 
