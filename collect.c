@@ -706,8 +706,8 @@ static void dumpFlow(size_t begin, size_t end, const uint8_t *buffer) {
 }
 
 struct sized_buffer {
-  const uint8_t *buffer_start;
-  const uint8_t *buffer;
+  const void *buffer_start;
+  const void *buffer;
   size_t size;
 };
 
@@ -758,7 +758,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
 
   if(bufferLen > (displ+(ssize_t)sizeof(V9TemplateHeader))) {
     V9TemplateHeader header;
-    uint8_t templateDone = 0;
+    bool template_done = false;
 
     memcpy(&header, &buffer[displ], sizeof(V9TemplateHeader));
     header.templateFlowset = ntohs(header.templateFlowset), header.flowsetLen = ntohs(header.flowsetLen);
@@ -766,11 +766,11 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
     ssize_t stillToProcess = header.flowsetLen - sizeof(V9TemplateHeader);
     displ += sizeof(V9TemplateHeader);
 
-    while((bufferLen >= (displ+stillToProcess)) && (!templateDone)) {
+    while((bufferLen >= (displ+stillToProcess)) && (!template_done)) {
       size_t len = 0;
       int fieldId;
-      uint8_t goodTemplate = 0;
-      uint accumulatedLen = 0;
+      bool good_template = false;
+      size_t accumulatedLen = 0;
 
       memset(&template, 0, sizeof(template));
       template.isOptionTemplate = isOptionTemplate,
@@ -821,9 +821,9 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
         template.templateId = htons(templateDef.templateId), template.fieldCount = htons(templateDef.fieldCount);
       }
 
-      if(template.fieldCount > 128) {
+      if (unlikely(template.fieldCount > 128)) {
         traceEvent(TRACE_WARNING, "Too many template fields (%d): skept", template.fieldCount);
-        goodTemplate = 0;
+        good_template = false;
       } else {
         if(handle_ipfix) {
           fields = calloc(template.fieldCount, sizeof(V9V10TemplateField));
@@ -837,7 +837,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
                        template.fieldCount * 4,
                        numEntries + sizeof(FlowSet));
           } else {
-            goodTemplate = 1;
+            good_template = true;
 
             if(bufferLen < (displ+stillToProcess)) {
               traceEvent(TRACE_INFO,
@@ -850,7 +850,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
 
             /* Check the template before handling it */
             for(fieldId=0; fieldId < template.fieldCount; fieldId++) {
-              uint8_t is_enterprise_specific = (buffer[displ+len] & 0x80) ? 1 : 0;
+              const bool is_enterprise_specific = (buffer[displ+len] & 0x80);
               V9FlowSet *set = (V9FlowSet*)&buffer[displ+len];
 
               len += 4; /* Field Type (2) + Field Length (2) */
@@ -868,9 +868,10 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
                 accumulatedLen += fields[fieldId].fieldLen;
 
               if(readOnlyGlobals.enable_debug)
-                traceEvent(TRACE_NORMAL, "[%d] fieldId=%d/PEN=%d/len=%d [tot=%zu]",
+                traceEvent(TRACE_NORMAL, "[%d] fieldId=%d/PEN=%s/len=%d [tot=%zu]",
                            1+fieldId, fields[fieldId].fieldId,
-                           is_enterprise_specific, fields[fieldId].fieldLen, len);
+                           is_enterprise_specific ? "true" : "false",
+                           fields[fieldId].fieldLen, len);
             }
 
             template.flowsetLen = len;
@@ -883,7 +884,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
             break;
           }
 
-          goodTemplate = 1;
+          good_template = true;
           template.flowsetLen = 4 * template.fieldCount;
 
           if(readOnlyGlobals.enable_debug)
@@ -905,7 +906,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
             accumulatedLen +=  fields[fieldId].fieldLen;
 
             if(readOnlyGlobals.enable_debug)
-              traceEvent(TRACE_NORMAL, "[%d] fieldId=%d (%s)/fieldLen=%d/totLen=%d/templateLen=%zu [%02X %02X %02X %02X]",
+              traceEvent(TRACE_NORMAL, "[%d] fieldId=%d (%s)/fieldLen=%d/totLen=%zu/templateLen=%zu [%02X %02X %02X %02X]",
                          1+fieldId, fields[fieldId].fieldId,
                          getStandardFieldId(fields[fieldId].fieldId), fields[fieldId].fieldLen,
                          accumulatedLen, len,
@@ -918,10 +919,10 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
       }
 
       if((template.flowsetLen > 1500) || (accumulatedLen > 1500)) {
-        goodTemplate = 0;
+        good_template = false;
       }
 
-      if(goodTemplate) {
+      if (likely(good_template)) {
         worker->stats.num_good_templates_received++;
 
         struct flowSetV9Ipfix *new_template = calloc(1, sizeof(*new_template));
@@ -973,7 +974,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
         stillToProcess = 0;
       }
 
-      if(stillToProcess <= 0) templateDone = 1;
+      if(stillToProcess <= 0) template_done = true;
     }
   }
 
@@ -982,7 +983,8 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
   return 1;
 }
 
-static inline uint32_t *ipv6_ptr_to_ipv4_ptr(const uint8_t *ipv6) {
+static inline uint32_t *ipv6_ptr_to_ipv4_ptr(const void *vipv6) {
+  const uint8_t *ipv6 = vipv6;
   return (uint32_t *)&ipv6[12];
 }
 
