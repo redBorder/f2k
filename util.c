@@ -260,31 +260,26 @@ void readCountries(const char *path) {
 
 /* ******************************************** */
 
-uint64_t net2number(const char *buffer,const uint16_t real_field_len){
-  uint64_t number = 0;
+uint64_t net2number(const void *vbuffer, const uint16_t real_field_len) {
+  const uint8_t *buffer = vbuffer;
 
   switch(real_field_len){
   case 1:
-    number = *(uint8_t *)buffer;
-    break;
+    return *buffer;
   case 2:
-    number = ntohs(*(uint16_t *)buffer);
-    break;
+    return ntohs(*(uint16_t *)buffer);
   case 4:
-    number = ntohl(*(uint32_t *)buffer);
-    break;
+    return ntohl(*(uint32_t *)buffer);
   case 6: /* MAC address case */
-    number = (uint64_t)ntohs(*(uint16_t *)buffer)<<32 | ntohl(*(uint32_t *)(buffer+2));
-    break;
+    return (uint64_t)ntohs(*(uint16_t *)buffer)<<32 | ntohl(*(uint32_t *)(buffer+2));
   case 8:
-    number = ntohll(*(uint64_t *)buffer);
-    break;
+    return ntohll(*(uint64_t *)buffer);
   default:
-    if(readOnlyGlobals.enable_debug)
+    if (readOnlyGlobals.enable_debug) {
       traceEvent(TRACE_WARNING,"Cannot transform number of size %d:",real_field_len);
+    }
+    return 0;
   };
-
-  return number;
 }
 
 /* ******************************************** */

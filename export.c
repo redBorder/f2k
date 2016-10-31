@@ -33,6 +33,11 @@
 #define NETFLOW_DIRECTION_INGRESS 0
 #define NETFLOW_DIRECTION_EGRESS  1
 
+#define assert_multi(...) do {size_t assert_i; \
+  for(assert_i=0; \
+      assert_i<sizeof((const void *[]){__VA_ARGS__})/sizeof(const void *);\
+      ++assert_i) {assert(((const void *[]){__VA_ARGS__})[assert_i]);}}while(0)
+
 typedef enum{
   DIRECTION_UNSET,
   DIRECTION_INGRESS,
@@ -45,14 +50,7 @@ struct flowCache *new_flowCache(){
 }
 
 void associateSensor(struct flowCache *flowCache, struct sensor *sensor){
-  if(NULL == flowCache) {
-    traceEvent(TRACE_ERROR,"Invalid address");
-    return;
-  }
-  if(NULL == sensor) {
-    traceEvent(TRACE_ERROR,"Invalid address");
-    return;
-  }
+  assert_multi(flowCache, sensor);
 
   flowCache->sensor = sensor;
 }
@@ -89,6 +87,7 @@ static int mac_direction(int known_src,int known_dst) {
   return: 1 if guessed/already setted. 0 if couldn't set
 */
 int guessDirection(struct flowCache *cache){
+  assert(cache);
   static const char zeros[sizeof(cache->address.src)] = {0};
   // Don't trust in flow direction unless there is no choice
   // if(cache->macs.direction != DIRECTION_UNSET){
@@ -174,6 +173,7 @@ static char* _itoa(uint64_t value, char* result, int base, size_t bufsize) {
 #endif
 
 static char* _itoa10(int64_t value, char* result, size_t bufsize) {
+    assert(result);
     char *ptr = result+bufsize;
     int64_t tmp_value;
 
@@ -190,6 +190,7 @@ static char* _itoa10(int64_t value, char* result, size_t bufsize) {
 }
 
 static size_t printbuf_memappend_fast_n10(struct printbuf *kafka_line_buffer,const uint64_t value){
+  assert(kafka_line_buffer);
   static const size_t bufsize = 64;
   char buf[bufsize];
 
@@ -203,11 +204,10 @@ static size_t printbuf_memappend_fast_n10(struct printbuf *kafka_line_buffer,con
 #define get_mac(buffer) net2number(buffer,6);
 
 size_t print_string(struct printbuf *kafka_line_buffer,
-    const char *buffer, const size_t real_field_len,
+    const void *vbuffer, const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flowCache){
-
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, vbuffer);
+  const char *buffer = vbuffer;
 
   const size_t bef_len = kafka_line_buffer->bpos;
   printbuf_memappend_fast(kafka_line_buffer, buffer + real_field_offset,
@@ -216,11 +216,9 @@ size_t print_string(struct printbuf *kafka_line_buffer,
 }
 
 size_t print_number(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
-
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, buffer);
 
   const uint64_t number = net2number(buffer,real_field_len);
 
@@ -228,13 +226,12 @@ size_t print_number(struct printbuf * kafka_line_buffer,
 }
 
 size_t print_netflow_type(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
 
     static const char *type_msg = "netflowv";
 
-    assert(kafka_line_buffer);
-    assert(buffer);
+    assert_multi(kafka_line_buffer, buffer);
 
     const size_t start_bpos = kafka_line_buffer->bpos;
     const uint64_t type = net2number(buffer,real_field_len);
@@ -244,13 +241,14 @@ size_t print_netflow_type(struct printbuf * kafka_line_buffer,
 }
 
 static size_t printbuf_memappend_fast_string(struct printbuf *kafka_line_buffer,const char *str){
+  assert_multi(kafka_line_buffer, str);
   const size_t len = strlen(str);
   printbuf_memappend_fast(kafka_line_buffer,str,len);
   return len;
 }
 
 size_t print_flow_end_reason(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *vbuffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
 
   static const char *reason01 = "idle timeout";
@@ -258,9 +256,9 @@ size_t print_flow_end_reason(struct printbuf * kafka_line_buffer,
   static const char *reason03 = "end of flow";
   static const char *reason04 = "forced end";
   static const char *reason05 = "lack of resources";
+  const uint8_t *buffer = vbuffer;
 
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, buffer);
   if(unlikely(real_field_len>1))
     traceEvent(TRACE_WARNING,"flow_end_reason len is greater than expected.");
 
@@ -283,18 +281,16 @@ size_t print_flow_end_reason(struct printbuf * kafka_line_buffer,
 }
 
 size_t print_biflow_direction(struct printbuf *kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *vbuffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
 
   static const char *direction01 = "arbitrary";
   static const char *direction02 = "initiator";
   static const char *direction03 = "reverse initiator";
   static const char *direction04 = "perimeter";
+  const uint8_t *buffer = vbuffer;
 
-  assert(kafka_line_buffer);
-  assert(buffer);
-  if(unlikely(real_field_len>1))
-    traceEvent(TRACE_WARNING,"flow_end_reason len is greater than expected.");
+  assert_multi(kafka_line_buffer, buffer);
 
   switch(buffer[0]){
     case 0x00:
@@ -312,7 +308,7 @@ size_t print_biflow_direction(struct printbuf *kafka_line_buffer,
   };
 }
 
-size_t print_direction(struct printbuf *kafka_line_buffer,const char * buffer,const size_t real_field_len,
+size_t print_direction(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   assert(kafka_line_buffer);
   assert(flowCache);
@@ -334,8 +330,11 @@ size_t print_direction(struct printbuf *kafka_line_buffer,const char * buffer,co
   return 0;
 }
 
-size_t save_direction(struct printbuf *kafka_line_buffer,const char * buffer,const size_t real_field_len,
-    const size_t real_field_len_offset, struct flowCache *flowCache){
+size_t save_direction(struct printbuf *kafka_line_buffer, const void *vbuffer,
+    const size_t real_field_len, const size_t real_field_len_offset,
+    struct flowCache *flowCache) {
+  const uint8_t *buffer = vbuffer;
+  assert_multi(buffer, flowCache);
 
   switch(buffer[0]){
   case NETFLOW_DIRECTION_INGRESS:
@@ -350,7 +349,7 @@ size_t save_direction(struct printbuf *kafka_line_buffer,const char * buffer,con
   return 0; /* nothing printed */
 }
 
-size_t save_src_mac(struct printbuf *kafka_line_buffer,const char * buffer,const size_t real_field_len,
+size_t save_src_mac(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   assert(flowCache);
   assert(buffer);
@@ -364,7 +363,7 @@ size_t save_src_mac(struct printbuf *kafka_line_buffer,const char * buffer,const
   return 0;
 }
 
-size_t save_post_src_mac(struct printbuf *kafka_line_buffer,const char * buffer,const size_t real_field_len,
+size_t save_post_src_mac(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   assert(flowCache);
   assert(buffer);
@@ -378,7 +377,7 @@ size_t save_post_src_mac(struct printbuf *kafka_line_buffer,const char * buffer,
   return 0;
 }
 
-size_t save_dst_mac(struct printbuf *kafka_line_buffer,const char * buffer,const size_t real_field_len,
+size_t save_dst_mac(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   assert(flowCache);
   if(unlikely(real_field_len==6)){
@@ -390,7 +389,7 @@ size_t save_dst_mac(struct printbuf *kafka_line_buffer,const char * buffer,const
   return 0;
 }
 
-size_t save_post_dst_mac(struct printbuf *kafka_line_buffer,const char * buffer,const size_t real_field_len,
+size_t save_post_dst_mac(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   assert(flowCache);
   if(unlikely(real_field_len==6)){
@@ -402,28 +401,23 @@ size_t save_post_dst_mac(struct printbuf *kafka_line_buffer,const char * buffer,
   return 0;
 }
 
-static size_t print_ssid_name0(struct printbuf *kafka_line_buffer,const char *buffer,const uint16_t real_field_len){
+static size_t print_ssid_name0(struct printbuf *kafka_line_buffer,const void *buffer,const uint16_t real_field_len){
   const size_t len = strnlen(buffer,real_field_len);
   printbuf_memappend_fast(kafka_line_buffer,buffer,len);
   return len;
 }
 
 size_t print_ssid_name(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, buffer);
 
   return print_ssid_name0(kafka_line_buffer,buffer,real_field_len);
 }
 
-static void ipv4buf_to_6(char ipv6[16],const char *buffer){
-  // @TODO memset(ipv6,0,sizeof(ipv6));
-  if(NULL == buffer) {
-    traceEvent(TRACE_ERROR,"Invalid address");
-    return;
-  }
-
+static void ipv4buf_to_6(char ipv6[16],const void *vbuffer){
+  const uint8_t *buffer = vbuffer;
+  assert_multi(ipv6, buffer);
   int i;
   for (i = 0; i < 10; i++)
     ipv6[i] = 0;
@@ -437,9 +431,8 @@ static void ipv4buf_to_6(char ipv6[16],const char *buffer){
 }
 
 /// @TODO join with print_net!!
-static size_t print_net_name0(struct printbuf *kafka_line_buffer,const char *buffer,const struct flowCache *flowCache){
-  assert(kafka_line_buffer);
-  assert(buffer);
+static size_t print_net_name0(struct printbuf *kafka_line_buffer,const void *buffer,const struct flowCache *flowCache){
+  assert_multi(kafka_line_buffer, buffer);
 
   char ipv6[16];
   ipv4buf_to_6(ipv6,buffer);
@@ -466,9 +459,8 @@ static size_t print_net_name0(struct printbuf *kafka_line_buffer,const char *buf
 }
 
 // @TODO join with print_net!!
-static size_t print_net_name_v6_0(struct printbuf *kafka_line_buffer,const char *buffer,const struct flowCache *flowCache){
-  assert(kafka_line_buffer);
-  assert(buffer);
+static size_t print_net_name_v6_0(struct printbuf *kafka_line_buffer,const void *buffer,const struct flowCache *flowCache){
+  assert_multi(kafka_line_buffer, buffer);
 
   /* First try: Has the sensor a home net that contains this ip? */
   const char *sensor_home_net = network_name(flowCache->sensor,buffer);
@@ -487,10 +479,9 @@ static size_t print_net_name_v6_0(struct printbuf *kafka_line_buffer,const char 
 }
 
 size_t print_net(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, buffer);
   assert(flowCache);
 
   char ipv6[16];
@@ -520,10 +511,9 @@ size_t print_net(struct printbuf * kafka_line_buffer,
 
 /// @TODO merge with print_net
 size_t print_net_v6(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, buffer);
   assert(flowCache);
 
   /* First try: Has the sensor a home net that contains this ip? */
@@ -544,13 +534,13 @@ size_t print_net_v6(struct printbuf * kafka_line_buffer,
 }
 
 size_t print_net_name(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   return print_net_name0(kafka_line_buffer,buffer,flowCache);
 }
 
 size_t print_net_name_v6(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   return print_net_name_v6_0(kafka_line_buffer,buffer,flowCache);
 }
@@ -568,10 +558,9 @@ static size_t print_ipv4_addr0(struct printbuf *kafka_line_buffer,const uint32_t
 }
 
 size_t print_ipv4_src_addr(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, buffer);
   assert(real_field_len==4);
   assert(real_field_len_offset==0);
   assert(flowCache);
@@ -582,10 +571,9 @@ size_t print_ipv4_src_addr(struct printbuf * kafka_line_buffer,
 }
 
 size_t print_ipv4_dst_addr(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, buffer);
   assert(real_field_len==4);
   assert(real_field_len_offset==0);
 
@@ -599,7 +587,10 @@ size_t print_ipv4_dst_addr(struct printbuf * kafka_line_buffer,
   return print_ipv4_addr0(kafka_line_buffer,ipv4);
 }
 
-static size_t print_mac0(struct printbuf *kafka_line_buffer,const char *buffer){
+static size_t print_mac0(struct printbuf *kafka_line_buffer,
+    const void *vbuffer) {
+  const uint8_t *buffer = vbuffer;
+  assert_multi(kafka_line_buffer, buffer);
   int i;
   for(i=0;i<6;++i){
     printbuf_memappend_fast_n16(kafka_line_buffer,buffer[i]);
@@ -611,10 +602,9 @@ static size_t print_mac0(struct printbuf *kafka_line_buffer,const char *buffer){
 }
 
 size_t print_mac(struct printbuf *kafka_line_buffer,
-    const char *buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, buffer);
 
   if(real_field_len!=6){
     traceEvent(TRACE_ERROR,"Mac with len != 6");
@@ -624,7 +614,7 @@ size_t print_mac(struct printbuf *kafka_line_buffer,
   return print_mac0(kafka_line_buffer,buffer);
 }
 
-static size_t print_mac_vendor0(struct printbuf *kafka_line_buffer,const char *buffer){
+static size_t print_mac_vendor0(struct printbuf *kafka_line_buffer,const void *buffer){
   const uint64_t mac = get_mac(buffer);
 
   if(mac){
@@ -688,7 +678,7 @@ static const uint8_t *get_direction_based_client_mac(struct flowCache *flowCache
   return mac;
 }
 
-size_t print_direction_based_client_mac(struct printbuf *kafka_line_buffer,const char * buffer,const size_t real_field_len,
+size_t print_direction_based_client_mac(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
   const size_t real_field_len_offset, struct flowCache *flowCache){
   static const size_t expected_real_field_length = 6;
 
@@ -711,7 +701,7 @@ if(flowCache->client_mac != 0) {
   return 0;
 }
 
-size_t print_client_mac(struct printbuf *kafka_line_buffer,const char * buffer,const size_t real_field_len,
+size_t print_client_mac(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
   const size_t real_field_len_offset, struct flowCache *flowCache) {
   static const size_t expected_real_field_length = 6;
 
@@ -730,7 +720,7 @@ size_t print_client_mac(struct printbuf *kafka_line_buffer,const char * buffer,c
   return print_mac0(kafka_line_buffer,buffer);
 }
 
-size_t print_direction_based_client_mac_vendor(struct printbuf *kafka_line_buffer,const char * buffer,const size_t real_field_len,
+size_t print_direction_based_client_mac_vendor(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
 
   const uint8_t *mac = get_direction_based_client_mac(flowCache);
@@ -740,7 +730,10 @@ size_t print_direction_based_client_mac_vendor(struct printbuf *kafka_line_buffe
 }
 
 /* try to print vendor:xx:xx:xx */
-static size_t print_mac_vendor_addr_format0(struct printbuf *kafka_line_buffer,const char *buffer){
+static size_t print_mac_vendor_addr_format0(struct printbuf *kafka_line_buffer,
+    const void *vbuffer) {
+  const uint8_t *buffer = vbuffer;
+  assert_multi(kafka_line_buffer, buffer);
   const size_t vendor_bytes_written = print_mac_vendor0(kafka_line_buffer,buffer);
   if(vendor_bytes_written>0){
     int i;
@@ -754,7 +747,7 @@ static size_t print_mac_vendor_addr_format0(struct printbuf *kafka_line_buffer,c
   }
 }
 
-static size_t print_mac_map0(struct printbuf *kafka_line_buffer,const char *buffer){
+static size_t print_mac_map0(struct printbuf *kafka_line_buffer,const void *buffer){
   const uint64_t mac = get_mac(buffer);
   if(mac){
     pthread_rwlock_rdlock(&readOnlyGlobals.rb_databases.mutex);
@@ -773,10 +766,9 @@ static size_t print_mac_map0(struct printbuf *kafka_line_buffer,const char *buff
 }
 
 size_t print_mac_map(struct printbuf *kafka_line_buffer,
-    const char *buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, buffer);
   if(real_field_len!=6){
     traceEvent(TRACE_ERROR,"Mac with real_field_len!=6");
     return 0;
@@ -786,10 +778,9 @@ size_t print_mac_map(struct printbuf *kafka_line_buffer,
 }
 
 size_t print_mac_vendor(struct printbuf *kafka_line_buffer,
-    const char *buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, buffer);
   if(real_field_len!=6){
     traceEvent(TRACE_ERROR,"Mac with real_field_len!=6");
     return 0;
@@ -826,7 +817,7 @@ static size_t print_engine_id_name0(struct printbuf *kafka_line_buffer,const uin
 }
 
 size_t print_engine_id(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   assert(buffer);
 
@@ -834,7 +825,7 @@ size_t print_engine_id(struct printbuf * kafka_line_buffer,
 }
 
 size_t print_engine_id_name(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   assert(buffer);
   assert(real_field_len_offset==0);
@@ -843,12 +834,10 @@ size_t print_engine_id_name(struct printbuf * kafka_line_buffer,
   return print_engine_id_name0(kafka_line_buffer,engine_id);
 }
 
-static size_t print_application_id0(struct printbuf *kafka_line_buffer,const char *buffer,const uint16_t real_field_len){
-  if(unlikely(real_field_len != 4)){
-    traceEvent(TRACE_ERROR,"Application id length != 4");
-    if(real_field_len < 4)
-      return 0;
-  }
+static size_t print_application_id0(struct printbuf *kafka_line_buffer,
+    const void *vbuffer, const uint16_t real_field_len) {
+  const uint8_t *buffer = vbuffer;
+  assert_multi(kafka_line_buffer, buffer);
   const uint8_t  major_proto = buffer[0];
   const uint32_t minor_proto = net2number(buffer,4) & 0x00FFFFFF;
 
@@ -863,7 +852,7 @@ static size_t print_application_id0(struct printbuf *kafka_line_buffer,const cha
   return bytes_printed;
 }
 
-static size_t print_application_id_name0(struct printbuf *kafka_line_buffer,const char *buffer,const uint16_t real_field_len){
+static size_t print_application_id_name0(struct printbuf *kafka_line_buffer,const void *buffer,const uint16_t real_field_len){
   char err[1024];
 
   if(NULL==readOnlyGlobals.rb_databases.apps_name_as_list)
@@ -884,18 +873,16 @@ static size_t print_application_id_name0(struct printbuf *kafka_line_buffer,cons
 }
 
 size_t print_application_id(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, buffer);
   return print_application_id0(kafka_line_buffer,buffer,real_field_len);
 }
 
 size_t print_application_id_name(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, buffer);
   return print_application_id_name0(kafka_line_buffer,buffer,real_field_len);
 }
 
@@ -904,10 +891,9 @@ static size_t print_port0(struct printbuf *kafka_line_buffer,const uint16_t port
 }
 
 size_t print_src_port(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, buffer);
 
   if(NULL == flowCache || NULL == buffer || NULL == kafka_line_buffer ) {
     traceEvent(TRACE_ERROR,"Invalid address");
@@ -920,10 +906,9 @@ size_t print_src_port(struct printbuf * kafka_line_buffer,
 }
 
 size_t print_dst_port(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, buffer);
 
   if(NULL == buffer || NULL == kafka_line_buffer || NULL == flowCache) {
     traceEvent(TRACE_ERROR,"Invalid address");
@@ -936,10 +921,9 @@ size_t print_dst_port(struct printbuf * kafka_line_buffer,
 }
 
 size_t print_srv_port(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, buffer);
 
   if(NULL == buffer || NULL == kafka_line_buffer || NULL == flowCache) {
     traceEvent(TRACE_ERROR,"Invalid address");
@@ -953,9 +937,12 @@ size_t print_srv_port(struct printbuf * kafka_line_buffer,
 
 }
 
-static size_t print_ipv6_0(struct printbuf *kafka_line_buffer,const char *buffer){
+static size_t print_ipv6_0(struct printbuf *kafka_line_buffer,
+    const void *vbuffer) {
+  const uint8_t *buffer = vbuffer;
+  assert_multi(kafka_line_buffer, buffer);
   int i;
-  for(i=0;i<8;++i){
+  for(i=0;i<8;++i) {
     printbuf_memappend_fast_n16(kafka_line_buffer,buffer[2*i]);
     printbuf_memappend_fast_n16(kafka_line_buffer,buffer[2*i+1]);
     if(i<7)
@@ -965,10 +952,12 @@ static size_t print_ipv6_0(struct printbuf *kafka_line_buffer,const char *buffer
   return strlen("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
 }
 
-size_t print_ipv6_src_addr(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
-    const size_t real_field_len_offset, struct flowCache *flowCache){
-  if(real_field_len != 16){
+size_t print_ipv6_src_addr(struct printbuf *kafka_line_buffer,
+      const void *vbuffer, const size_t real_field_len,
+      const size_t real_field_len_offset, struct flowCache *flowCache) {
+  const uint8_t *buffer = vbuffer;
+  assert_multi(kafka_line_buffer, buffer, flowCache);
+  if (unlikely(real_field_len != 16)) {
     traceEvent(TRACE_ERROR,"IPv6 field len is not 16");
     return 0;
   }
@@ -982,9 +971,12 @@ size_t print_ipv6_src_addr(struct printbuf * kafka_line_buffer,
 }
 
 size_t print_ipv6_dst_addr(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *vbuffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
-  if(real_field_len != 16){
+
+  const uint8_t *buffer = vbuffer;
+  assert_multi(kafka_line_buffer, buffer, flowCache);
+  if(unlikely(real_field_len != 16)) {
     traceEvent(TRACE_ERROR,"IPv6 field len is not 16");
     return 0;
   }
@@ -999,7 +991,10 @@ size_t print_ipv6_dst_addr(struct printbuf * kafka_line_buffer,
 
 #ifdef HAVE_GEOIP
 
-static size_t append_and_change_quotes(struct printbuf *kafka_line_buffer,const char *buffer){
+static size_t append_and_change_quotes(struct printbuf *kafka_line_buffer,
+                                                          const void *vbuffer) {
+  const char *buffer = vbuffer;
+  assert_multi(buffer, vbuffer);
   int i=0;
   while(buffer[i]!=0){
     if(buffer[i] == '\"')
@@ -1013,7 +1008,7 @@ static size_t append_and_change_quotes(struct printbuf *kafka_line_buffer,const 
 }
 
 size_t print_country_code(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
 
   assert(buffer);
@@ -1058,7 +1053,7 @@ static struct AS_info extract_as_from_geoip_response(char *rsp)
 }
 
 size_t print_AS_ipv4(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   assert(buffer);
 
@@ -1099,9 +1094,8 @@ static size_t print_buffer_geoip_AS_name(struct printbuf *kafka_line_buffer,char
   return written_len;
 }
 
-static size_t print_AS_ipv4_name0(struct printbuf * kafka_line_buffer, const char * buffer, const uint16_t real_field_len){
-  assert(kafka_line_buffer);
-  assert(buffer);
+static size_t print_AS_ipv4_name0(struct printbuf * kafka_line_buffer, const void *buffer, const uint16_t real_field_len){
+  assert_multi(kafka_line_buffer, buffer);
 
   const uint64_t ipv4 = net2number(buffer,real_field_len);
   size_t written_len = 0;
@@ -1121,7 +1115,7 @@ static size_t print_AS_ipv4_name0(struct printbuf * kafka_line_buffer, const cha
 }
 
 size_t print_AS_ipv4_name(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   assert(buffer);
 
@@ -1160,7 +1154,7 @@ static size_t print_AS6_name0(struct printbuf *kafka_line_buffer,const struct in
 }
 
 size_t print_AS6_name(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   assert(buffer);
   if(unlikely(real_field_len!=16)){
@@ -1196,7 +1190,7 @@ static size_t print_AS6_0(struct printbuf *kafka_line_buffer,const struct in6_ad
 }
 
 size_t print_AS6(struct printbuf *kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   const struct in6_addr ipv6 = get_ipv6((uint8_t*)buffer);
   return print_AS6_0(kafka_line_buffer,&ipv6);
@@ -1214,9 +1208,8 @@ static size_t print_country6_code0(struct printbuf *kafka_line_buffer, const str
 }
 
 size_t print_country6_code(struct printbuf *kafka_line_buffer,
-  const char *buffer,const size_t real_field_len,const size_t real_field_len_offset,struct flowCache *flowCache){
-  assert(kafka_line_buffer);
-  assert(buffer);
+  const void *buffer,const size_t real_field_len,const size_t real_field_len_offset,struct flowCache *flowCache){
+  assert_multi(kafka_line_buffer, buffer);
   if(unlikely(real_field_len!=16)){
     traceEvent(TRACE_ERROR,"IPv6 length != 16.");
     return 0;
@@ -1228,9 +1221,8 @@ size_t print_country6_code(struct printbuf *kafka_line_buffer,
 
 #endif /* HAVE_GEOIP */
 
-static size_t print_proto_name0(struct printbuf *kafka_line_buffer,const char *buffer,const uint16_t real_field_len){
-  assert(kafka_line_buffer);
-  assert(buffer);
+static size_t print_proto_name0(struct printbuf *kafka_line_buffer,const void *buffer,const uint16_t real_field_len){
+  assert_multi(kafka_line_buffer, buffer);
   if(unlikely(real_field_len!=2)){
     traceEvent(TRACE_ERROR,"protocol length != 2.");
     return 0;
@@ -1247,11 +1239,10 @@ static size_t print_proto_name0(struct printbuf *kafka_line_buffer,const char *b
 }
 
 size_t print_proto_name(struct printbuf * kafka_line_buffer,
-    const char * buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache)
 {
-  assert(kafka_line_buffer);
-  assert(buffer);
+  assert_multi(kafka_line_buffer, buffer);
   if(unlikely(real_field_len!=2)){
     traceEvent(TRACE_ERROR,"protocol length != 2.");
     return 0;
@@ -1288,11 +1279,13 @@ size_t print_sensor_enrichment(struct printbuf *kafka_line_buffer,
 #ifdef HAVE_CISCO_URL
 
 static size_t print_cisco_private_buffer(struct printbuf *kafka_line_buffer,
-  const char *buffer,const size_t real_field_len,
-  const size_t real_field_len_offset,struct flowCache *flowCache,
-  const char *expected_identifier,size_t expected_identifier_length) {
+    const void *vbuffer, const size_t real_field_len,
+    const size_t real_field_len_offset, struct flowCache *flowCache,
+    const char *expected_identifier, size_t expected_identifier_length) {
+  const char *buffer = vbuffer;
+  assert_multi(kafka_line_buffer, buffer);
 
-  if(real_field_len <= expected_identifier_length){
+  if(real_field_len <= expected_identifier_length) {
     return 0; /* nothing to do */
   }
 
@@ -1307,7 +1300,7 @@ static size_t print_cisco_private_buffer(struct printbuf *kafka_line_buffer,
 }
 
 size_t print_http_url(struct printbuf *kafka_line_buffer,
-  const char *buffer,const size_t real_field_len,
+  const void *buffer,const size_t real_field_len,
   const size_t real_field_len_offset,struct flowCache *flowCache) {
 
   static const char http_url_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x01};
@@ -1317,7 +1310,7 @@ size_t print_http_url(struct printbuf *kafka_line_buffer,
 }
 
 size_t print_http_host(struct printbuf *kafka_line_buffer,
-  const char *buffer,const size_t real_field_len,
+  const void *buffer,const size_t real_field_len,
   const size_t real_field_len_offset,struct flowCache *flowCache) {
 
   static const char http_host_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x02};
@@ -1327,7 +1320,7 @@ size_t print_http_host(struct printbuf *kafka_line_buffer,
 }
 
 size_t print_http_user_agent(struct printbuf *kafka_line_buffer,
-  const char *buffer,const size_t real_field_len,
+  const void *buffer,const size_t real_field_len,
   const size_t real_field_len_offset,struct flowCache *flowCache) {
 
   static const char http_ua_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x03};
@@ -1337,7 +1330,7 @@ size_t print_http_user_agent(struct printbuf *kafka_line_buffer,
 }
 
 size_t print_http_referer(struct printbuf *kafka_line_buffer,
-  const char *buffer,const size_t real_field_len,
+  const void *buffer,const size_t real_field_len,
   const size_t real_field_len_offset,struct flowCache *flowCache) {
 
   static const char http_referer_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x04};
@@ -1347,7 +1340,7 @@ size_t print_http_referer(struct printbuf *kafka_line_buffer,
 }
 
 size_t print_https_common_name(struct printbuf *kafka_line_buffer,
-  const char *buffer,const size_t real_field_len,
+  const void *buffer,const size_t real_field_len,
   const size_t real_field_len_offset,struct flowCache *flowCache) {
 
   static const char https_command_name_nbar_id[] = {0x0d, 0x00, 0x01, 0xc5, 0x34, 0x01};
@@ -1426,7 +1419,7 @@ const uint8_t *get_direction_based_target_ip(struct flowCache *flowCache) {
 
 /// @TODO difference client/target src/dst
 size_t print_client_name(struct printbuf *kafka_line_buffer,
-  const char *buffer,const size_t real_field_len,
+  const void *buffer,const size_t real_field_len,
   const size_t real_field_len_offset,struct flowCache *flowCache) {
 
   return print_dns_obtained_hostname(kafka_line_buffer,
@@ -1434,7 +1427,7 @@ size_t print_client_name(struct printbuf *kafka_line_buffer,
 }
 
 size_t print_target_name(struct printbuf *kafka_line_buffer,
-  const char *buffer,const size_t real_field_len,
+  const void *buffer,const size_t real_field_len,
   const size_t real_field_len_offset,struct flowCache *flowCache) {
 
   return print_dns_obtained_hostname(kafka_line_buffer,

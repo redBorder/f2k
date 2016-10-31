@@ -311,7 +311,7 @@ typedef struct flow_ver9_ipfix_template_elementids {
   const bool quote; //< Hint if we need quote output or not
   const char *jsonElementName;
   size_t (*export_fn)(struct printbuf *kafka_line_buffer,
-    const char *buffer,const size_t real_field_len,
+    const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
 
   /* Auto-filled fields */

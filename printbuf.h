@@ -13,14 +13,10 @@
  * (http://www.opensource.org/licenses/mit-license.php)
  */
 
-#ifndef _printbuf_h_
-#define _printbuf_h_
+#pragma once
 
- #include <string.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <string.h>
+#include <stdint.h>
 
 struct printbuf {
   char *buf;
@@ -50,9 +46,10 @@ do {                                                         \
   } else {  printbuf_memappend(p, (bufptr), bufsize); }      \
 } while (0)
 
-static size_t printbuf_memappend_fast_n16(struct printbuf *kafka_line_buffer,const unsigned char value)
-  __attribute__((unused));
-static size_t printbuf_memappend_fast_n16(struct printbuf *kafka_line_buffer,const unsigned char value){
+static size_t printbuf_memappend_fast_n16(struct printbuf *kafka_line_buffer,
+  const uint8_t value) __attribute__((unused));
+static size_t printbuf_memappend_fast_n16(struct printbuf *kafka_line_buffer,
+  const uint8_t value) {
   static const char *hexbuf = "0123456789abcdef";
   printbuf_memappend_fast(kafka_line_buffer,&hexbuf[(value & 0xf0)>>4],1);
   printbuf_memappend_fast(kafka_line_buffer,&hexbuf[(value & 0x0f)],1);
@@ -80,9 +77,3 @@ printbuf_reset(struct printbuf *p);
 
 extern void
 printbuf_free(struct printbuf *p);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
