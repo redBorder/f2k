@@ -55,7 +55,7 @@ typedef struct queued_packet_s {
   struct sensor *sensor;
 } QueuedPacket;
 
-static inline QueuedPacket *newQueuedPacket(allocated_buffer_len){
+static inline QueuedPacket *newQueuedPacket(size_t allocated_buffer_len) {
   QueuedPacket *qpacket = calloc(1,sizeof(*qpacket) + allocated_buffer_len);
 
   if(qpacket)

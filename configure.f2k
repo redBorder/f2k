@@ -8,13 +8,16 @@ mkl_require gitversion as GITVERSION
 
 mkl_mkvar_append CPPFLAGS CPPFLAGS "-DFORTIFY_SOURCE=2"
 mkl_mkvar_append CPPFLAGS CPPFLAGS "-DNDEBUG"
-#mkl_mkvar_append CPPFLAGS CPPFLAGS "-ftrack-macro-expansion=2 -Wextra -Wcast-qual -Wshadow -Wsign-conversion -Wno-used"
+#mkl_mkvar_append CPPFLAGS CPPFLAGS "-ftrack-macro-expansion=2 -Wextra -Wcast-qual -Wsign-conversion -Wno-used"
 #mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wjump-misses-init" # New in gcc 4.5
 #mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wdouble-promotion" # New in gcc 4.6
 #mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wunused-local-typedefs" # New in gcc 4.7
-mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wcast-align -Wdisabled-optimization -Winit-self -Wlogical-op"
-mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wmissing-include-dirs -Wstrict-overflow=5 -Wundef -Wswitch-default"
-mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wmissing-declarations -Wdisabled-optimization"
+mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wcast-align -Wdisabled-optimization"
+mkl_mkvar_append CPPFLAGS CPPFLAGS "-Winit-self -Wlogical-op"
+mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wmissing-include-dirs -Wstrict-overflow=5"
+mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wundef -Wswitch-default"
+mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wmissing-declarations"
+mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wdisabled-optimization -Wshadow"
 
 
 mkl_toggle_option "Standard" WITH_LIBRDKAFKA        "--enable-librdkafka"        "librdkafka: For kafka export" "y"

@@ -28,7 +28,7 @@ struct worker_stats {
   num_flows_unknown_template,
   num_flows_processed, num_good_templates_received,
   num_known_templates, num_bad_templates_received;
-} stats;
+};
 
 /** a+=b in worker stats */
 void sum_worker_stats(struct worker_stats *a, const struct worker_stats *b);

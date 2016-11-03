@@ -59,7 +59,8 @@ struct zk_template_ls_root_completed_data {
 #define assert_zk_template_get_completed_data(data) \
               assert(ZK_TEMPLATE_LS_ROOT_COMPLETED_DATA_MAGIC == (data)->magic)
 
-static void zk_template_get_completed(int rc,const char *value,int value_len,const struct Stat *stat, const void *_data) {
+static void zk_template_get_completed(int rc, const char *value, int value_len,
+  const struct Stat *zk_stat, const void *_data) {
   char buf[BUFSIZ];
 
   struct zk_template_ls_root_completed_data *data = (void *)_data;
@@ -171,10 +172,10 @@ static void zk_template_root_completed(int rc,const struct String_vector *string
   */
 static int verbose_zoo_awget_children(zhandle_t *zh, const char *path,
         watcher_fn zk_template_root_watcher, void* watcherCtx,
-        strings_completion_t zk_template_root_completed, const void *context) {
+        strings_completion_t zk_template_root_completed_cb, const void *context) {
 
   const int get_children_rc = zoo_awget_children(zh,path,
-    zk_template_root_watcher,NULL,zk_template_root_completed,zoo_get_context(zh));
+    zk_template_root_watcher,NULL,zk_template_root_completed_cb,zoo_get_context(zh));
 
   switch(get_children_rc) {
   case ZNONODE:

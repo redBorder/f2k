@@ -398,8 +398,9 @@ static struct string_list *dissectNetFlowV5Record(const NetFlow5Record *the5Reco
                 const int flow_idx, struct sensor *sensor_object) {
   struct printbuf * kafka_line_buffer = printbuf_new();
   const uint16_t *flowVersion = &the5Record->flowHeader.version;
-  const uint32_t flowSecuence = htonl(
-                        ntohl(the5Record->flowHeader.flow_sequence) + flow_idx);
+  const uint32_t flowSecuence_h = ntohl(the5Record->flowHeader.flow_sequence)
+                                                                    + flow_idx;
+  const uint32_t flowSecuence = htonl(flowSecuence_h);
 
   if(unlikely(NULL==kafka_line_buffer)){
     traceEvent(TRACE_ERROR,"Memory error");
@@ -486,7 +487,7 @@ struct aset_template_data {
   struct ACL_vector acl;
 };
 
-static void set_template_complete(int rc, const struct Stat *stat __attribute__((unused)), const void *_data);
+static void set_template_complete(int rc, const struct Stat *zk_stat __attribute__((unused)), const void *_data);
 static void create_template_complete(int rc, const char *value __attribute__((unused)), const void *_data);
 
 static void zoo_template_complete(int rc,void *_data) {
@@ -547,7 +548,7 @@ static void zoo_template_complete(int rc,void *_data) {
   }
 }
 
-static void set_template_complete(int rc, const struct Stat *stat __attribute__((unused)), const void *_data) {
+static void set_template_complete(int rc, const struct Stat *zk_stat __attribute__((unused)), const void *_data) {
   zoo_template_complete(rc,(void *)_data);
 }
 

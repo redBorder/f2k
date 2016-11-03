@@ -861,10 +861,10 @@ uint32_t msTimeDiff(struct timeval *end, struct timeval *begin) {
 unsigned int ntop_sleep(unsigned int secs) {
   unsigned int unsleptTime = secs, rest;
 
-  sigset_t sigset, oldset;
+  sigset_t newsigset, oldset;
 
-  sigfillset(&sigset);
-  pthread_sigmask(SIG_BLOCK, &sigset, &oldset);
+  sigfillset(&newsigset);
+  pthread_sigmask(SIG_BLOCK, &newsigset, &oldset);
 
   //   traceEvent(TRACE_NORMAL, "%s(%d)", __FUNCTION__, secs);
 
@@ -934,15 +934,20 @@ void daemonize(void) {
 
    **************************************** */
 
-// Simulates << over ipv6 addr
-static void operator_ltlt(char bits[16]) {
-  uint64_t *_bits=(uint64_t *)bits;
+/** Simulates << over network order uint64_t
+ * @param bits Bits to apply ltlt
+ * @Note Need to use this because of ntohll(htonll(*bits)) shadows a local
+ * variable declared in both in gcc 4.4.7
+ */
+static void operator_ltlt_beuint64(uint64_t *bits) {
+  const uint64_t bits_h = ntohll(*bits);
+  *bits = htonll(bits_h<<1);
+}
 
-  if(_bits[1] == 0)
-    /* Lower half empty */
-    _bits[0] = ntohll((htonll(_bits[0])<<1));
-  else
-    _bits[1] = ntohll((htonll(_bits[1])<<1));
+// Simulates << over ipv6 addr
+static void operator_ltlt_ipv6(char bits[16]) {
+  uint64_t *_bits=(uint64_t *)bits;
+  operator_ltlt_beuint64(_bits[1] == 0 ? &_bits[0] : &_bits[1]);
 }
 
 static int int2bits(char bits[16],int number) {
@@ -957,7 +962,7 @@ static int int2bits(char bits[16],int number) {
     return(CONST_INVALIDNETMASK);
   else {
     while (number < 128){
-      operator_ltlt(bits);
+      operator_ltlt_ipv6(bits);
       number++;
     }
   }
@@ -1595,7 +1600,7 @@ int parseHostsList_File(char * filename,PARSEHOSTSLIST_ORDER order){
               {
                 case HOST_ORDER:
                 case NETWORK_ORDER:
-                  if( -1==safe_parse_address((*iter)->number,&(*iter)->number_i.net_address)){
+                  if(false == safe_parse_address((*iter)->number,&(*iter)->number_i.net_address)){
                     traceEvent(TRACE_WARNING,"In file %s line %d: %s",filename,line,line_buffer);
                     free(*iter);
                     *iter=NULL;

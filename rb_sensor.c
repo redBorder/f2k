@@ -378,7 +378,7 @@ static bool addHomeNetToDatabase(struct sensor *sensor, json_t *json_home_net) {
   assert(sensor);
   assert(json_home_net);
   json_error_t jerr;
-  const char *network=NULL,*network_name=NULL;
+  const char *network=NULL,*network_name_str=NULL;
 
   if(!json_is_object(json_home_net)){
     traceEvent(TRACE_ERROR,"Could not get one network of sensor %s.",sensor_ip_string(sensor));
@@ -386,7 +386,7 @@ static bool addHomeNetToDatabase(struct sensor *sensor, json_t *json_home_net) {
   }
 
   const int unpack_rc = json_unpack_ex(json_home_net,&jerr,0,"{s:s,s:s}",
-    "network_name",&network_name,"network",&network);
+    "network_name",&network_name_str,"network",&network);
 
   if(unpack_rc != 0) {
     traceEvent(TRACE_ERROR,"Can't unpack home net: %s",jerr.text);
@@ -404,15 +404,15 @@ static bool addHomeNetToDatabase(struct sensor *sensor, json_t *json_home_net) {
   home_net->magic = NETWORK_TREE_NODE_MAGIC;
 #endif
 
-  if(!network_name){
+  if(!network_name_str){
     traceEvent(TRACE_ERROR,"Sensor %s has a network defined with no name.",
                                                                      sensor_ip_string(sensor));
     return false;
   }
-  home_net->name = rd_memctx_strdup(&sensor->memctx, network_name);
+  home_net->name = rd_memctx_strdup(&sensor->memctx, network_name_str);
   if(NULL == home_net->name){
     traceEvent(TRACE_ERROR,"Could not allocate sensor %s network name %s.",
-                                                        sensor_ip_string(sensor),network_name);
+                                    sensor_ip_string(sensor), network_name_str);
     return false;
   }
 
@@ -458,10 +458,10 @@ static bool parse_sensor_home_nets(struct sensor *sensor,
       traceEvent(TRACE_ERROR,"home_nets in not an array in sensor %s.",
                                               sensor_ip_string(sensor));
   }else{
-    size_t index;
+    size_t net_index;
     json_t *value;
 
-    json_array_foreach(home_nets, index, value) {
+    json_array_foreach(home_nets, net_index, value) {
       if (!rc) {
         break;
       }

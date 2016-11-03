@@ -1244,11 +1244,11 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
 
     case 229:
       {
-        char *strtok_aux=NULL;
+        char *strtok_kafka_aux=NULL;
         char *_optarg = strdup(optarg);
 
-        kafka_brokers = strtok_r(_optarg, "@",&strtok_aux);
-        kafka_topic = strtok_r(NULL,"",&strtok_aux);
+        kafka_brokers = strtok_r(_optarg, "@",&strtok_kafka_aux);
+        kafka_topic = strtok_r(NULL,"",&strtok_kafka_aux);
 
         if(kafka_brokers && kafka_topic) {
           kafka_brokers = strdup(kafka_brokers);
