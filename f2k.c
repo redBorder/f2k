@@ -291,7 +291,7 @@ static uint16_t _eth_type(const struct ether_header *ehdr){
     return DLT_ANY;
 
   case DLT_RAW: /* Raw packet data */
-    if(((((uint8_t *)ehdr)[0] & 0xF0) >> 4) == 4)
+    if(((((const uint8_t *)ehdr)[0] & 0xF0) >> 4) == 4)
       return ETHERTYPE_IP;
     else
       return ETHERTYPE_IPV6;
@@ -1972,20 +1972,22 @@ int pcap_next_ex(pcap_t *p, struct pcap_pkthdr **pkt_header,
 
 /* ****************************************************** */
 
-static int next_pcap_packet(pcap_t *p, struct pcap_pkthdr *h, const uint8_t *pkt_data) {
+static int next_pcap_packet(pcap_t *p, struct pcap_pkthdr *h,
+                                                            uint8_t *pkt_data) {
   int rc;
-  uint8_t *pkt;
+  const u_char *pkt;
   struct pcap_pkthdr *hdr;
 
   // traceEvent(TRACE_NORMAL, "About to call pcap_next_ex()");
 
-  rc = pcap_next_ex(p, &hdr, (const uint8_t**)&pkt);
+  rc = pcap_next_ex(p, &hdr, &pkt);
   if((rc > 0) && (pkt != NULL) && (hdr->caplen > 0)) {
     hdr->caplen = min(hdr->caplen, readOnlyGlobals.snaplen);
-    memcpy(h, hdr, sizeof(struct pcap_pkthdr)),
-      memcpy((void*)pkt_data, (const void*)pkt, h->caplen);
-  } else
+    memcpy(h, hdr, sizeof(struct pcap_pkthdr));
+    memcpy(pkt_data, pkt, h->caplen);
+  } else {
     h->caplen = 0, h->len = 0;
+  }
 
 #if 0
   if(rc < 0)

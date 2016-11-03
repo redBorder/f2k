@@ -695,8 +695,8 @@ if(flowCache->client_mac != 0) {
 
   const uint8_t *mac = get_direction_based_client_mac(flowCache);
   if(mac!=NULL){
-    flowCache->client_mac = net2number((const char *)mac,expected_real_field_length);
-    return print_mac0(kafka_line_buffer,(char *)mac);
+    flowCache->client_mac = net2number(mac, expected_real_field_length);
+    return print_mac0(kafka_line_buffer, mac);
   }
   return 0;
 }
@@ -725,7 +725,7 @@ size_t print_direction_based_client_mac_vendor(struct printbuf *kafka_line_buffe
 
   const uint8_t *mac = get_direction_based_client_mac(flowCache);
   if(mac!=NULL)
-    return print_mac_vendor0(kafka_line_buffer,(char *)mac);
+    return print_mac_vendor0(kafka_line_buffer, mac);
   return 0;
 }
 
@@ -821,7 +821,7 @@ size_t print_engine_id(struct printbuf * kafka_line_buffer,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   assert(buffer);
 
-  return print_engine_id0(kafka_line_buffer,((uint8_t *)buffer)[0]);
+  return print_engine_id0(kafka_line_buffer,((const uint8_t *)buffer)[0]);
 }
 
 size_t print_engine_id_name(struct printbuf * kafka_line_buffer,
@@ -1162,7 +1162,7 @@ size_t print_AS6_name(struct printbuf * kafka_line_buffer,
     return 0;
   }
 
-  const struct in6_addr ipv6 = get_ipv6((uint8_t*)buffer);
+  const struct in6_addr ipv6 = get_ipv6(buffer);
   return print_AS6_name0(kafka_line_buffer,&ipv6);
 }
 
@@ -1192,7 +1192,7 @@ static size_t print_AS6_0(struct printbuf *kafka_line_buffer,const struct in6_ad
 size_t print_AS6(struct printbuf *kafka_line_buffer,
     const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
-  const struct in6_addr ipv6 = get_ipv6((uint8_t*)buffer);
+  const struct in6_addr ipv6 = get_ipv6(buffer);
   return print_AS6_0(kafka_line_buffer,&ipv6);
 }
 

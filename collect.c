@@ -548,12 +548,25 @@ static void zoo_template_complete(int rc,void *_data) {
   }
 }
 
-static void set_template_complete(int rc, const struct Stat *zk_stat __attribute__((unused)), const void *_data) {
-  zoo_template_complete(rc,(void *)_data);
+/**
+ * Remove const of a void pointer, with no warning. Use with caution, only for
+ * zk functions!
+ */
+static void *not_const_cast(const void *p) {
+  void *r;
+  memcpy(&r, &p, sizeof(r));
+  return r;
 }
 
-static void create_template_complete(int rc, const char *value __attribute__((unused)), const void *_data) {
-  zoo_template_complete(rc,(void *)_data);
+static void set_template_complete(int rc,
+        const struct Stat *zk_stat __attribute__((unused)), const void *data) {
+  zoo_template_complete(rc, not_const_cast(data));
+}
+
+static void create_template_complete(int rc,
+                                    const char *value __attribute__((unused)),
+                                    const void *data) {
+  zoo_template_complete(rc, not_const_cast(data));
 }
 
 static void saveGoodTemplateInZooKeeper(zhandle_t *zh,const FlowSetV9Ipfix *new_template) {
@@ -852,7 +865,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
             /* Check the template before handling it */
             for(fieldId=0; fieldId < template.fieldCount; fieldId++) {
               const bool is_enterprise_specific = (buffer[displ+len] & 0x80);
-              V9FlowSet *set = (V9FlowSet*)&buffer[displ+len];
+              const V9FlowSet *set = (const V9FlowSet*)&buffer[displ+len];
 
               len += 4; /* Field Type (2) + Field Length (2) */
 
@@ -897,7 +910,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
 
           /* Check the template before handling it */
           for(fieldId=0;fieldId < template.fieldCount; fieldId++) {
-            V9FlowSet *set = (V9FlowSet*)&buffer[displ+len];
+            const V9FlowSet *set = (const V9FlowSet*)&buffer[displ+len];
 
             fields[fieldId].fieldId = htons(set->templateId);
             fields[fieldId].fieldLen = htons(set->flowsetLen);
@@ -984,9 +997,9 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
   return 1;
 }
 
-static inline uint32_t *ipv6_ptr_to_ipv4_ptr(const void *vipv6) {
+static inline const uint32_t *ipv6_ptr_to_ipv4_ptr(const void *vipv6) {
   const uint8_t *ipv6 = vipv6;
-  return (uint32_t *)&ipv6[12];
+  return (const uint32_t *)&ipv6[12];
 }
 
 /** Dissect a netflow V9/V10 set with a given template
@@ -1407,16 +1420,18 @@ static struct string_list *dissectNetflowV9V10(worker_t *worker,
   int i;
 
   /* TODO do not use Netflow5Record * in this function */
-  const uint16_t flowVersion = ntohs(((NetFlow5Record *) _buffer)->flowHeader.version);
+  const uint16_t flowVersion = ntohs(((const NetFlow5Record *) _buffer)->flowHeader.version);
   const int handle_ipfix = (flowVersion == 9) ? 0 : 1;
 
   if(handle_ipfix) {
-    numEntries = ntohs((((NetFlow5Record *)_buffer)->flowHeader).count), displ = sizeof(V9FlowHeader)-4, // FIX
-    flowSequence = ntohl(((IPFIXFlowHeader *)_buffer)->flow_sequence);
+    numEntries = ntohs((((const NetFlow5Record *)_buffer)->flowHeader).count);
+    displ = sizeof(V9FlowHeader)-4; // FIX
+    flowSequence = ntohl(((const IPFIXFlowHeader *)_buffer)->flow_sequence);
   } else {
     // in NF9, numEntries is netflow length
-    numEntries = ntohs((((NetFlow5Record *)_buffer)->flowHeader).count), displ = sizeof(V9FlowHeader),
-    flowSequence = ntohl((((V9FlowHeader *)_buffer))->flow_sequence);
+    numEntries = ntohs((((const NetFlow5Record *)_buffer)->flowHeader).count);
+    displ = sizeof(V9FlowHeader);
+    flowSequence = ntohl((((const V9FlowHeader *)_buffer))->flow_sequence);
   }
 
   if(readOnlyGlobals.enable_debug) {
@@ -1458,7 +1473,7 @@ static struct string_list *dissectNetFlow(worker_t *worker,
                       struct sensor *sensor_object,
                       const uint32_t netflow_device_ip, const uint16_t dst_port,
                       const uint8_t *buffer, const ssize_t bufferLen) {
-  NetFlow5Record *the5Record = (NetFlow5Record*)buffer;
+  const NetFlow5Record *the5Record = (const NetFlow5Record*)buffer;
 
   assert(worker);
   assert(sensor_object);
@@ -1471,7 +1486,7 @@ static struct string_list *dissectNetFlow(worker_t *worker,
 
   worker->stats.num_dissected_flow_packets++;
 
-  const uint16_t flowVersion = ntohs(((NetFlow5Record *) buffer)->flowHeader.version);
+  const uint16_t flowVersion = ntohs(((const NetFlow5Record *) buffer)->flowHeader.version);
 
 #ifdef DEBUG_FLOWS
   if(readOnlyGlobals.enable_debug) {

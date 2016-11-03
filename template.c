@@ -73,12 +73,12 @@ const V9V10TemplateElementId ver9_templates[] = {
 
 /* ******************************************** */
 
-char* getStandardFieldId(size_t id) {
+const char* getStandardFieldId(size_t id) {
   int i = 0;
 
   while(ver9_templates[i].jsonElementName != NULL) {
     if(ver9_templates[i].templateElementId == id)
-      return((char*)ver9_templates[i].jsonElementName);
+      return(ver9_templates[i].jsonElementName);
     else
       i++;
   }

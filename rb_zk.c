@@ -39,6 +39,13 @@
 #define ATOMIC_TEST_AND_SET(PTR) __sync_val_compare_and_swap(PTR, false, true)
 #endif
 
+// Needed because of ZK API
+static void *not_const_cast(const void *p) {
+  void *r;
+  memcpy(&r, &p, sizeof(r));
+  return r;
+}
+
 struct zk_template_ls_root_completed_data {
 #ifndef NDEBUG
 #define ZK_TEMPLATE_LS_ROOT_COMPLETED_DATA_MAGIC 0x3A3500333A350033
@@ -63,7 +70,7 @@ static void zk_template_get_completed(int rc, const char *value, int value_len,
   const struct Stat *zk_stat, const void *_data) {
   char buf[BUFSIZ];
 
-  struct zk_template_ls_root_completed_data *data = (void *)_data;
+  struct zk_template_ls_root_completed_data *data = not_const_cast(_data);
   assert_zk_template_get_completed_data(data);
   readOnlyGlobals.zk.last_template_get_timestamp = time(NULL);
 
@@ -129,7 +136,7 @@ static void zk_template_watcher(zhandle_t *zh,int type,int state,
 static void zk_template_root_completed(int rc,const struct String_vector *strings, const void *_data) {
   assert(_data);
 
-  struct zk_template_ls_root_completed_data *data = (void *)_data;
+  struct zk_template_ls_root_completed_data *data = not_const_cast(_data);
   int i;
 
   assert_zk_template_ls_root_completed_data(data);
@@ -339,7 +346,7 @@ void init_f2k_zk(const char *new_zk_host) {
 }
 
 static void destroy_zk_handler(zhandle_t *zh) {
-  struct zk_template_ls_root_completed_data *data = (void *)zoo_get_context(zh);
+  struct zk_template_ls_root_completed_data *data = not_const_cast(zoo_get_context(zh));
   zookeeper_close(zh);
 
   pthread_cond_destroy(&data->cv);

@@ -23,7 +23,7 @@
 #include <stdint.h>
 
 struct flow_ver9_ipfix_template_elementids;
-char* getStandardFieldId(size_t id);
+const char* getStandardFieldId(size_t id);
 
 #define NTOP_BASE_ID 57472
 

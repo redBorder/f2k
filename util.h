@@ -101,7 +101,7 @@ typedef struct ipAddress {
   } ipType;
 } IpAddress;
 
-char* _intoa(IpAddress addr, char* buf, size_t bufLen);
+const char* _intoa(IpAddress addr, char* buf, size_t bufLen);
 char* _intoaV4(unsigned int addr, char* buf, size_t bufLen);
 
 /* Update LogEventSeverity2Str in util.c when changing the structure below */

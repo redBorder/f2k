@@ -138,13 +138,13 @@ char* _intoaV4(unsigned int addr, char* buf, size_t bufLen) {
 
 /* ****************************** */
 
-char* _intoa(IpAddress addr, char* buf, size_t bufLen) {
+const char* _intoa(IpAddress addr, char* buf, size_t bufLen) {
   if((addr.ipVersion == 4) || (addr.ipVersion == 0 /* Misconfigured */)){
     return(_intoaV4(addr.ipType.ipv4, buf, bufLen));
   } else {
-    char *ret;
+    const char *ret;
 
-    ret = (char*)inet_ntop(AF_INET6, &addr.ipType.ipv6, buf, bufLen);
+    ret = inet_ntop(AF_INET6, &addr.ipType.ipv6, buf, bufLen);
 
     if(ret == NULL) {
       traceEvent(TRACE_WARNING, "Internal error (buffer too short)");
@@ -267,13 +267,13 @@ uint64_t net2number(const void *vbuffer, const uint16_t real_field_len) {
   case 1:
     return *buffer;
   case 2:
-    return ntohs(*(uint16_t *)buffer);
+    return ntohs(*(const uint16_t *)buffer);
   case 4:
-    return ntohl(*(uint32_t *)buffer);
+    return ntohl(*(const uint32_t *)buffer);
   case 6: /* MAC address case */
-    return (uint64_t)ntohs(*(uint16_t *)buffer)<<32 | ntohl(*(uint32_t *)(buffer+2));
+    return (uint64_t)ntohs(*(const uint16_t *)buffer)<<32 | ntohl(*(const uint32_t *)(buffer+2));
   case 8:
-    return ntohll(*(uint64_t *)buffer);
+    return ntohll(*(const uint64_t *)buffer);
   default:
     if (readOnlyGlobals.enable_debug) {
       traceEvent(TRACE_WARNING,"Cannot transform number of size %d:",real_field_len);
