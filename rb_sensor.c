@@ -374,7 +374,7 @@ int addBadSensor(struct rb_sensors_db *database,const uint64_t sensor_ip) {
 }
 
 /// @TODO use memctx struct calls
-static int addHomeNetToDatabase(struct sensor *sensor, json_t *json_home_net) {
+static bool addHomeNetToDatabase(struct sensor *sensor, json_t *json_home_net) {
   assert(sensor);
   assert(json_home_net);
   json_error_t jerr;
@@ -382,7 +382,7 @@ static int addHomeNetToDatabase(struct sensor *sensor, json_t *json_home_net) {
 
   if(!json_is_object(json_home_net)){
     traceEvent(TRACE_ERROR,"Could not get one network of sensor %s.",sensor_ip_string(sensor));
-    return -1;
+    return false;
   }
 
   const int unpack_rc = json_unpack_ex(json_home_net,&jerr,0,"{s:s,s:s}",
@@ -390,14 +390,14 @@ static int addHomeNetToDatabase(struct sensor *sensor, json_t *json_home_net) {
 
   if(unpack_rc != 0) {
     traceEvent(TRACE_ERROR,"Can't unpack home net: %s",jerr.text);
-    return -1;
+    return false;
   }
 
   struct network_tree_node *home_net = rd_memctx_calloc(&sensor->memctx, 1,
 							sizeof(*home_net));
   if(NULL==home_net){
     traceEvent(TRACE_ERROR,"Could not allocate home net of sensor %s.",sensor_ip_string(sensor));
-    return -1;
+    return false;
   }
 
 #ifdef NETWORK_TREE_NODE_MAGIC
@@ -407,30 +407,30 @@ static int addHomeNetToDatabase(struct sensor *sensor, json_t *json_home_net) {
   if(!network_name){
     traceEvent(TRACE_ERROR,"Sensor %s has a network defined with no name.",
                                                                      sensor_ip_string(sensor));
-    return -1;
+    return false;
   }
   home_net->name = rd_memctx_strdup(&sensor->memctx, network_name);
   if(NULL == home_net->name){
     traceEvent(TRACE_ERROR,"Could not allocate sensor %s network name %s.",
                                                         sensor_ip_string(sensor),network_name);
-    return -1;
+    return false;
   }
 
   if(!network){
     traceEvent(TRACE_ERROR,"Sensor %s has a network defined with no address.",
                                                                      sensor_ip_string(sensor));
-    return -1;
+    return false;
   }
-  const int parseAddressrc = safe_parse_address(network,&home_net->netAddress);
-  if(parseAddressrc < 0){
+  const bool parseAddressrc = safe_parse_address(network,&home_net->netAddress);
+  if(!parseAddressrc){
     traceEvent(TRACE_ERROR,"Sensor %s has a home network with an invalid ip address (%s).",
                                                              sensor_ip_string(sensor),network);
-    return -1;
+    return false;
   }
   home_net->addres_as_str = rd_memctx_strdup(&sensor->memctx, network);
 
   rd_avl_insert(&sensor->home_networks,home_net,&home_net->avl_node);
-  return 0;
+  return true;
 }
 
 struct add_json_sensors_network_opaque {
@@ -451,9 +451,9 @@ struct rb_network_port_opaque {
   struct sensors_network *sensors_network;
 };
 
-static int parse_sensor_home_nets(struct sensor *sensor,
+static bool parse_sensor_home_nets(struct sensor *sensor,
 						const json_t *home_nets) {
-  int rc = 0;
+  bool rc = true;
   if(!json_is_array(home_nets)){
       traceEvent(TRACE_ERROR,"home_nets in not an array in sensor %s.",
                                               sensor_ip_string(sensor));
@@ -462,8 +462,9 @@ static int parse_sensor_home_nets(struct sensor *sensor,
     json_t *value;
 
     json_array_foreach(home_nets, index, value) {
-      if(rc != 0)
+      if (!rc) {
         break;
+      }
       rc = addHomeNetToDatabase(sensor, value);
     }
   }
@@ -471,12 +472,12 @@ static int parse_sensor_home_nets(struct sensor *sensor,
   return rc;
 }
 
-static int parse_sensor_routers_macs(struct sensor *sensor,
+static bool parse_sensor_routers_macs(struct sensor *sensor,
 					const json_t *router_mac_address) {
   if(!json_is_array(router_mac_address)) {
     traceEvent(TRACE_ERROR,"Router mac addresses is not an array in sensor %s.",
                                                       sensor_ip_string(sensor));
-    return -1;
+    return false;
   }
 
   const size_t router_mac_address_size = json_array_size(router_mac_address);
@@ -488,7 +489,7 @@ static int parse_sensor_routers_macs(struct sensor *sensor,
   if(NULL == mac_address_node) {
     traceEvent(TRACE_ERROR,"Can't allocate mac address nodes for sensor %s "
                                "(out of memory?)",sensor_ip_string(sensor));
-    return -1;
+    return false;
   }
 
   for(i=0;i<router_mac_address_size;++i) {
@@ -521,14 +522,14 @@ static int parse_sensor_routers_macs(struct sensor *sensor,
     RD_AVL_INSERT(&sensor->routers_macs,&mac_address_node[i],avl_node);
   }
 
-  return 0;
+  return true;
 }
 
-static int parse_sensor_enrichment(struct sensor *sensor,
+static bool parse_sensor_enrichment(struct sensor *sensor,
 						const json_t *enrichment) {
   if(!json_is_object(enrichment)) {
     traceEvent(TRACE_ERROR,"Enrichment field is not an object in sensor %s.",sensor_ip_string(sensor));
-    return -1;
+    return false;
   } else {
     char *tmp_enrichment = json_dumps(enrichment,
 						JSON_COMPACT|JSON_ENSURE_ASCII);
@@ -548,40 +549,40 @@ static int parse_sensor_enrichment(struct sensor *sensor,
       }
     }
 
-    return 0;
+    return true;
   }
 }
 
 #ifdef HAVE_UDNS
-static int parse_sensor_dns0(struct sensor *sensor,const json_t *dns_ptr_value,
+static bool parse_sensor_dns0(struct sensor *sensor,const json_t *dns_ptr_value,
                                                     const char *key,int flag) {
   if(NULL != dns_ptr_value) {
     if(!json_is_boolean(dns_ptr_value)) {
       const char *sensor_name = sensor_ip_string(sensor);
       traceEvent(TRACE_ERROR,"%s is not a boolean in sensor %s, can't parse it",key,
         sensor_name);
-      return -1;
+      return false;
     } else if (json_is_true(dns_ptr_value)) {
       sensor->dns_flags |= flag;
     }
   }
 
-  return 0;
+  return true;
 }
 
-static int parse_sensor_dns(struct sensor *sensor,const json_t *dns_ptr_client,
+static true parse_sensor_dns(struct sensor *sensor,const json_t *dns_ptr_client,
                                                 const json_t *dns_ptr_target) {
   return parse_sensor_dns0(sensor,dns_ptr_client,dns_ptr_client_key,
                                                        ENABLE_PTR_DNS_CLIENT)
-    || parse_sensor_dns0(sensor,dns_ptr_target,dns_ptr_target_key,
+    && parse_sensor_dns0(sensor,dns_ptr_target,dns_ptr_target_key,
                                                        ENABLE_PTR_DNS_TARGET);
 
 }
 #endif
 
-static int parse_sensor(struct sensor *sensor, json_t *jsensor) {
+static bool parse_sensor(struct sensor *sensor, json_t *jsensor) {
   json_error_t jerr;
-  int rc = 0;
+  bool rc = true;
   const json_t *home_nets=NULL, *enrichment=NULL, *span_port=NULL,
     *routers_macs=NULL;
   json_int_t fallback_first_switch = 0;
@@ -597,25 +598,25 @@ static int parse_sensor(struct sensor *sensor, json_t *jsensor) {
   if(unpack_rc != 0) {
     traceEvent(TRACE_ERROR, "Can't parse sensors network %s: %s",jerr.text,
                                                   sensor_ip_string(sensor));
-    return -1;
+    return false;
   }
 
   if(home_nets) {
     rc = parse_sensor_home_nets(sensor,home_nets);
   }
 
-  if(rc == 0 && enrichment) {
+  if(rc && enrichment) {
     rc = parse_sensor_enrichment(sensor,enrichment);
   }
 
-  if(rc == 0 && routers_macs) {
+  if(rc && routers_macs) {
     rc = parse_sensor_routers_macs(sensor,routers_macs);
   }
 
   sensor->fallback_first_switch = fallback_first_switch;
 
 #ifdef HAVE_UDNS
-  if(rc == 0) {
+  if(rc) {
     const int unpack_dns_rc = json_unpack_ex(jsensor, &jerr, 0,
       "{s?o,s?o}",dns_ptr_client_key,&dns_ptr_client,dns_ptr_target_key,&dns_ptr_target);
 
@@ -632,7 +633,7 @@ static int parse_sensor(struct sensor *sensor, json_t *jsensor) {
     if(!json_is_boolean(span_port)){
       traceEvent(TRACE_ERROR,"span_port field is not a boolean in sensor %s.",
                                                     sensor_ip_string(sensor));
-      return -1;
+      return false;
     }else{
       sensor->span_mode = json_is_true(span_port);
     }
@@ -641,7 +642,8 @@ static int parse_sensor(struct sensor *sensor, json_t *jsensor) {
   return rc;
 }
 
-static size_t tokenize_ports(char *ports_str,const char **ports,size_t ports_size, int *ok){
+static size_t tokenize_ports(char *ports_str, const char **ports,
+    size_t ports_size, bool *ok){
   size_t ports_number = 0;
   char *aux=NULL,*tok=NULL;
 
@@ -656,13 +658,13 @@ static size_t tokenize_ports(char *ports_str,const char **ports,size_t ports_siz
 
   if(ports_number == ports_size) {
     traceEvent(TRACE_ERROR,"You've reached the maximum ports allowed in a string.");
-    *ok = 0;
+    *ok = false;
   }
 
   return ports_number;
 }
 
-static int addJsonSensorsNetworkPort0(
+static bool addJsonSensorsNetworkPort0(
                                 struct add_json_sensors_network_opaque *opaque,
                                 struct sensors_network *sensors_network,
                                 const char *ports_range, json_t *ports_value) {
@@ -673,15 +675,15 @@ static int addJsonSensorsNetworkPort0(
   char errbuf[BUFSIZ];
 
   size_t i=0;
-  int tokens_ok = 1;
-  int rc = 0;
+  bool tokens_ok = true;
+  bool rc = true;
 
   strcpy(ports_aux,ports_range);
 
   const size_t ports_number = tokenize_ports(ports_aux, ports,
                                               RD_ARRAYSIZE(ports), &tokens_ok);
   if(!tokens_ok){
-    return -1;
+    return false;
   }
 
   struct sensor *sensor = calloc(1, sizeof(*sensor));
@@ -689,7 +691,7 @@ static int addJsonSensorsNetworkPort0(
     traceEvent(TRACE_ERROR,
                   "Can't allocate sensor of network %s memory (out of memory?)",
                   sensors_network->ip_str);
-    return -1;
+    return false;
   }
 
 #ifdef SENSOR_MAGIC
@@ -706,15 +708,15 @@ static int addJsonSensorsNetworkPort0(
   rd_memctx_init(&sensor->memctx, NULL, RD_MEMCTX_F_TRACK);
   sensor->refcnt.value = 1;
 
-  const int parse_rc = parse_sensor(sensor,ports_value);
-  if(parse_rc != 0) {
-    return parse_rc;
+  const bool parse_rc = parse_sensor(sensor,ports_value);
+  if (!parse_rc) {
+    return false;
   }
 
   struct sensor_port_tree_node *port_nodes = rd_memctx_calloc(&sensor->memctx,
 					ports_number, sizeof(port_nodes[0]));
 
-  for(i=0;rc == 0 && i<ports_number;++i) {
+  for(i=0;rc && i<ports_number;++i) {
     errno = 0;
     char *endptr = NULL;
     const uint16_t port = strtoul(ports[i],&endptr,0);
@@ -727,12 +729,12 @@ static int addJsonSensorsNetworkPort0(
       } else {
         traceEvent(TRACE_ERROR, "Can't listen on port %s",ports[i]);
       }
-      rc = -1;
+      rc = false;
     } else if(NULL != endptr && (!(*endptr == '\0') || isspace(*endptr))) {
       traceEvent(TRACE_ERROR,
               "Can't parse port %s: Non space extra tokens at the end of port",
               ports[i]);
-      rc = -1;
+      rc = false;
     }
 
 #ifdef SENSOR_PORT_TREE_NODE_MAGIC
@@ -746,7 +748,7 @@ static int addJsonSensorsNetworkPort0(
     if(NULL != old_node) {
       traceEvent(TRACE_ERROR,
         "Can't parse config file: collision in port %d", port);
-      return -1;
+      return false;
     }
 
     SLIST_INSERT_HEAD(&opaque->database->sensors_list, &port_nodes[i],
@@ -758,7 +760,7 @@ static int addJsonSensorsNetworkPort0(
   return rc;
 }
 
-static int addJsonSensorsNetworkPort(const char *ports_range,
+static bool addJsonSensorsNetworkPort(const char *ports_range,
                                           json_t *ports_value, void *_opaque) {
   struct rb_network_port_opaque *opaque = _opaque;
 #ifdef SENSOR_NETWORK_MAGIC
@@ -768,33 +770,33 @@ static int addJsonSensorsNetworkPort(const char *ports_range,
                             opaque->sensors_network, ports_range, ports_value);
 }
 
-static int json_assert_object_foreach_object_child(json_t *parent,const char *parent_name,
-      int (*child_cb)(const char *key,json_t *value, void *opaque),void *opaque){
-  int rc = 0;
+static bool json_assert_object_foreach_object_child(json_t *parent,const char *parent_name,
+      bool (*child_cb)(const char *key,json_t *value, void *opaque),void *opaque){
+  bool rc = true;
   const char *key = NULL;
   json_t *value = NULL;
 
   if(!json_is_object(parent)) {
     traceEvent(TRACE_ERROR,"%s in not an object in config file.\n",parent_name);
-    rc = -1;
+    rc = false;
   }
 
   json_object_foreach(parent,key,value) {
-    if(rc != 0)
+    if(!rc)
       break; /* Array not valid anymore */
 
     if(value && json_is_object(value)){
       rc = child_cb(key,value,opaque);
     } else {
       traceEvent(TRACE_ERROR,"%s is not an object in config file.\n",key);
-      rc = -1;
+      rc = false;
     }
   }
 
   return rc;
 }
 
-static int read_rb_config_sensor_networks_ports(
+static bool read_rb_config_sensor_networks_ports(
                   struct add_json_sensors_network_opaque *add_json_opaque,
                   struct sensors_network *sensors_network, const char *network,
                   json_t *jsensors_network) {
@@ -809,7 +811,7 @@ static int read_rb_config_sensor_networks_ports(
                                                                                       &opaque);
 }
 
-static int addJsonSensorsNetwork0(struct add_json_sensors_network_opaque *opaque,
+static bool addJsonSensorsNetwork0(struct add_json_sensors_network_opaque *opaque,
                             const char *network, json_t *sensors_network_json) {
   struct rb_sensors_db *database = opaque->database;
   struct sensors_network *sensors_network = NULL;
@@ -818,7 +820,7 @@ static int addJsonSensorsNetwork0(struct add_json_sensors_network_opaque *opaque
 						sizeof(*sensors_network));
   if (sensors_network==NULL) {
     traceEvent(TRACE_ERROR,"Can't allocate sensor network.");
-    return -1;
+    return false;
   }
 
 #ifdef SENSOR_NETWORK_MAGIC
@@ -827,10 +829,10 @@ static int addJsonSensorsNetwork0(struct add_json_sensors_network_opaque *opaque
 
   rd_avl_init(&sensors_network->sensors_by_port,sensor_port_tree_node_cmp,0);
 
-  const int parse_address_rc = safe_parse_address(network, &sensors_network->ip);
-  if(parse_address_rc != 0) {
+  const bool parse_address_rc = safe_parse_address(network, &sensors_network->ip);
+  if(!parse_address_rc) {
     traceEvent(TRACE_ERROR,"Can't parse network range %s",network);
-    return -1;
+    return false;
   }
   sensors_network->ip_str = rd_memctx_strdup(&database->sensors.memctx,
 								network);
@@ -846,10 +848,10 @@ static int addJsonSensorsNetwork0(struct add_json_sensors_network_opaque *opaque
   read_rb_config_sensor_networks_ports(opaque, sensors_network, network,
                                                           sensors_network_json);
 
-  return 0;
+  return true;
 }
 
-static int addJsonSensorsNetwork(const char *network, json_t *network_json,
+static bool addJsonSensorsNetwork(const char *network, json_t *network_json,
                                                                 void *vopaque) {
   struct add_json_sensors_network_opaque *opaque = vopaque;
 #ifdef ADD_JSON_NETWORK_OPAQUE_MAGIC
@@ -882,7 +884,7 @@ static struct rb_sensors_db *allocate_rb_sensors_db() {
   return database;
 }
 
-static int read_rb_config_sensors_networks(struct rb_sensors_db *database,
+static bool read_rb_config_sensors_networks(struct rb_sensors_db *database,
                               json_t *sensors_networks, worker_t **worker_list,
                               size_t worker_list_size) {
 
@@ -928,9 +930,9 @@ struct rb_sensors_db *read_rb_config(const char *json_path, listener_list *list,
     if(NULL==sensors_networks) {
       traceEvent(TRACE_ERROR,"Could not load %s(%d): %s.\n",json_path,error.line,error.text);
     } else {
-      const int rc = read_rb_config_sensors_networks(database, sensors_networks,
+      const bool rc = read_rb_config_sensors_networks(database, sensors_networks,
                                                 worker_list, worker_list_size);
-      if(rc != 0) {
+      if(!rc) {
         delete_rb_sensors_db(database);
         database = NULL;
       }

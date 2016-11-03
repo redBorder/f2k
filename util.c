@@ -984,7 +984,7 @@ static int dotted2bits(char bits[16],const char *mask,int ipv4) {
 
 /* ********************** */
 
-int parseAddress(char *address, netAddress_t *netaddress) {
+bool parseAddress(const char *address, netAddress_t *netaddress) {
   int ipv6_pton_rc, ipv4_pton_rc=0;
   union {
     struct in6_addr in6;
@@ -1019,7 +1019,7 @@ int parseAddress(char *address, netAddress_t *netaddress) {
 
   if(bits == CONST_INVALIDNETMASK) {
     traceEvent(TRACE_ERROR,"Can't parse IP %s",address);
-    return -1;
+    return false;
   }
 
 
@@ -1052,13 +1052,13 @@ int parseAddress(char *address, netAddress_t *netaddress) {
 
   if(ntop_rc == NULL) {
     traceEvent(TRACE_ERROR,"Can't parse IP %s",address);
-    return -1;
+    return false;
   }
 
   traceEvent(TRACE_INFO, "Adding %s/%d to the local network list",
 	     ntop_rc, bits);
 
-  return 0;
+  return true;
 }
 
 /* ********************** */
