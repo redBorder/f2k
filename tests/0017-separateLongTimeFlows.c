@@ -43,7 +43,7 @@ static void free_string_list(struct string_list *sl){
 // @todo use the same checks as the rest of the tests!
 static void rb_test_separate_long_time_flow()
 {
-	json_t *json_object,*json_object_son;
+	json_t *json_o,*json_object_son;
 	struct string_list * sl = NULL;
 	struct printbuf *kafka_line_buffer = NULL;
 
@@ -54,19 +54,19 @@ static void rb_test_separate_long_time_flow()
 	// traceEvent(TRACE_NORMAL,"  -> Checking if just one kafka message generated...");
 	assert_null(sl->next);
 	// traceEvent(TRACE_NORMAL,"  -> Checking if kafka message has the correct data...");
-	json_object = json_loads(sl->string->buf,0,NULL);
-	assert_non_null(json_object);
+	json_o = json_loads(sl->string->buf,0,NULL);
+	assert_non_null(json_o);
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct timestamp...");
-	json_object_son = json_object_get(json_object,"timestamp");
+	json_object_son = json_object_get(json_o,"timestamp");
 	assert_true(double_equals(json_number_value(json_object_son),1000));
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct bytes...");
-	json_object_son = json_object_get(json_object,"bytes");
+	json_object_son = json_object_get(json_o,"bytes");
 	assert_true(double_equals(json_number_value(json_object_son),20));
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct packets...");
-	json_object_son = json_object_get(json_object,"pkts");
+	json_object_son = json_object_get(json_o,"pkts");
 	assert_true(double_equals(json_number_value(json_object_son),30));
 
-	json_decref(json_object);
+	json_decref(json_o);
 	free_string_list(sl);
 
 	// traceEvent(TRACE_NORMAL, "Testing a flow with duration 0 < d < 60");
@@ -76,19 +76,19 @@ static void rb_test_separate_long_time_flow()
 	// traceEvent(TRACE_NORMAL,"  -> Checking if just one kafka message generated...");
 	assert_null(sl->next);
 	// traceEvent(TRACE_NORMAL,"  -> Checking if kafka message has the correct data...");
-	json_object = json_loads(sl->string->buf,0,NULL);
-	assert_non_null(json_object);
+	json_o = json_loads(sl->string->buf,0,NULL);
+	assert_non_null(json_o);
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct timestamp...");
-	json_object_son = json_object_get(json_object,"timestamp");
+	json_object_son = json_object_get(json_o,"timestamp");
 	assert_true(double_equals(json_number_value(json_object_son),1000));
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct bytes...");
-	json_object_son = json_object_get(json_object,"bytes");
+	json_object_son = json_object_get(json_o,"bytes");
 	assert_true(double_equals(json_number_value(json_object_son),20));
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct packets...");
-	json_object_son = json_object_get(json_object,"pkts");
+	json_object_son = json_object_get(json_o,"pkts");
 	assert_true(double_equals(json_number_value(json_object_son),30));
 
-	json_decref(json_object);
+	json_decref(json_o);
 	free_string_list(sl);
 
 	// traceEvent(TRACE_NORMAL, "Testing a flow with duration 60 < d < 120");
@@ -100,33 +100,33 @@ static void rb_test_separate_long_time_flow()
 	assert_null(sl->next->next);
 
 	// traceEvent(TRACE_NORMAL,"  -> Checking if kafka 1st message has the correct data...");
-	json_object = json_loads(sl->string->buf,0,NULL);
-	assert_non_null(json_object);
+	json_o = json_loads(sl->string->buf,0,NULL);
+	assert_non_null(json_o);
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct timestamp...");
-	json_object_son = json_object_get(json_object,"timestamp");
+	json_object_son = json_object_get(json_o,"timestamp");
 	assert_true(double_equals(json_number_value(json_object_son),1060));
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct bytes...");
-	json_object_son = json_object_get(json_object,"bytes");
+	json_object_son = json_object_get(json_o,"bytes");
 	assert_true(double_equals(json_number_value(json_object_son),2));
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct packets...");
-	json_object_son = json_object_get(json_object,"pkts");
+	json_object_son = json_object_get(json_o,"pkts");
 	assert_true(double_equals(json_number_value(json_object_son),4));
-	json_decref(json_object);
+	json_decref(json_o);
 
 	// traceEvent(TRACE_NORMAL,"  -> Checking if kafka 2nd message has the correct data...");
-	json_object = json_loads(sl->next->string->buf,0,NULL);
-	assert_non_null(json_object);
+	json_o = json_loads(sl->next->string->buf,0,NULL);
+	assert_non_null(json_o);
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct timestamp...");
-	json_object_son = json_object_get(json_object,"timestamp");
+	json_object_son = json_object_get(json_o,"timestamp");
 	assert_true(double_equals(json_number_value(json_object_son),1000));
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct bytes...");
-	json_object_son = json_object_get(json_object,"bytes");
+	json_object_son = json_object_get(json_o,"bytes");
 	assert_true(double_equals(json_number_value(json_object_son),18));
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct packets...");
-	json_object_son = json_object_get(json_object,"pkts");
+	json_object_son = json_object_get(json_o,"pkts");
 	assert_true(double_equals(json_number_value(json_object_son),26));
 	free_string_list(sl);
-	json_decref(json_object);
+	json_decref(json_o);
 
 	// traceEvent(TRACE_NORMAL, "Testing a flow with duration d > 120");
 	kafka_line_buffer = printbuf_new();
@@ -138,44 +138,44 @@ static void rb_test_separate_long_time_flow()
 	assert_null(sl->next->next->next);
 
 	// traceEvent(TRACE_NORMAL,"  -> Checking if kafka 1st message has the correct data...");
-	json_object = json_loads(sl->string->buf,0,NULL);
-	assert_non_null(json_object);
+	json_o = json_loads(sl->string->buf,0,NULL);
+	assert_non_null(json_o);
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct timestamp...");
-	json_object_son = json_object_get(json_object,"timestamp");
+	json_object_son = json_object_get(json_o,"timestamp");
 	assert_true(double_equals(json_number_value(json_object_son),1120));
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct bytes...");
-	json_object_son = json_object_get(json_object,"bytes");
+	json_object_son = json_object_get(json_o,"bytes");
 	assert_true(double_equals(json_number_value(json_object_son),6));
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct packets...");
-	json_object_son = json_object_get(json_object,"pkts");
+	json_object_son = json_object_get(json_o,"pkts");
 	assert_true(double_equals(json_number_value(json_object_son),8));
-	json_decref(json_object);
+	json_decref(json_o);
 
 	// traceEvent(TRACE_NORMAL,"  -> Checking if kafka 2nd message has the correct data...");
-	json_object = json_loads(sl->next->string->buf,0,NULL);
-	json_object_son = json_object_get(json_object,"timestamp");
+	json_o = json_loads(sl->next->string->buf,0,NULL);
+	json_object_son = json_object_get(json_o,"timestamp");
 	assert_true(double_equals(json_number_value(json_object_son),1060));
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct bytes...");
-	json_object_son = json_object_get(json_object,"bytes");
+	json_object_son = json_object_get(json_o,"bytes");
 	assert_true(double_equals(json_number_value(json_object_son),17));
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct packets...");
-	json_object_son = json_object_get(json_object,"pkts");
+	json_object_son = json_object_get(json_o,"pkts");
 	assert_true(double_equals(json_number_value(json_object_son),26));
-	json_decref(json_object);
+	json_decref(json_o);
 
 	// traceEvent(TRACE_NORMAL,"  -> Checking if kafka 3rd message has the correct data...");
-	json_object = json_loads(sl->next->next->string->buf,0,NULL);
-	assert_non_null(json_object);
+	json_o = json_loads(sl->next->next->string->buf,0,NULL);
+	assert_non_null(json_o);
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct timestamp...");
-	json_object_son = json_object_get(json_object,"timestamp");
+	json_object_son = json_object_get(json_o,"timestamp");
 	assert_true(double_equals(json_number_value(json_object_son),1000));
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct bytes...");
-	json_object_son = json_object_get(json_object,"bytes");
+	json_object_son = json_object_get(json_o,"bytes");
 	assert_true(double_equals(json_number_value(json_object_son),17));
 	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct packets...");
-	json_object_son = json_object_get(json_object,"pkts");
+	json_object_son = json_object_get(json_o,"pkts");
 	assert_true(double_equals(json_number_value(json_object_son),26));
-	json_decref(json_object);
+	json_decref(json_o);
 
 	free_string_list(sl);
 
