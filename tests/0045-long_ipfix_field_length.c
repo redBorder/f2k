@@ -25,26 +25,21 @@
 #include <cmocka.h>
 
 #ifdef __GNUC__
-#include <features.h>
 // For some reason, GCC <= 4.7 does not provide these macros
 #if !__GNUC_PREREQ(4,8)
-#if defined(__amd64__) || defined(__x86_64__) || defined(__i386__)
-#define __BYTE_ORDER__ __ORDER_LITTLE_ENDIAN__
-#define __builtin_bswap16(a) ((a)<<8u)|((a)>>8u)
-#else
-#define __BYTE_ORDER__ __ORDER_BIG_ENDIAN__
-#endif // x86 arch
+#define __BYTE_ORDER__ __BYTE_ORDER
+#define __ORDER_LITTLE_ENDIAN__ __LITTLE_ENDIAN
+#define __ORDER_BIG_ENDIAN__ __BIG_ENDIAN
+#define __builtin_bswap16(a) (((a)&0xff)<<8u)|((a)>>8u)
 #endif // GCC < 4.8
 #endif // __GNUC__
 
 #if __BYTE_ORDER__==__ORDER_LITTLE_ENDIAN__
 #define constexpr_be16toh(x) __builtin_bswap16(x)
 #define constexpr_be32toh(x) __builtin_bswap32(x)
-#define constexpr_be64toh(x) __builtin_bswap64(x)
 #else
 #define constexpr_be16toh(x) (x)
 #define constexpr_be32toh(x) (x)
-#define constexpr_be64toh(x) (x)
 #endif
 
 // Convert an uint16_t to BIG ENDIAN uint8_t[2] array initializer
