@@ -148,8 +148,8 @@ static int prepare_test_nf9_enrichment(void **state) {
 		TEST_TEMPLATE_FLOW(
 			"./tests/0024-testEnrichmentV10.json",
 			"./tests/0011-data/",
-			(uint8_t *)&v9Template, sizeof(v9Template),
-			(uint8_t *)&v9Flow, sizeof(v9Flow),
+			&v9Template, sizeof(v9Template),
+			&v9Flow, sizeof(v9Flow),
 			&checkdata, 1),
 	};
 

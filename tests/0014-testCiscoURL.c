@@ -163,10 +163,10 @@ static int prepare_test_nf10_cisco_url(void **state) {
 
 	struct test_params test_params[] = {
 		[0] = TEST("./tests/0000-testFlowV5.json", "./tests/0011-data/",
-				(uint8_t *)&v10Template, sizeof(v10Template),
+				&v10Template, sizeof(v10Template),
 				NULL, 0),
 
-		[1] = TEST(NULL, NULL, (uint8_t *)&v10Flow, sizeof(v10Flow),
+		[1] = TEST(NULL, NULL, &v10Flow, sizeof(v10Flow),
 			&sl1_checkdata, 1),
 	};
 

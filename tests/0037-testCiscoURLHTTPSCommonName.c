@@ -172,8 +172,8 @@ static int prepare_test_nf10_cisco_https(void **state) {
 
 	struct test_params test_params[] = {
 		TEST_TEMPLATE_FLOW("./tests/0033-routerMacBasedDisection.json",
-			(uint8_t*)&v10Template, sizeof(v10Template),
-			(uint8_t *)&v10Flow, sizeof(v10Flow),
+			&v10Template, sizeof(v10Template),
+			&v10Flow, sizeof(v10Flow),
 			&checkdata, 1)
 	};
 

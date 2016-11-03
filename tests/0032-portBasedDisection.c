@@ -96,9 +96,9 @@ static int prepare_test_port_direction(void **state) {
 
 	struct test_params test_params[] = {
 		TEST("./tests/0032-portBasedDisection.json",
-				2055, (uint8_t *)&record, sizeof(record),
+				2055, &record, sizeof(record),
 				&checkdata_2055, 1),
-		TEST(NULL, 2056, (uint8_t *)&record, sizeof(record),
+		TEST(NULL, 2056, &record, sizeof(record),
 				&checkdata_2056, 1)
 	};
 

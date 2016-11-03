@@ -174,11 +174,11 @@ static int prepare_test_big_bytes(void **state) {
 
 	struct test_params test_params[] = {
 		TEST("./tests/0000-testFlowV5.json",
-			(uint8_t *)&v10Template, sizeof(v10Template), NULL, 0),
-		TEST(NULL, (uint8_t *)&v10Flow_bt32bitsbytes,
+			&v10Template, sizeof(v10Template), NULL, 0),
+		TEST(NULL, &v10Flow_bt32bitsbytes,
 						sizeof(v10Flow_bt32bitsbytes),
 						&checkdata_bytes, 1),
-		TEST(NULL, (uint8_t *)&v10Flow_bt32bitspkts,
+		TEST(NULL, &v10Flow_bt32bitspkts,
 						sizeof(v10Flow_bt32bitspkts),
 						&checkdata_pkts, 1)
 	};

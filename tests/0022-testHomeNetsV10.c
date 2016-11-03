@@ -289,14 +289,14 @@ static int prepare_test_nf10_home_nets(void **state) {
 
 #define TEST_TEMPLATE_FLOW_V4(config_path, mhosts_db_path, nf_dev_ip)          \
 		TEST_TEMPLATE_FLOW0(config_path, mhosts_db_path, nf_dev_ip,    \
-			(uint8_t *)&v10Template, sizeof(v10Template),          \
-			(uint8_t *)&v10Flow, sizeof(v10Flow),                  \
+			&v10Template, sizeof(v10Template),                     \
+			&v10Flow, sizeof(v10Flow),                             \
 			checkdata_v4, RD_ARRAYSIZE(checkdata_v4))
 
 #define TEST_TEMPLATE_FLOW_V6(config_path, mhosts_db_path, nf_dev_ip)          \
 		TEST_TEMPLATE_FLOW0(config_path, mhosts_db_path, nf_dev_ip,    \
-			(uint8_t *)&v10Template_v6, sizeof(v10Template_v6),    \
-			(uint8_t *)&v10Flow_v6, sizeof(v10Flow_v6),            \
+			&v10Template_v6, sizeof(v10Template_v6),               \
+			&v10Flow_v6, sizeof(v10Flow_v6),                       \
 			checkdata_v6, RD_ARRAYSIZE(checkdata_v6))
 
 	struct test_params test_params[] = {

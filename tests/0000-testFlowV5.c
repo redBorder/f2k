@@ -98,7 +98,7 @@ static int prepare_test_nf_v5(void **state) {
 			.host_list_path = NULL,
 			.netflow_src_ip = 0x04030201,
 			.netflow_dst_port = 2055,
-			.record = (uint8_t *)&record1,
+			.record = &record1,
 			.record_size = sizeof(record1),
 			.checkdata = &checkdata,
 			.checkdata_size = 1,

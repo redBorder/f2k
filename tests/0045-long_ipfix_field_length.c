@@ -123,7 +123,7 @@ static const struct {
 	.flow_header = {
 		/*uint16_t*/ .version = constexpr_be16toh(10), /* Current version=9*/
 		/*uint16_t*/ .len = constexpr_be16toh(574),   /* The number of records in PDU. */
-		/*uint32_t*/ .sysUptime = 0xdd5d6952,     /* Current time in msecs since router booted */
+		/*uint32_t*/ .sysUptime = 0xdd5d6952ul,     /* Current time in msecs since router booted */
 		/*uint32_t*/ .flow_sequence = constexpr_be32toh(1080), /* Sequence number of total flows seen */
 		/*uint32_t*/ .observationDomainId = constexpr_be32toh(256), /* Source id */
 	},
@@ -269,10 +269,10 @@ static int prepare_test_nf10_cisco_url(void **state) {
 
 	struct test_params test_params[] = {
 		[0] = TEST("./tests/0000-testFlowV5.json", "./tests/0011-data/",
-				(uint8_t *)&v10Template, sizeof(v10Template),
+				&v10Template, sizeof(v10Template),
 				NULL, 0),
 
-		[1] = TEST(NULL, NULL, (uint8_t *)&v10Flow, sizeof(v10Flow),
+		[1] = TEST(NULL, NULL, &v10Flow, sizeof(v10Flow),
 			&sl1_checkdata, 1),
 	};
 

@@ -372,11 +372,11 @@ static int prepare_test_nf5_home_nets(void **state) {
 	struct test_params test_params[] = {
 		[0] = TEST("./tests/0020-testHomeNetsV5.json",
 					"./tests/0020-data/", 0x04030201,
-					(uint8_t *)&record1, sizeof(record1),
+					&record1, sizeof(record1),
 					checkdata1, RD_ARRAYSIZE(checkdata1)),
 
 		[1] = TEST(NULL, NULL, 0x04030301,
-					(uint8_t *)&record2, sizeof(record2),
+					&record2, sizeof(record2),
 					checkdata2, RD_ARRAYSIZE(checkdata2)),
 	};
 

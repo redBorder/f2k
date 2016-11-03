@@ -181,10 +181,10 @@ static int prepare_test_nf9_appid_enrichment(void **state) {
 
 	struct test_params test_params[] = {
 		[0] = TEST("./tests/0000-testFlowV5.json", "./tests/0010-data/",
-				(uint8_t *)&v9Template, sizeof(v9Template),
+				&v9Template, sizeof(v9Template),
 				NULL, 0),
 
-		[1] = TEST(NULL, NULL, (uint8_t *)&v9Flow, sizeof(v9Flow),
+		[1] = TEST(NULL, NULL, &v9Flow, sizeof(v9Flow),
 			sl1_checkdata, RD_ARRAYSIZE(sl1_checkdata)),
 	};
 

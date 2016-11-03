@@ -6,7 +6,7 @@
 #include "f2k.h"
 #include "collect.c"
 
-#include "rb_zk.c"
+#include "rb_zk.h"
 
 #include "rb_json_test.h"
 

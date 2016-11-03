@@ -73,7 +73,7 @@ static int prepare_test_sensor_net(void **state) {
 		.config_json_path = config_path,                               \
 		.netflow_src_ip = mnetflow_src_ip,                             \
 		.netflow_dst_port = 2055,                                      \
-		.record = (uint8_t *)&record1,                                 \
+		.record = &record1,                                            \
 		.record_size = sizeof(record1),                                \
 	}
 

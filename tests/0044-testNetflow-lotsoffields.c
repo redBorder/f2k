@@ -215,11 +215,11 @@ static int prepare_test(void **state) {
 
 	struct test_params test_params[] = {
 		TEST_TEMPLATE_FLOW("./tests/0000-testFlowV5.json",
-			(void *)&v9_template, sizeof(v9_template),
-			(void *)&v9_flow, sizeof(v9_flow), NULL, 0),
+			&v9_template, sizeof(v9_template),
+			&v9_flow, sizeof(v9_flow), NULL, 0),
 		TEST_TEMPLATE_FLOW(NULL,
-			(void *)&v10_template, sizeof(v10_template),
-			(void *)&v10_flow, sizeof(v10_flow), NULL, 0),
+			&v10_template, sizeof(v10_template),
+			&v10_flow, sizeof(v10_flow), NULL, 0),
 	};
 
 	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));

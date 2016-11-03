@@ -201,7 +201,7 @@ static void remove_temp() {
 }
 
 static int prepare_test_nf_template_save0(void **state,
-		const char *template_dir, uint8_t *record, size_t record_size,
+		const char *template_dir, const void *record, size_t record_size,
 		const struct checkdata *checkdata, size_t checkdata_sz) {
 	struct test_params test_params = {
 		.config_json_path = "./tests/0000-testFlowV5.json",
@@ -227,7 +227,7 @@ static int prepare_test_nf_template_save(void **state) {
 
 	atexit(remove_temp);
 	return prepare_test_nf_template_save0(state, tempdir_path,
-				(uint8_t *)&v10Template, sizeof(v10Template),
+				&v10Template, sizeof(v10Template),
 				NULL, 0);
 }
 
@@ -258,7 +258,7 @@ static int prepare_test_nf_template_load(void **state) {
 	};
 
 	return prepare_test_nf_template_save0(state, tempdir_path,
-					(uint8_t *)&v10Flow, sizeof(v10Flow),
+					&v10Flow, sizeof(v10Flow),
 					&checkdata, 1);
 }
 

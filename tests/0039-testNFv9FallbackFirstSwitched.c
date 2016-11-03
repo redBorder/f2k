@@ -160,10 +160,10 @@ static int prepare_test_fallback_first_switch0(void **state,
 	struct test_params test_params[] = {
 		[0] = TEST("./tests/0039-testNFv9FallbackFirstSwitched.json",
 				"./tests/0009-data/",
-				(uint8_t *)&v9Template, sizeof(v9Template),
+				&v9Template, sizeof(v9Template),
 				NULL, 0),
 
-		[1] = TEST(NULL, NULL, (uint8_t *)&v9Flow, sizeof(v9Flow),
+		[1] = TEST(NULL, NULL, &v9Flow, sizeof(v9Flow),
 			checkdata, checkdata_size),
 	};
 

@@ -147,8 +147,8 @@ static int prepare_test_nf9(void **state) {
 	struct test_params test_params[] = {
 		TEST_TEMPLATE_FLOW(
 			"./tests/0000-testFlowV5.json",
-			(uint8_t *)&v9Template, sizeof(v9Template),
-			(uint8_t *)&v9Flow, sizeof(v9Flow),
+			&v9Template, sizeof(v9Template),
+			&v9Flow, sizeof(v9Flow),
 			&checkdata, 1),
 	};
 

@@ -594,8 +594,8 @@ static int prepare_test_mac_direction(void **state) {
 		TEST_TEMPLATE_FLOW_ALL_SENSORS(
 			"./tests/0033-routerMacBasedDisection.json",
 			"./tests/0008-data/mac_vendors",
-			(uint8_t *)&v10Template, sizeof(v10Template),
-			(uint8_t *)&v10Flow_router_post_dst_macs,
+			&v10Template, sizeof(v10Template),
+			&v10Flow_router_post_dst_macs,
 					sizeof(v10Flow_router_post_dst_macs),
 			checkdata_router_post_dst_mac_span_true,
 			RD_ARRAYSIZE(checkdata_router_post_dst_mac_span_true),
@@ -606,8 +606,8 @@ static int prepare_test_mac_direction(void **state) {
 
 		/* SRC MAC */
 		TEST_TEMPLATE_FLOW_ALL_SENSORS(NULL, NULL,
-			(uint8_t *)&v10Template, sizeof(v10Template),
-			(uint8_t *)&v10Flow_src_router_mac,
+			&v10Template, sizeof(v10Template),
+			&v10Flow_src_router_mac,
 					sizeof(v10Flow_src_router_mac),
 			checkdata_router_src_mac_span_true,
 			RD_ARRAYSIZE(checkdata_router_src_mac_span_true),
@@ -618,8 +618,8 @@ static int prepare_test_mac_direction(void **state) {
 
 		/* DST MAC */
 		TEST_TEMPLATE_FLOW_ALL_SENSORS(NULL, NULL,
-			(uint8_t *)&v10Template, sizeof(v10Template),
-			(uint8_t *)&v10Flow_router_dst_macs,
+			&v10Template, sizeof(v10Template),
+			&v10Flow_router_dst_macs,
 					sizeof(v10Flow_router_dst_macs),
 			checkdata_router_dst_mac_span_true,
 			RD_ARRAYSIZE(checkdata_router_dst_mac_span_true),

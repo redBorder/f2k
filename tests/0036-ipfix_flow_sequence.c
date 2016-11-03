@@ -199,8 +199,8 @@ static int prepare_test_nf10_flow_seq(void **state) {
 
 	struct test_params test_params[] = {
 		TEST_TEMPLATE_FLOW("./tests/0033-routerMacBasedDisection.json",
-			(uint8_t*)&v10Template, sizeof(v10Template),
-			(uint8_t *)&v10Flow, sizeof(v10Flow),
+			&v10Template, sizeof(v10Template),
+			&v10Flow, sizeof(v10Flow),
 			checkdata_v10_flow_seq,
 			RD_ARRAYSIZE(checkdata_v10_flow_seq))
 	};

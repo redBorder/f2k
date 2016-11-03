@@ -165,10 +165,10 @@ static int prepare_test_nf9_multi(void **state) {
 
 	struct test_params test_params[] = {
 		[0] = TEST("./tests/0000-testFlowV5.json",
-				(uint8_t *)&v9Template, sizeof(v9Template),
+				&v9Template, sizeof(v9Template),
 				NULL, 0),
 
-		[1] = TEST(NULL, (uint8_t *)&v9Flow, sizeof(v9Flow),
+		[1] = TEST(NULL, &v9Flow, sizeof(v9Flow),
 			checkdata, RD_ARRAYSIZE(checkdata)),
 	};
 

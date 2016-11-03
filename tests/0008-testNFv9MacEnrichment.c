@@ -179,16 +179,15 @@ static int prepare_test_nf9_mac(void **state) {
 
 	struct test_params test_params[] = {
 		[0] = TEST("./tests/0000-testFlowV5.json", NULL,
-				(uint8_t *)&v9Template, sizeof(v9Template),
-				NULL, 0),
+				&v9Template, sizeof(v9Template), NULL, 0),
 
-		[1] = TEST(NULL, NULL, (uint8_t *)&v9Flow, sizeof(v9Flow),
+		[1] = TEST(NULL, NULL, &v9Flow, sizeof(v9Flow),
 					&checkdata[0], 1),
 		[2] = TEST(NULL, "./tests/0008-data/mac_vendors",
-					(uint8_t *)&v9Flow, sizeof(v9Flow),
+					&v9Flow, sizeof(v9Flow),
 					&checkdata[1], 1),
-		[3] = TEST(NULL, NULL, (uint8_t *)&v9FlowBroadcast,
-						sizeof(v9FlowBroadcast),
+		[3] = TEST(NULL, NULL, &v9FlowBroadcast,
+					sizeof(v9FlowBroadcast),
 					&checkdata[2], 1),
 	};
 

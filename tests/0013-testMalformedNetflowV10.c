@@ -129,10 +129,10 @@ static int prepare_test_nf10_malformed(void **state) {
 
 	struct test_params test_params[] = {
 		[0] = TEST("./tests/0000-testFlowV5.json", "./tests/0011-data/",
-				(uint8_t *)&v10Template, sizeof(v10Template)),
+				&v10Template, sizeof(v10Template)),
 
 		// Producing malformation with -10
-		[1] = TEST(NULL, NULL, (uint8_t *)&v10Flow, sizeof(v10Flow)-10),
+		[1] = TEST(NULL, NULL, &v10Flow, sizeof(v10Flow)-10),
 	};
 
 	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));

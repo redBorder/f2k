@@ -27,7 +27,7 @@ struct nf_test_state {
 			uint32_t netflow_src_ip;
 			uint16_t netflow_dst_port;
 
-			uint8_t *record;
+			const void *record;
 			size_t record_size;
 
 			const struct checkdata *checkdata;

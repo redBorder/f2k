@@ -80,7 +80,7 @@ static int prepare_test_nf5_enrichment(void **state) {
 		.config_json_path = "./tests/0026-testEnrichmentV5.json",
 		.host_list_path = "./tests/0011-data/",
 		.netflow_src_ip = 0x04030301, .netflow_dst_port = 2055,
-		.record = (uint8_t *)&record, .record_size = sizeof(record),
+		.record = &record, .record_size = sizeof(record),
 		.checkdata = &checkdata, .checkdata_size = 1
 	};
 

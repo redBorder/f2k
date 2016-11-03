@@ -139,7 +139,7 @@ static const struct TestV10Flow v10Flow = {
 };
 
 #ifdef TESTS_ZK_HOST
-static int prepare_test_nf_template_save0(void **state, uint8_t *record,
+static int prepare_test_nf_template_save0(void **state, const void *record,
                                           size_t record_size,
                                           const struct checkdata *checkdata,
                                           size_t checkdata_sz) {
@@ -161,7 +161,7 @@ static int prepare_test_nf_template_save0(void **state, uint8_t *record,
 static int prepare_test_nf_template_save(void **state) {
   SKIP_IF_NOT_INTEGRATION;
 
-  return prepare_test_nf_template_save0(state, (uint8_t *)&v10Template,
+  return prepare_test_nf_template_save0(state, &v10Template,
                                         sizeof(v10Template), NULL, 0);
 }
 
@@ -190,8 +190,8 @@ static int prepare_test_nf_template_load(void **state) {
   static const struct checkdata checkdata = {
       .size = RD_ARRAYSIZE(checkdata_value), .checks = checkdata_value};
 
-  return prepare_test_nf_template_save0(state, (uint8_t *)&v10Flow,
-                                        sizeof(v10Flow), &checkdata, 1);
+  return prepare_test_nf_template_save0(state, &v10Flow, sizeof(v10Flow),
+                                                                &checkdata, 1);
 }
 #else // TESTS_ZK_HOST
 
