@@ -131,13 +131,13 @@ static void assert_escape_fn(const char *src,const char *expected_result,int try
 	printbuf_free(printbuf);
 }
 
-static int test_utf8(void) {
+static void test_utf8(void **state) {
+	(void)state;
 	size_t i=0;
 	for (i=0;i<RD_ARRAY_SIZE(test_cases);++i) {
 		assert_escape_fn(test_cases[i].src,test_cases[i].expected_dst,
 			test_cases[i].try_json);
 	}
-	return 0;
 }
 
 int main() {

@@ -182,7 +182,8 @@ static void rb_test_separate_long_time_flow()
 	// traceEvent(TRACE_NORMAL,"separateLongTimeFlow() work properly.");
 }
 
-static void test_separate_long_time_flow(void) {
+static void test_separate_long_time_flow(void **state) {
+	(void)state;
 	readWriteGlobals = calloc(1,sizeof(readWriteGlobals[0]));
 
 	rb_test_separate_long_time_flow();
