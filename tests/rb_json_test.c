@@ -10,8 +10,7 @@ void *rb_json_assert_unpack(const char *json,size_t flags,const char *fmt,...){
 	json_error_t error;
 	json_t *root = json_loads(json, 0, &error);
 	if(root==NULL){
-		fprintf(stderr,"[EROR PARSING JSON][%s][%s]\n",error.text,error.source);
-		assert_true(0);
+		fail_msg("[EROR PARSING JSON][%s][%s]\n",error.text,error.source);
 	}
 
 	va_list args;
@@ -20,8 +19,7 @@ void *rb_json_assert_unpack(const char *json,size_t flags,const char *fmt,...){
 	const int unpack_rc = json_vunpack_ex(root,&error,flags,fmt,args);
 
 	if(unpack_rc != 0 /* Failure */){
-		fprintf(stderr,"[ERROR UNPACKING][%s][%s]\n",error.text,error.source);
-		assert_true(0);
+		fail_msg("[ERROR UNPACKING][%s][%s]\n",error.text,error.source);
 	}
 
 	va_end(args);
@@ -31,14 +29,6 @@ void *rb_json_assert_unpack(const char *json,size_t flags,const char *fmt,...){
 
 void free_json_unpacked(void *mem){
 	json_decref(mem);
-}
-
-static int str_equal(const char *str1,const char *str2){
-	if((str1!=NULL && str2==NULL) || (str1==NULL && str2!=NULL))
-		return 0;
-	if(str1==NULL && str2==NULL)
-		return 1;
-	return 0==strcmp(str1,str2);
 }
 
 void free_string_list(struct string_list *sl) {
@@ -85,10 +75,8 @@ static void rb_assert_json_value(const struct checkdata_value *chk_value,const j
 	case JSON_STRING:
 	{
 		const char *json_str_value = json_string_value(json_value);
-		if(0!=strcmp(json_str_value,chk_value->value)) {
-			fail_msg("[Actual:%s][Expected:%s] in (%s)\n",
-				json_str_value, chk_value->value, src);
-		}
+		assert_non_null(json_str_value);
+		assert_string_equal(json_str_value, chk_value->value);
 	}
 	break;
 	default:
@@ -103,7 +91,6 @@ void rb_assert_json(const char *str,const struct checkdata *checkdata){
 	if(root==NULL){
 		fail_msg("[EROR PARSING JSON][%s][%s]\n", error.text,
 			error.source);
-		assert_true(0);
 	}
 
 	for(i=0;i<checkdata->size;++i){
