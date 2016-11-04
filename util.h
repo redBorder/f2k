@@ -280,10 +280,9 @@ typedef struct _IPNameAssoc NumNameAssoc;
 
 bool parseAddress(const char *address, netAddress_t *netaddress);
 
-static const bool safe_parse_address(const char *addr, netAddress_t *netAddress)
+static bool safe_parse_address(const char *addr, netAddress_t *netAddress)
                                                         __attribute__((unused));
-static const bool safe_parse_address(const char *addr,
-                                                    netAddress_t *netAddress) {
+static bool safe_parse_address(const char *addr, netAddress_t *netAddress) {
   char ipv6_buffer[INET6_ADDRSTRLEN + strlen("/128")];
   snprintf(ipv6_buffer,sizeof(ipv6_buffer),"%s",addr); // Need to copy
   return parseAddress(ipv6_buffer, netAddress);
