@@ -354,7 +354,7 @@ size_t save_src_mac(struct printbuf *kafka_line_buffer,const void *buffer,const 
   assert(flowCache);
   assert(buffer);
 
-  if(unlikely(real_field_len==6)){
+  if(likely(real_field_len==6)){
     memcpy(flowCache->macs.src_mac,buffer,6);
   }else{
     if(unlikely(readOnlyGlobals.enable_debug))
@@ -368,7 +368,7 @@ size_t save_post_src_mac(struct printbuf *kafka_line_buffer,const void *buffer,c
   assert(flowCache);
   assert(buffer);
 
-  if(unlikely(real_field_len==6)){
+  if(likely(real_field_len==6)){
     memcpy(flowCache->macs.post_src_mac,buffer,6);
   }else{
     if(unlikely(readOnlyGlobals.enable_debug))
@@ -380,7 +380,7 @@ size_t save_post_src_mac(struct printbuf *kafka_line_buffer,const void *buffer,c
 size_t save_dst_mac(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   assert(flowCache);
-  if(unlikely(real_field_len==6)){
+  if(likely(real_field_len==6)){
     memcpy(flowCache->macs.dst_mac,buffer,6);
   }else{
     if(unlikely(readOnlyGlobals.enable_debug))
@@ -392,7 +392,7 @@ size_t save_dst_mac(struct printbuf *kafka_line_buffer,const void *buffer,const 
 size_t save_post_dst_mac(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache){
   assert(flowCache);
-  if(unlikely(real_field_len==6)){
+  if(likely(real_field_len==6)){
     memcpy(flowCache->macs.post_dst_mac,buffer,6);
   }else{
     if(unlikely(readOnlyGlobals.enable_debug))
