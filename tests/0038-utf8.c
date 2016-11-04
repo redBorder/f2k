@@ -121,7 +121,7 @@ static void assert_escape_fn(const char *src,const char *expected_result,int try
 	struct printbuf *printbuf = printbuf_new();
 
 	append_escaped(printbuf,src,strlen(src));
-	assert(0 == strcmp(printbuf->buf,expected_result));
+	assert_string_equal(printbuf->buf,expected_result);
 
 	if(try_json) {
 		json_t *j = json_string(printbuf->buf /*,printbuf->bpos */);

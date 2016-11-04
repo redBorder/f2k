@@ -47,7 +47,7 @@ static void test_append_escaped()
 	test_append_escaped0("test\\","test\\\\");
 }
 
-int main(int argc,char **argv){
+int main(void){
 	const struct CMUnitTest tests[] = {
 		cmocka_unit_test(test_append_escaped)
 	};

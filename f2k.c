@@ -213,7 +213,7 @@ static uint32_t printPcapStats(pcap_t *pcapPtr) {
 /* ****************************************************** */
 
 /* Return the number of dropped packets since last call */
-static uint32_t printCaptureStats(uint8_t dump_stats_on_screen) {
+static uint32_t printCaptureStats() {
 #ifdef HAVE_PF_RING
   if(!readWriteGlobals->stopPacketCapture)
     return(printPfRingStats(dump_stats_on_screen));
@@ -238,14 +238,14 @@ static void reloadCLI(int signo) {
 
 /* ****************************************************** */
 
-static void cleanup(int signo) {
+static void cleanup(int signo __attribute__((unused))) {
   static bool statsPrinted = false;
 
   if(!readOnlyGlobals.f2k_up) exit(0);
 
   if(!statsPrinted) {
     statsPrinted = true;
-    printCaptureStats(1);
+    printCaptureStats();
   }
 
   readOnlyGlobals.f2k_up = 0;
@@ -258,7 +258,7 @@ static void cleanup(int signo) {
 
 /* ****************************************************** */
 
-static void brokenPipe(int signo) {
+static void brokenPipe(int signo __attribute__((unused))) {
 #ifdef DEBUG
   traceEvent(TRACE_WARNING, "Broken pipe (socket %d closed) ?\n", currSock);
 #endif
@@ -343,7 +343,7 @@ static size_t _eth_shift(){
 }
 
 // @TODO test fragment management
-static void deepPacketDecode(u_short thread_id,
+static void deepPacketDecode(u_short thread_id __attribute__((unused)),
                              struct pcap_pkthdr *h, QueuedPacket *qpacket) {
   size_t caplen = h->caplen, length = h->len, offset = 0;
   uint8_t proto = 0;
@@ -868,8 +868,8 @@ static void initDefaults(void) {
 
 static void printArgv(int argc,char *argv[]){
   int i;
-  for(i=0; i<readOnlyGlobals.argc; i++)
-    traceEvent(TRACE_ERROR, "[%d][%s]", i, readOnlyGlobals.argv[i]);
+  for(i=0; i<argc; i++)
+    traceEvent(TRACE_ERROR, "[%d][%s]", i, argv[i]);
 }
 
 static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {

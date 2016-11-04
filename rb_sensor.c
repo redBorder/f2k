@@ -53,7 +53,7 @@ struct network_tree_node {
   char *addres_as_str;
 };
 
-static void ipv6_and(char dst[16],const char s1[16],const char s2[16]){
+static void ipv6_and(uint8_t dst[16],const uint8_t s1[16],const uint8_t s2[16]){
   /// @TODO increase unit size
   int i;
   for(i=0;i<16;++i){
@@ -69,9 +69,9 @@ static int compare_networks(const void *_network1,const void *_network2){
   assert(NETWORK_TREE_NODE_MAGIC == network2->magic);
 #endif
 
-  char _net1[16];
-  char _net2[16];
-  char netmask[16];
+  uint8_t _net1[16];
+  uint8_t _net2[16];
+  uint8_t netmask[16];
 
   ipv6_and(netmask,network1->netAddress.networkMask,
     network2->netAddress.networkMask);
@@ -187,7 +187,7 @@ static int sensor_port_tree_node_cmp(const void *n1,const void *n2) {
   return node1->port - node2->port;
 }
 
-static const struct sensor_port_tree_node dummy_sensor_port(const uint16_t port_to_search) {
+static struct sensor_port_tree_node dummy_sensor_port(const uint16_t port_to_search) {
   const struct sensor_port_tree_node dummy_sensor_port_tree_node = {
 #ifdef SENSOR_PORT_TREE_NODE_MAGIC
     .magic=SENSOR_PORT_TREE_NODE_MAGIC,
@@ -228,7 +228,8 @@ int64_t sensor_fallback_first_switch(const struct sensor *sensor){
   return sensor->fallback_first_switch;
 }
 
-static const struct network_tree_node *network_node(struct sensor *sensor,const char ip[16]){
+static const struct network_tree_node *network_node(struct sensor *sensor,
+    const uint8_t ip[16]){
   assert(sensor);
   int i;
 
@@ -261,13 +262,13 @@ static const struct network_tree_node *network_node(struct sensor *sensor,const 
   return RD_AVL_FIND(&sensor->home_networks,&dummy_network_tree_node);
 }
 
-const char *network_ip(struct sensor *sensor,const char ip[16]){
-  const struct network_tree_node *node = network_node(sensor,ip);
+const char *network_ip(struct sensor *sensor, const uint8_t ip[16]) {
+  const struct network_tree_node *node = network_node(sensor, ip);
   return node?node->addres_as_str:NULL;
 }
 
-const char *network_name(struct sensor *sensor,const char ip[16]){
-  const struct network_tree_node *node = network_node(sensor,ip);
+const char *network_name(struct sensor *sensor, const uint8_t ip[16]) {
+  const struct network_tree_node *node = network_node(sensor, ip);
   return node?node->name:NULL;
 }
 
@@ -329,8 +330,8 @@ static int compare_sensors_networks(const void *_s1,const void *_s2)
   assert(s1->magic == SENSOR_NETWORK_MAGIC);
   assert(s2->magic == SENSOR_NETWORK_MAGIC);
 
-  char ipv6[16];
-  apply_netmask(ipv6,s1->ip.network,s2->ip.networkMask);
+  uint8_t ipv6[16];
+  apply_netmask(ipv6, s1->ip.network, s2->ip.networkMask);
 
   return memcmp(ipv6,s2->ip.network,sizeof(ipv6));
 }
@@ -947,8 +948,7 @@ struct rb_sensors_db *read_rb_config(const char *json_path, listener_list *list,
   return database;
 }
 
-static const struct sensors_network dummy_sensors_network(const uint64_t ip)
-{
+static struct sensors_network dummy_sensors_network(const uint64_t ip) {
   struct sensors_network _dummy_sensor;
   memset(&_dummy_sensor,0,sizeof(_dummy_sensor));
 #ifdef SENSOR_NETWORK_MAGIC

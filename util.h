@@ -249,9 +249,9 @@ int bindthread2core(pthread_t thread_id, int core_id);
 /*        Some of this was in util.c before               */
 /* ****************************************************** */
 typedef struct {
-  char network[16];
-  char networkMask[16];
-  char broadcast[16];
+  uint8_t network[16];
+  uint8_t networkMask[16];
+  uint8_t broadcast[16];
 } netAddress_t;
 
 struct counted_string
@@ -288,15 +288,16 @@ static bool safe_parse_address(const char *addr, netAddress_t *netAddress) {
   return parseAddress(ipv6_buffer, netAddress);
 }
 
-static inline void apply_netmask(char dst[16],const char ip[16],const char netmask[16]){
+static inline void apply_netmask(uint8_t dst[16], const uint8_t ip[16], const uint8_t netmask[16]){
   int i;
   for(i=0;i<16;++i)
     dst[i] = ip[i]&netmask[i];
 }
 
-static inline const IPNameAssoc * ipInList(const char ip[16],const IPNameAssoc * list){
+static inline const IPNameAssoc * ipInList(const uint8_t ip[16],
+    const IPNameAssoc * list) {
   for(;list;list=list->next){
-    char _ip[16];
+    uint8_t _ip[16];
     apply_netmask(_ip,ip,list->number_i.net_address.networkMask);
 
     if(0==memcmp(_ip,list->number_i.net_address.network,sizeof(_ip)))
@@ -443,7 +444,7 @@ struct flowCache
   }ports;
 
   struct{
-    char src[16],dst[16];
+    uint8_t src[16],dst[16];
 #ifdef HAVE_UDNS
     /// @TODO use a memory context. Join both cases!!
     /// In case that we do not have a cache

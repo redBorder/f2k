@@ -27,7 +27,8 @@
 
 
 int32_t rb_client_mac_partitioner (const rd_kafka_topic_t *rkt,
-					 const void *key, size_t keylen,
+					 const void *key __attribute__((unused)),
+           size_t keylen __attribute__((unused)),
 					 int32_t partition_cnt,
 					 void *rkt_opaque,
 					 void *msg_opaque){
@@ -38,10 +39,11 @@ int32_t rb_client_mac_partitioner (const rd_kafka_topic_t *rkt,
     	return client_mac % partition_cnt;
 }
 
-void msg_delivered (rd_kafka_t *rk,
-  void *payload, size_t len,
+void msg_delivered (rd_kafka_t *rk __attribute__((unused)),
+  void *payload __attribute__((unused)), size_t len,
   int error_code,
-  void *opaque, void *msg_opaque) {
+  void *opaque __attribute__((unused)),
+  void *msg_opaque __attribute__((unused))) {
 
   if (error_code)
     traceEvent(TRACE_ERROR, "Message delivery failed: %s\n",

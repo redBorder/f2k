@@ -945,12 +945,12 @@ static void operator_ltlt_beuint64(uint64_t *bits) {
 }
 
 // Simulates << over ipv6 addr
-static void operator_ltlt_ipv6(char bits[16]) {
+static void operator_ltlt_ipv6(uint8_t bits[16]) {
   uint64_t *_bits=(uint64_t *)bits;
   operator_ltlt_beuint64(_bits[1] == 0 ? &_bits[0] : &_bits[1]);
 }
 
-static int int2bits(char bits[16],int number) {
+static int int2bits(uint8_t bits[16],int number) {
   int i;
   int _bits = number;
 
@@ -972,7 +972,7 @@ static int int2bits(char bits[16],int number) {
 
 /* ********************** */
 
-static int dotted2bits(char bits[16],const char *mask,int ipv4) {
+static int dotted2bits(uint8_t bits[16], const char *mask, int ipv4) {
   int num;
 
   int fields_num = sscanf(mask, "%d",&num);
@@ -1001,7 +1001,7 @@ bool parseAddress(const char *address, netAddress_t *netaddress) {
   char *mask = strchr(address, '/');
 
   if(mask == NULL){
-    int2bits(netaddress->networkMask,128);
+    int2bits(netaddress->networkMask, 128);
     bits = 128;
   }
   else {
@@ -1019,7 +1019,7 @@ bool parseAddress(const char *address, netAddress_t *netaddress) {
   }
 
   if(mask) {
-    bits = dotted2bits (netaddress->networkMask,mask,ipv4_pton_rc);
+    bits = dotted2bits (netaddress->networkMask, mask, ipv4_pton_rc);
   }
 
   if(bits == CONST_INVALIDNETMASK) {
@@ -1316,6 +1316,8 @@ uint64_t to_msec(struct timeval *tv) {
 
 /* ****************************************************** */
 
+// @TODO recover HAVE_PTHREAD_SET_AFFINITY
+// @TODO compare with bindthread2core
 void setThreadAffinity(uint core_id) {
 #ifdef HAVE_PTHREAD_SET_AFFINITY
   if((getNumCores() > 1) && (readOnlyGlobals.numProcessThreads > 1)) {
@@ -1348,6 +1350,8 @@ void setThreadAffinity(uint core_id) {
       traceEvent(TRACE_INFO, "Bound thread to core %lu/%u\n", core_id, getNumCores());
     }
   }
+#else // HAVE_PTHREAD_SET_AFFINITY
+  (void)core_id;
 #endif
 }
 
@@ -1367,8 +1371,8 @@ static size_t getNumCores(void) {
 
 /* *********************************************** */
 
-int bindthread2core(pthread_t thread_id, int core_id) {
 #ifdef HAVE_PTHREAD_SET_AFFINITY
+static int bindthread2core(pthread_t thread_id, int core_id) {
   cpu_set_t cpuset;
   int s;
 
@@ -1380,11 +1384,8 @@ int bindthread2core(pthread_t thread_id, int core_id) {
   } else {
     return(0);
   }
-#else
-  traceEvent(TRACE_WARNING, "Your system lacks of pthread_setaffinity_np() (not core binding)\n");
-  return(0);
-#endif
 }
+#endif
 
 /* ****************************************************** */
 /*                     ENEO STUFFS                        */

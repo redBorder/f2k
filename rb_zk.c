@@ -67,7 +67,7 @@ struct zk_template_ls_root_completed_data {
               assert(ZK_TEMPLATE_LS_ROOT_COMPLETED_DATA_MAGIC == (data)->magic)
 
 static void zk_template_get_completed(int rc, const char *value, int value_len,
-  const struct Stat *zk_stat, const void *_data) {
+  const struct Stat *zk_stat __attribute__((unused)), const void *_data) {
   char buf[BUFSIZ];
 
   struct zk_template_ls_root_completed_data *data = not_const_cast(_data);
@@ -109,7 +109,8 @@ static void zk_template_get_completed(int rc, const char *value, int value_len,
 }
 
 static void zk_template_watcher(zhandle_t *zh,int type,int state,
-                                const char *path, void *ctx) {
+                                const char *path,
+                                void *ctx __attribute__((unused))) {
   if(type == ZOO_CHANGED_EVENT) {
     /* The only good case */
   } else if (type == ZOO_NOTWATCHING_EVENT) {
@@ -178,8 +179,10 @@ static void zk_template_root_completed(int rc,const struct String_vector *string
   Wrapper around zk_awget_children that prints error code (if any)
   */
 static int verbose_zoo_awget_children(zhandle_t *zh, const char *path,
-        watcher_fn zk_template_root_watcher, void* watcherCtx,
-        strings_completion_t zk_template_root_completed_cb, const void *context) {
+        watcher_fn zk_template_root_watcher,
+        void* watcherCtx __attribute__((unused)),
+        strings_completion_t zk_template_root_completed_cb,
+        const void *context __attribute__((unused))) {
 
   const int get_children_rc = zoo_awget_children(zh,path,
     zk_template_root_watcher,NULL,zk_template_root_completed_cb,zoo_get_context(zh));
@@ -211,7 +214,8 @@ static int verbose_zoo_awget_children(zhandle_t *zh, const char *path,
   return get_children_rc;
 }
 
-static void zk_template_root_watcher(zhandle_t *zh,int type,int state,const char *path, void *watcherCtx) {
+static void zk_template_root_watcher(zhandle_t *zh, int type, int state,
+  const char *path, void *watcherCtx __attribute__((unused))) {
   if(type == ZOO_CHILD_EVENT){
     /* The only good case */
   } else if (type == ZOO_NOTWATCHING_EVENT) {
@@ -280,8 +284,9 @@ static bool zk_prepare(zhandle_t *zh) {
   return true;
 }
 
-static void zk_watcher(zhandle_t *zh, int type, int state, const char *path,
-             void* watcherCtx)
+static void zk_watcher(zhandle_t *zh, int type, int state,
+            const char *path __attribute__((unused)),
+            void* watcherCtx)
 {
   struct zk_template_ls_root_completed_data *data = watcherCtx;
   assert_zk_template_ls_root_completed_data(data);

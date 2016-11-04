@@ -17,12 +17,6 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-//#include "f2k.h"
-//#include "collect.c"
-
-//#include "rb_json_tests.c"
-
-//#include "librd/rdfile.h"
 #include "rb_listener.c"
 #include "f2k.h"
 
@@ -101,7 +95,8 @@ static int write_in_file(int fd,const char *buffer,size_t bufsiz) {
 	return rc;
 }
 
-static int temp_file(char *path,size_t pathsz) {
+static int temp_file(char *path, size_t pathsz) {
+	(void)pathsz; assert(pathsz >= "/tmp/f2k_test31_XXXXXX");
 	strcpy(path,"/tmp/f2k_test31_XXXXXX");
 	int fd = mkstemp(path);
 	if(fd < 0){
