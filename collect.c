@@ -363,7 +363,7 @@ static uint64_t flow_export_timestamp(const bool handle_ipfix,
     net2number((const char *)&flowHeader->unix_secs, sizeof(flowHeader->unix_secs));
 
   if (export_timestamp > (uint64_t)now + 60*10) {
-    if(readOnlyGlobals.enable_debug) {
+    if(unlikely(readOnlyGlobals.enable_debug)) {
       traceEvent(TRACE_ERROR,
         "Received a flow from the future (timestamp: %ld, src_ip: %s)",
         export_timestamp, netflow_device_ip);
@@ -374,7 +374,7 @@ static uint64_t flow_export_timestamp(const bool handle_ipfix,
   }
 
   if(export_timestamp < (uint64_t)now - 3600) {
-    if(readOnlyGlobals.enable_debug) {
+    if(unlikely(readOnlyGlobals.enable_debug)) {
       traceEvent(TRACE_ERROR,
         "Received a flow from the past (TS: %ld, src_ip: %s)",
         export_timestamp, netflow_device_ip);
@@ -446,7 +446,7 @@ static struct string_list *dissectNetFlowV5(worker_t *worker,
     if(numFlows > V5FLOWS_PER_PAK) numFlows = V5FLOWS_PER_PAK;
 
 #ifdef DEBUG_FLOWS
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
       traceEvent(TRACE_INFO, "dissectNetFlow(%d flows)", numFlows);
 #endif
 
@@ -470,7 +470,7 @@ static void saveGoodTemplateInFile(const FlowSetV9Ipfix *new_template){
     _intoaV4(new_template->templateInfo.netflow_device_ip,buffer_ipv4,sizeof(buffer_ipv4)),
     new_template->templateInfo.dst_port,
     new_template->templateInfo.templateId);
-  if(readOnlyGlobals.enable_debug)
+  if(unlikely(readOnlyGlobals.enable_debug))
     traceEvent(TRACE_NORMAL, ">>>>> Saving template in %s",filename);
   saveTemplateInFile(new_template,filename);
 }
@@ -765,7 +765,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
     isOptionTemplate = 0;
   }
 
-  if(readOnlyGlobals.enable_debug) {
+  if(unlikely(readOnlyGlobals.enable_debug)) {
     traceEvent(TRACE_INFO, "Found Template [displ=%zd]", displ);
     traceEvent(TRACE_INFO, "Found Template Type: %s", isOptionTemplate ? "Option" : "Flow");
   }
@@ -881,7 +881,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
               if(fields[fieldId].fieldLen != (uint16_t)-1) /* Variable lenght fields */
                 accumulatedLen += fields[fieldId].fieldLen;
 
-              if(readOnlyGlobals.enable_debug)
+              if(unlikely(readOnlyGlobals.enable_debug))
                 traceEvent(TRACE_NORMAL, "[%d] fieldId=%d/PEN=%s/len=%d [tot=%zu]",
                            1+fieldId, fields[fieldId].fieldId,
                            is_enterprise_specific ? "true" : "false",
@@ -901,7 +901,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
           good_template = true;
           template.flowsetLen = 4 * template.fieldCount;
 
-          if(readOnlyGlobals.enable_debug)
+          if(unlikely(readOnlyGlobals.enable_debug))
           {
             const size_t bufsize = 1024;
             char buf[bufsize];
@@ -919,7 +919,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
             len += 4; /* Field Type (2) + Field Length (2) */
             accumulatedLen +=  fields[fieldId].fieldLen;
 
-            if(readOnlyGlobals.enable_debug)
+            if(unlikely(readOnlyGlobals.enable_debug))
               traceEvent(TRACE_NORMAL, "[%d] fieldId=%d (%s)/fieldLen=%d/totLen=%zu/templateLen=%zu [%02X %02X %02X %02X]",
                          1+fieldId, fields[fieldId].fieldId,
                          getStandardFieldId(fields[fieldId].fieldId), fields[fieldId].fieldLen,
@@ -970,7 +970,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
         saveTemplate(sensor->sensor, new_template);
         worker->stats.num_known_templates++;
       } else {
-        if(readOnlyGlobals.enable_debug)
+        if(unlikely(readOnlyGlobals.enable_debug))
           traceEvent(TRACE_INFO, ">>>>> Skipping bad template [id=%d]", template.templateId);
         worker->stats.num_bad_templates_received++;
         free(fields);
@@ -978,7 +978,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
 
       displ += len, stillToProcess -= len;
 
-      if(readOnlyGlobals.enable_debug)
+      if(unlikely(readOnlyGlobals.enable_debug))
         traceEvent(TRACE_INFO,
           "Moving %zu bytes forward: new offset is %zd [stillToProcess=%zd]",
           len, displ, stillToProcess);
@@ -1099,7 +1099,7 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
       } else
         real_field_len = fields[fieldId].fieldLen, real_field_len_offset = 0;
 
-      if(readOnlyGlobals.enable_debug) {
+      if(unlikely(readOnlyGlobals.enable_debug)) {
         /* if(cursor->templateInfo.isOptionTemplate) */ {
           traceEvent(TRACE_NORMAL, ">>>>> Dissecting flow field "
                      "[optionTemplate=%d][displ=%zd/%d][template=%d][fieldId=%d][fieldLen=%d]"
@@ -1143,7 +1143,7 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
       }
       else
       {
-        if(readOnlyGlobals.enable_debug)
+        if(unlikely(readOnlyGlobals.enable_debug))
           traceEvent(TRACE_WARNING, "Unknown template id (%d)",fields[fieldId].fieldId);
       }
 
@@ -1289,7 +1289,7 @@ static struct string_list *dissectNetFlowV9V10Flow(worker_t *worker,
   if(NULL == cursor) {
 #ifdef DEBUG_FLOWS
     char ipv4_buf[1024];
-    if(readOnlyGlobals.enable_debug) {
+    if(unlikely(readOnlyGlobals.enable_debug)) {
       const uint32_t netflow_device_ip = _sensor->netflow_device_ip;
       traceEvent(TRACE_NORMAL, ">>>>> Rcvd flow with UNKNOWN template %d "
         "[sensor=%s][displ=%zd][len=%d]",
@@ -1306,7 +1306,7 @@ static struct string_list *dissectNetFlowV9V10Flow(worker_t *worker,
     return NULL;
   }
 
-  if(readOnlyGlobals.enable_debug)
+  if(unlikely(readOnlyGlobals.enable_debug))
     traceEvent(TRACE_INFO, ">>>>> Rcvd flow with known template %d [%zd...%d]",
              fs.templateId, displ, fs.flowsetLen);
 
@@ -1316,7 +1316,7 @@ static struct string_list *dissectNetFlowV9V10Flow(worker_t *worker,
     flowSequence);
 
 #ifdef DEBUG_FLOWS
-  if(readOnlyGlobals.enable_debug)
+  if(unlikely(readOnlyGlobals.enable_debug))
     traceEvent(TRACE_INFO, ">>>>> tot_len=%zu / fs.flowsetLen=%d", tot_len, fs.flowsetLen);
 #endif
 
@@ -1331,7 +1331,7 @@ static struct string_list *dissectNetFlowV9V10Flow(worker_t *worker,
                  worker->stats.num_dissected_flow_packets);
     } else {
 #ifdef DEBUG_FLOWS
-      if(readOnlyGlobals.enable_debug)
+      if(unlikely(readOnlyGlobals.enable_debug))
         traceEvent(TRACE_INFO, ">>>>> %zu bytes padding [tot_len=%zu][flow_len=%d]",
                    padding, tot_len, fs.flowsetLen);
 #endif
@@ -1353,7 +1353,7 @@ static struct string_list *dissectNetFlowV9V10Set(worker_t *worker,
   const ssize_t displ = (*_displ);
   struct string_list *kafka_string_list = NULL;
 
-  if(readOnlyGlobals.enable_debug) {
+  if(unlikely(readOnlyGlobals.enable_debug)) {
     traceEvent(TRACE_INFO, "Found FlowSet [displ=%zd]", displ);
   }
 
@@ -1434,7 +1434,7 @@ static struct string_list *dissectNetflowV9V10(worker_t *worker,
     flowSequence = ntohl((((const V9FlowHeader *)_buffer))->flow_sequence);
   }
 
-  if(readOnlyGlobals.enable_debug) {
+  if(unlikely(readOnlyGlobals.enable_debug)) {
     traceEvent(TRACE_INFO, "%s Length: %zd",
       handle_ipfix ? "IPFIX" : "V9", numEntries);
   }
@@ -1489,7 +1489,7 @@ static struct string_list *dissectNetFlow(worker_t *worker,
   const uint16_t flowVersion = ntohs(((const NetFlow5Record *) buffer)->flowHeader.version);
 
 #ifdef DEBUG_FLOWS
-  if(readOnlyGlobals.enable_debug) {
+  if(unlikely(readOnlyGlobals.enable_debug)) {
     traceEvent(TRACE_INFO,
         "NETFLOW: dissectNetFlow(len=%zd) [tot flow packets=%"PRIu64"]",
         bufferLen, worker->stats.num_dissected_flow_packets);
@@ -1497,7 +1497,7 @@ static struct string_list *dissectNetFlow(worker_t *worker,
 #endif
 
 #ifdef DEBUG_FLOWS
-  if(readOnlyGlobals.enable_debug)
+  if(unlikely(readOnlyGlobals.enable_debug))
     traceEvent(TRACE_INFO, "NETFLOW: +++++++ version=%d",  flowVersion);
 #endif
 
@@ -1529,7 +1529,7 @@ static inline int isSflow(const uint8_t *buffer){
 static void pop_all_templates(template_queue_t *template_queue) {
   queued_template_t *qtemplate = NULL;
   while((qtemplate = template_queue_pop(template_queue))) {
-    if (readOnlyGlobals.enable_debug) {
+    if (unlikely(readOnlyGlobals.enable_debug)) {
       traceEvent(TRACE_INFO, "Adding template from sensor %s",
         sensor_ip_string(qtemplate->sensor));
     }

@@ -54,7 +54,7 @@ void msg_delivered (rd_kafka_t *rk __attribute__((unused)),
 
 void parse_kafka_config(rd_kafka_conf_t *rk_conf,rd_kafka_topic_conf_t *rkt_conf,
                                const char *option){
-  if(readOnlyGlobals.enable_debug)
+  if(unlikely(readOnlyGlobals.enable_debug))
     traceEvent(TRACE_INFO,"Applying %s to rdkafka",option);
 
   char errstr[512];

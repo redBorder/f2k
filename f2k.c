@@ -1490,7 +1490,7 @@ udns_config_err:
     listener_list new_listeners_list;
     listener_list_init(&new_listeners_list);
 
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
       traceEvent(TRACE_NORMAL,"reloading sensors info");
     pthread_rwlock_wrlock(&readOnlyGlobals.rb_databases.mutex);
     if(readOnlyGlobals.rb_databases.sensors_info)

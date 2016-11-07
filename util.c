@@ -275,7 +275,7 @@ uint64_t net2number(const void *vbuffer, const uint16_t real_field_len) {
   case 8:
     return ntohll(*(const uint64_t *)buffer);
   default:
-    if (readOnlyGlobals.enable_debug) {
+    if (unlikely(readOnlyGlobals.enable_debug)) {
       traceEvent(TRACE_WARNING,"Cannot transform number of size %d:",real_field_len);
     }
     return 0;
@@ -740,9 +740,9 @@ size_t printNetflowRecordWithTemplate(struct printbuf * kafka_line_buffer, const
 #endif
 #endif
       default:
-        if (NULL == templateElement->export_fn &&
-                                        NULL == templateElement->postTemplate &&
-                                        readOnlyGlobals.enable_debug) {
+        if (unlikely(!templateElement->export_fn &&
+                                        !templateElement->postTemplate &&
+                                        readOnlyGlobals.enable_debug)) {
           traceEvent(TRACE_ERROR, "Unknown template id %s(%d).\n",
             templateElement->jsonElementName,
             templateElement->templateElementId);
@@ -1397,7 +1397,7 @@ void check_if_reload(/*const int templateElementId,*/struct rb_databases * rb_da
 
   if(unlikely(rb_databases->reload_hosts_database || rb_databases->reload_nets_database))
   {
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
       traceEvent(TRACE_NORMAL,"reloading hosts_database");
     pthread_rwlock_wrlock(&rb_databases->mutex);
     freeHostsList(rb_databases->ip_name_as_list);
@@ -1410,7 +1410,7 @@ void check_if_reload(/*const int templateElementId,*/struct rb_databases * rb_da
   }
   if(unlikely(rb_databases->reload_vlans_database))
   {
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
       traceEvent(TRACE_NORMAL,"reloading vlans_database");
     pthread_rwlock_wrlock(&rb_databases->mutex);
     unload_vlan_mapping();
@@ -1421,7 +1421,7 @@ void check_if_reload(/*const int templateElementId,*/struct rb_databases * rb_da
 
   if(unlikely(rb_databases->reload_apps_database))
   {
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
       traceEvent(TRACE_NORMAL,"reloading apps_database");
     pthread_rwlock_wrlock(&rb_databases->mutex);
     if(rb_databases->apps_name_as_list)
@@ -1436,7 +1436,7 @@ void check_if_reload(/*const int templateElementId,*/struct rb_databases * rb_da
 
   if(unlikely(rb_databases->reload_engines_database))
   {
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
       traceEvent(TRACE_NORMAL,"reloading engines_database");
     pthread_rwlock_wrlock(&rb_databases->mutex);
     freeNumList(rb_databases->engines_name_as_list);
@@ -1449,7 +1449,7 @@ void check_if_reload(/*const int templateElementId,*/struct rb_databases * rb_da
 
   if(unlikely(rb_databases->reload_domains_database))
   {
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
       traceEvent(TRACE_NORMAL,"reloading domains_database");
     pthread_rwlock_wrlock(&rb_databases->mutex);
     freeNumList(rb_databases->domains_name_as_list);
@@ -1467,7 +1467,7 @@ void check_if_reload(/*const int templateElementId,*/struct rb_databases * rb_da
 
   if(unlikely(rb_databases->reload_os_database))
   {
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
       traceEvent(TRACE_NORMAL,"reloading os_database");
     pthread_rwlock_wrlock(&rb_databases->mutex);
     freeOSList(&rb_databases->os_name_as_list);
@@ -1480,7 +1480,7 @@ void check_if_reload(/*const int templateElementId,*/struct rb_databases * rb_da
 
   if(unlikely(rb_databases->reload_macs_database))
   {
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
       traceEvent(TRACE_NORMAL,"reloading macs_database");
     pthread_rwlock_wrlock(&rb_databases->mutex);
     freeIfAddressList(&rb_databases->mac_name_database);
@@ -1493,7 +1493,7 @@ void check_if_reload(/*const int templateElementId,*/struct rb_databases * rb_da
 
   if(unlikely(rb_databases->reload_macs_vendor_database))
   {
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
       traceEvent(TRACE_NORMAL,"reloading macs_vendor_database");
     pthread_rwlock_wrlock(&rb_databases->mutex);
     if(rb_databases->mac_vendor_database)
@@ -1897,7 +1897,7 @@ struct string_list * rb_separate_long_time_flow(
 
   unsigned n_intervals_except_first = dSwitched/dInterval;
   if(n_intervals_except_first>max_intervals){
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
       traceEvent(TRACE_WARNING,
         "Too many intervals to divide (%u, max: %"PRIu64"). nIntervals set to "
         "%lu",
@@ -2016,7 +2016,7 @@ static int saveTemplateInFilef(const FlowSetV9Ipfix *template,FILE *f)
   }
   else
   {
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
     {
       char buf[1024];
       /* V9TemplateHeader */
@@ -2039,7 +2039,7 @@ static int saveTemplateInFilef(const FlowSetV9Ipfix *template,FILE *f)
   }
   else
   {
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
       traceEvent(TRACE_NORMAL,"saveTemplate(): [flowLen=%d]",template->flowLen);
   }
 
@@ -2067,7 +2067,7 @@ static int saveTemplateInFilef(const FlowSetV9Ipfix *template,FILE *f)
       return 0;
     }
 
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
     {
       traceEvent(TRACE_NORMAL,"saveTemplate(): [field %d/%d][fieldId=%d][fieldLen=%d][isPenField=%d]",
         i,templateInfo->fieldCount,template->fields[i].fieldId,template->fields[i].fieldLen,template->fields[i].isPenField);
@@ -2132,7 +2132,7 @@ static V9V10TemplateField *loadTemplateFieldsFromFile(size_t fieldCount,FILE *f)
       }
     }
 
-    if(fields && readOnlyGlobals.enable_debug)
+    if (unlikely(fields && readOnlyGlobals.enable_debug))
     {
       traceEvent(TRACE_NORMAL,
         "loadTemplate(): [field %d/%zu][fieldId=%d][fieldLen=%d]"
@@ -2170,7 +2170,7 @@ static FlowSetV9Ipfix *loadTemplateFromFile(FILE *f)
   }
   else
   {
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
     {
       char buf[1024];
       /* V9TemplateHeader */
@@ -2193,7 +2193,7 @@ static FlowSetV9Ipfix *loadTemplateFromFile(FILE *f)
   }
   else
   {
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
       traceEvent(TRACE_NORMAL,"loadTemplate(): [flowLen=%d]",template->flowLen);
   }
 
@@ -2211,7 +2211,7 @@ int saveTemplateInFile(const FlowSetV9Ipfix *template,const char *file)
   FILE * f = fopen(file,"w");
   if(f)
   {
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
     {
       char buf[1024];
       traceEvent(TRACE_NORMAL,"Saving template %d from %s to %s",
@@ -2233,12 +2233,12 @@ static FlowSetV9Ipfix *loadTemplate(const char *file)
   FILE * f = fopen(file,"r");
   if(f)
   {
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
       traceEvent(TRACE_NORMAL,"Loading template from file %s",file);
 
     FlowSetV9Ipfix *template = loadTemplateFromFile(f);
 
-    if(readOnlyGlobals.enable_debug)
+    if(unlikely(readOnlyGlobals.enable_debug))
     {
       char buf[1024];
       traceEvent(TRACE_NORMAL,"Loaded template %d of sensor %s, from file %s",
@@ -2314,7 +2314,7 @@ int loadTemplates(const char * path)
       /* sanity check */
       if(!valid_template_filename(in_file->d_name))
       {
-        if(readOnlyGlobals.enable_debug)
+        if(unlikely(readOnlyGlobals.enable_debug))
           traceEvent(TRACE_ERROR,"Not a valid filename: %s",in_file->d_name);
         continue;
       }

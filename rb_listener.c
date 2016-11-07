@@ -78,7 +78,7 @@ static void* netFlowCollectLoop0(struct port_collector *collector) {
       traceEvent(TRACE_ERROR,"Error in recvfrom: %s",strerror(errno));
     } else if(qpacket->buffer_len > 0){
 #ifdef DEBUG_FLOWS
-      if(readOnlyGlobals.enable_debug)
+      if(unlikely(readOnlyGlobals.enable_debug))
         traceEvent(TRACE_INFO,
           "NETFLOW_DEBUG: Received sFlow/NetFlow packet(len=%d)",
           qpacket->buffer_len);

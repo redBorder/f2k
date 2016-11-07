@@ -328,7 +328,7 @@ size_t print_direction(struct printbuf *kafka_line_buffer,const void *buffer,con
   else if(flowCache->macs.direction == DIRECTION_INTERNAL)
     return printbuf_memappend_fast_string(kafka_line_buffer,"internal");
 
-  if(readOnlyGlobals.enable_debug)
+  if(unlikely(readOnlyGlobals.enable_debug))
     traceEvent(TRACE_ERROR,"UNKNOWN direction: %d",flowCache->macs.direction);
   return 0;
 }

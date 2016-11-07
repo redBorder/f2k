@@ -354,7 +354,7 @@ static struct bad_sensor *find_bad_sensor(uint64_t ip,struct rb_sensors_db *db)
 int addBadSensor(struct rb_sensors_db *database,const uint64_t sensor_ip) {
   struct bad_sensor *old_sensor = find_bad_sensor(sensor_ip,database);
   if(NULL==old_sensor) {
-    if(readOnlyGlobals.enable_debug) {
+    if(unlikely(readOnlyGlobals.enable_debug)) {
       char buf[BUFSIZ];
       traceEvent(TRACE_INFO,"%s marked as bad sensor",
                                         _intoaV4(sensor_ip, buf, sizeof(buf)));
@@ -909,7 +909,7 @@ static bool read_rb_config_sensors_networks(struct rb_sensors_db *database,
 /* *** sensors database *** */
 struct rb_sensors_db *read_rb_config(const char *json_path, listener_list *list,
                               worker_t **worker_list, size_t worker_list_size) {
-  if(readOnlyGlobals.enable_debug)
+  if(unlikely(readOnlyGlobals.enable_debug))
     traceEvent(TRACE_INFO,"Reading json config");
 
   json_error_t error;
@@ -1005,7 +1005,7 @@ void saveTemplate(struct sensor *sensor,struct flowSetV9Ipfix *template)
   struct flowSetV9Ipfix *prev_template = find_sensor_template0(sensor,
   								template_id);
 
-  if (readOnlyGlobals.enable_debug) {
+  if (unlikely(readOnlyGlobals.enable_debug)) {
     char buf[BUFSIZ];
     traceEvent(TRACE_INFO, "%s [sensor=%s][id=%d]",
                         prev_template ? ">>>>> Redefined existing template " :
@@ -1027,7 +1027,7 @@ void saveTemplate(struct sensor *sensor,struct flowSetV9Ipfix *template)
     LIST_INSERT_HEAD(&sensor->over_512_templates, template, entry);
   }
 
-  if(readOnlyGlobals.enable_debug)
+  if(unlikely(readOnlyGlobals.enable_debug))
   traceEvent(TRACE_INFO, ">>>>> Defined flow template [id=%d][flowLen=%d][fieldCount=%d]",
        template->templateInfo.templateId,
        template->flowLen, template->templateInfo.fieldCount);
