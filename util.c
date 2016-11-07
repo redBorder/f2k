@@ -115,20 +115,20 @@ char* _intoaV4(unsigned int addr, char* buf, size_t bufLen) {
   cp = &buf[bufLen];
   *--cp = '\0';
 
-  n = 4;
-  do {
+  for (n = 4; n > 0; --n) {
     byte = addr & 0xff;
     *--cp = byte % 10 + '0';
     byte /= 10;
-    if(byte > 0) {
+    if (byte > 0) {
       *--cp = byte % 10 + '0';
       byte /= 10;
-      if(byte > 0)
-  *--cp = byte + '0';
+      if (byte > 0) {
+        *--cp = byte + '0';
+      }
     }
     *--cp = '.';
     addr >>= 8;
-  } while (--n > 0);
+  }
 
   /* Convert the string to lowercase */
   retStr = (char*)(cp+1);
