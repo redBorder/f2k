@@ -8,7 +8,7 @@ mkl_require gitversion as GITVERSION
 
 mkl_mkvar_append CPPFLAGS CPPFLAGS "-DFORTIFY_SOURCE=2"
 mkl_mkvar_append CPPFLAGS CPPFLAGS "-DNDEBUG"
-#mkl_mkvar_append CPPFLAGS CPPFLAGS "-ftrack-macro-expansion=2 -Wextra -Wsign-conversion"
+#mkl_mkvar_append CPPFLAGS CPPFLAGS "-ftrack-macro-expansion=2 -Wsign-conversion"
 #mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wjump-misses-init" # New in gcc 4.5
 #mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wdouble-promotion" # New in gcc 4.6
 #mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wunused-local-typedefs" # New in gcc 4.7
@@ -18,8 +18,7 @@ mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wmissing-include-dirs -Wstrict-overflow=5"
 mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wundef -Wswitch-default"
 mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wmissing-declarations"
 mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wdisabled-optimization -Wshadow"
-mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wcast-qual -Wunused"
-
+mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wcast-qual -Wunused -Wextra"
 
 mkl_toggle_option "Standard" WITH_LIBRDKAFKA        "--enable-librdkafka"        "librdkafka: For kafka export" "y"
 mkl_toggle_option "Standard" WITH_CISCO_URL         "--enable-ciscourl"          "Cisco URL flows decoding" "y"
@@ -36,11 +35,21 @@ function checks_librdkafka {
     mkl_meta_set "librdkafka" "deb" "librdkafka-dev"
     mkl_lib_check --static=-lrdkafka "librdkafka" "" fail CC "-lrdkafka -lpthread -lz" \
        "#include <librdkafka/rdkafka.h>"
+}
 
+function checks_no_missing_initializers {
+  # GCC<4.7 throws this warning if with >1 members is initialized = {0}
+  # TODO check with clang
+  MAJOR=$(echo __GNUC__ | ${CC} -E -x c - | tail -n 1)
+  MINOR=$(echo __GNUC_MINOR__ | ${CC} -E -x c - | tail -n 1)
+  if [ $MAJOR -le 5 ] && [ $MINOR -lt 1 ]; then
+    mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wno-missing-field-initializers"
+  fi
 }
 
 function checks {
     mkl_define_set "OS name" "osName" "`uname`"
+    checks_no_missing_initializers
 
     mkl_lib_check --static=-lrd "librd" "" fail CC "-lrd -lpthread -lz -lrt" \
        "#include <librd/rd.h>"
