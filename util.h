@@ -46,6 +46,13 @@
 #define likely(x)       __builtin_expect(!!(x),1)
 #define unlikely(x)     __builtin_expect(!!(x),0)
 
+#ifdef HAVE_ATOMICS_32_ATOMIC
+// Atomic test & set
+#define ATOMIC_TEST_AND_SET(PTR) __atomic_test_and_set(PTR, __ATOMIC_SEQ_CST)
+#else /* HAVE_ATOMICS_32_SYNC */
+#define ATOMIC_TEST_AND_SET(PTR) __sync_val_compare_and_swap(PTR, false, true)
+#endif
+
 /* ********* Packets queue ************ */
 typedef struct queued_packet_s {
   uint32_t netflow_device_ip;

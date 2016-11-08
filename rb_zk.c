@@ -32,13 +32,6 @@
 
 #ifdef HAVE_ZOOKEEPER
 
-#ifdef HAVE_ATOMICS_32_ATOMIC
-// Atomic test & set
-#define ATOMIC_TEST_AND_SET(PTR) __atomic_test_and_set(PTR, __ATOMIC_SEQ_CST)
-#else /* HAVE_ATOMICS_32_SYNC */
-#define ATOMIC_TEST_AND_SET(PTR) __sync_val_compare_and_swap(PTR, false, true)
-#endif
-
 // Needed because of ZK API
 static void *not_const_cast(const void *p) {
   void *r;

@@ -84,7 +84,7 @@ static const struct checkdata_value checkdata_values[] = {
     {.key = "src_port", .value = "443"},
     {.key = "dst_port", .value = "10101"},
     {.key = "srv_port", .value = "443"},
-    {.key = "tcp_flags", .value = "0"},
+    {.key = "tcp_flags", .value = NULL},
     {.key = "l4_proto", .value = "2"},
     {.key = "engine_type", .value = "0"},
     {.key = "sensor_ip", .value = "4.3.2.1"},

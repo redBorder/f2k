@@ -17,6 +17,19 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
+struct rb_netflow_test {
+#define NF_TEST_STATE_MAGIC 0x355AEA1C355AEA1C
+	uint64_t magic;
+	struct {
+		struct test_params *records;
+		size_t records_size;
+	} params;
+	struct {
+		struct string_list **sl;
+	} ret;
+	rd_memctx_t memctx;
+};
+
 int nf_test_setup(void **state) {
 	(void)state;
 	/// @TODO we have, to get away of this stuff!! the code is too dependent of itself

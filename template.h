@@ -105,7 +105,7 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, PROTOCOL,4, DONT_QUOTE_OUTPUT, "PROTOCOL", "l4_proto", "protocolIdentifier", "IP protocol byte",print_number , NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, PROTOCOL_MAP,NTOP_BASE_NETFLOW_ID+4, QUOTE_OUTPUT, "PROTOCOL_MAP", "l4_proto_name", "", "IP protocol name", print_proto_name, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, SRC_TOS, 5, DONT_QUOTE_OUTPUT, "SRC_TOS", "tos", "ipClassOfService", "Type of service byte", print_number, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, TCP_FLAGS, 6, QUOTE_OUTPUT, "TCP_FLAGS", "tcp_flags", "tcpControlBits", "Cumulative of all flow TCP flags", print_number, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, TCP_FLAGS, 6, QUOTE_OUTPUT, "TCP_FLAGS", "tcp_flags", "tcpControlBits", "Cumulative of all flow TCP flags", print_tcp_flags, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, L4_SRC_PORT, 7, DONT_QUOTE_OUTPUT, "L4_SRC_PORT", "src_port", "src_port", "IPv4 source port",print_src_port,C(L4_SRV_PORT))\
 	X(STANDARD_ENTERPRISE_ID, L4_SRC_PORT_MAP, NTOP_BASE_NETFLOW_ID+7, QUOTE_OUTPUT, "L4_SRC_PORT_MAP", "src_port_name", "", "Layer 4 source port symbolic name", NO_FN,NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_ADDR, 8, QUOTE_OUTPUT, "IPV4_SRC_ADDR", "src", "sourceIPv4Address", "IPv4 source address" , print_ipv4_src_addr, C(IPV4_SRC_NET, IPV4_SRC_ASNUM, SRC_IP_COUNTRY))\

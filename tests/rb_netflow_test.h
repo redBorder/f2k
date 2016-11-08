@@ -26,6 +26,44 @@
 #include <stdint.h>
 #include <string.h>
 
+#ifdef __GNUC__
+// For some reason, GCC <= 4.7 does not provide these macros
+#if !__GNUC_PREREQ(4,8)
+#define __BYTE_ORDER__ __BYTE_ORDER
+#define __ORDER_LITTLE_ENDIAN__ __LITTLE_ENDIAN
+#define __ORDER_BIG_ENDIAN__ __BIG_ENDIAN
+#define __builtin_bswap16(a) (((a)&0xff)<<8u)|((a)>>8u)
+#endif // GCC < 4.8
+#endif // __GNUC__
+
+#if __BYTE_ORDER__==__ORDER_LITTLE_ENDIAN__
+#define constexpr_be16toh(x) __builtin_bswap16(x)
+#define constexpr_be32toh(x) __builtin_bswap32(x)
+#else
+#define constexpr_be16toh(x) (x)
+#define constexpr_be32toh(x) (x)
+#endif
+
+#define NF5_IP(a, b, c, d) (((a)<<24)|((b)<<16)|((c)<<8)|(d))
+
+// Convert an uint16_t to BIG ENDIAN uint8_t[2] array initializer
+#define UINT16_TO_UINT8_ARR(x) ((x)>>8), ((x)&0xff)
+
+#define UINT32_TO_UINT8_ARR(x) \
+	UINT16_TO_UINT8_ARR((x)>>16), UINT16_TO_UINT8_ARR((x)&0xffff)
+
+#define UINT64_TO_UINT8_ARR(x) \
+	UINT32_TO_UINT8_ARR((x##l)>>32), UINT32_TO_UINT8_ARR((x##l)&0xffffffff)
+
+#define TEMPLATE_ENTITY(entity, len) \
+	UINT16_TO_UINT8_ARR(entity), UINT16_TO_UINT8_ARR(len)
+
+#define TEMPLATE_PRIVATE_ENTITY(field_type, len, pen) \
+	UINT16_TO_UINT8_ARR(field_type | 0x8000), \
+	UINT16_TO_UINT8_ARR(len), UINT32_TO_UINT8_ARR(pen)
+
+#define FLOW_APPLICATION_ID(type, id) UINT32_TO_UINT8_ARR(type<<24 | id)
+
 int nf_test_setup(void **state);
 
 int nf_test_teardown(void **state);

@@ -47,6 +47,10 @@ size_t print_number(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
 
+size_t print_tcp_flags(struct printbuf * kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_len_offset, struct flowCache *flowCache);
+
 size_t print_netflow_type(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);

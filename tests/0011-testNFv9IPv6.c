@@ -124,7 +124,7 @@ static const struct checkdata_value checkdata_values1[] = {
 	{.key = "type", .value="netflowv9"},
 	{.key = "l4_proto", .value="17"},
 	{.key = "tos", .value="0"},
-	{.key = "tcp_flags", .value="0"},
+	{.key = "tcp_flags", .value=NULL},
 	{.key = "src_port", .value="2401"},
 	{.key = "input_snmp", .value="0"},
 	{.key = "dst_port", .value="53"},

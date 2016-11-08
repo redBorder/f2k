@@ -119,7 +119,7 @@ static const NetFlow5Record record1 = {
 	{.key="input_snmp",.value="0"}, \
 	{.key="output_snmp",.value="65280"}, \
 	{.key="tos",.value="0"}, \
-	{.key="tcp_flags",.value="0"}, \
+	{.key="tcp_flags",.value=NULL}, \
 	{.key="l4_proto",.value="2"}, \
 	{.key="engine_type",.value="0"}, \
 	{.key="sensor_ip",.value="4.3.2.1"}

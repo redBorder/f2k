@@ -218,6 +218,55 @@ size_t print_string(struct printbuf *kafka_line_buffer,
   return kafka_line_buffer->bpos - bef_len;
 }
 
+size_t print_tcp_flags(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_len_offset, struct flowCache *flowCache) {
+  // Avoid warning storm
+  static bool warned = false;
+
+  const size_t start_bpos = kafka_line_buffer->bpos;
+  char tcp_flags_str[8];
+  size_t i;
+
+  assert_multi(kafka_line_buffer, buffer);
+  unused_params(flowCache);
+
+  if (unlikely(real_field_len != 1 && real_field_len != 2)) {
+    if (unlikely(ATOMIC_TEST_AND_SET(&warned))) {
+      traceEvent(TRACE_ERROR, "TCP flags length %zu not in (1,2)",
+        real_field_len);
+    }
+    return 0;
+  }
+
+  const uint8_t tcp_flags = 1==real_field_len ?
+                            ((const uint8_t *)buffer)[real_field_len_offset] :
+                            ((const uint8_t *)buffer)[real_field_len_offset+1];
+
+  if (0 == tcp_flags) {
+    // Not interesting
+    return 0;
+  }
+
+  for (i=0; i<RD_ARRAYSIZE(tcp_flags_str); ++i) {
+    // 0x80, CWR  Congestion Window Reduced
+    // 0x40, ECE  ECN Echo
+    // 0x20, URG  Urgent Pointer
+    // 0x10, ACK  Acknowledgment
+    // 0x08, PSH  Push Function
+    // 0x04, RST  Reset the connection
+    // 0x02, SYN  Synchronize sequence numbers
+    // 0x01, FIN  No more data from sender'
+    static const char flag_id_char[] = "CEUAPRSF";
+    tcp_flags_str[i] = (tcp_flags & 1<<(7-i)) ? flag_id_char[i] : '.';
+  }
+
+  printbuf_memappend_fast(kafka_line_buffer, tcp_flags_str,
+                                              sizeof(tcp_flags_str));
+  return kafka_line_buffer->bpos - start_bpos;
+}
+
+
 size_t print_number(struct printbuf *kafka_line_buffer,
     const void *vbuffer,const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flowCache){
