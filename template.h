@@ -29,6 +29,8 @@ const char* getStandardFieldId(size_t id);
 
 /* 1024 custom ntop elements for v9 should be enough */
 #define NTOP_BASE_NETFLOW_ID  NTOP_BASE_ID+1024
+// Netflow ID for not-netflow elements, like *_name
+#define PRIVATE_ENTITY_ID NTOP_BASE_NETFLOW_ID+__COUNTER__
 
 /* Last used identified is NTOP_BASE_ID+351 */
 /// @TODO #define REDBORDER_BASE_ID NTOP_BASE_ID+351
@@ -38,23 +40,23 @@ const char* getStandardFieldId(size_t id);
 
 #ifdef HAVE_GEOIP
 #define X_GEO_IP \
-	X(NTOP_ENTERPRISE_ID, SRC_IP_COUNTRY, NTOP_BASE_ID+101, QUOTE_OUTPUT, "SRC_IP_COUNTRY", "src_country_code", "", "Country where the src IP is located",print_country_code,NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, SRC_IP_COUNTRY_LONG, NTOP_BASE_ID+363, QUOTE_OUTPUT, "SRC_IP_COUNTRY_LONG", "src_country", "", "Country where the src IP is located (long format)",NO_FN,NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, SRC_IP_CITY, NTOP_BASE_ID+102, QUOTE_OUTPUT, "SRC_IP_CITY", "src_city", "", "City where the src IP is located",NO_FN,NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, DST_IP_COUNTRY, NTOP_BASE_ID+103, QUOTE_OUTPUT, "DST_IP_COUNTRY", "dst_country_code", "", "Country where the dst IP is located",print_country_code,NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, DST_IP_COUNTRY_LONG, NTOP_BASE_ID+362, QUOTE_OUTPUT, "DST_IP_COUNTRY_LONG", "dst_country", "", "Country where the dst IP is located (long format)",NO_FN,NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, DST_IP_CITY, NTOP_BASE_ID+104, QUOTE_OUTPUT, "DST_IP_CITY", "dst_city", "", "City where the dst IP is located",NO_FN,NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, IPV6_SRC_IP_COUNTRY, NTOP_BASE_ID+420, QUOTE_OUTPUT, "IPV6_SRC_IP_COUNTRY", "src_country_code", "", "Country where the src IP is located (IPv6)",print_country6_code, NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, IPV6_SRC_IP_COUNTRY_LONG, NTOP_BASE_ID+422, QUOTE_OUTPUT, "IPV6_SRC_IP_COUNTRY_LONG", "src_country", "", "Country where the src IP is located (long format) (IPv6)",NO_FN,NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, IPV6_DST_IP_COUNTRY, NTOP_BASE_ID+419, QUOTE_OUTPUT, "IPV6_DST_IP_COUNTRY", "dst_country_code", "", "Country where the dst IP is located (IPv6)",print_country6_code, NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, IPV6_DST_IP_COUNTRY_LONG, NTOP_BASE_ID+421, QUOTE_OUTPUT, "IPV6_DST_IP_COUNTRY_LONG", "dst_country", "", "Country where the dst IP is located (long format) (IPv6)",NO_FN,NO_CHILDS)
+	X(NTOP_ENTERPRISE_ID, SRC_IP_COUNTRY, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "SRC_IP_COUNTRY", "src_country_code", "", "Country where the src IP is located",print_country_code,NO_CHILDS)\
+	X(NTOP_ENTERPRISE_ID, SRC_IP_COUNTRY_LONG, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "SRC_IP_COUNTRY_LONG", "src_country", "", "Country where the src IP is located (long format)",NO_FN,NO_CHILDS)\
+	X(NTOP_ENTERPRISE_ID, SRC_IP_CITY, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "SRC_IP_CITY", "src_city", "", "City where the src IP is located",NO_FN,NO_CHILDS)\
+	X(NTOP_ENTERPRISE_ID, DST_IP_COUNTRY, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DST_IP_COUNTRY", "dst_country_code", "", "Country where the dst IP is located",print_country_code,NO_CHILDS)\
+	X(NTOP_ENTERPRISE_ID, DST_IP_COUNTRY_LONG, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DST_IP_COUNTRY_LONG", "dst_country", "", "Country where the dst IP is located (long format)",NO_FN,NO_CHILDS)\
+	X(NTOP_ENTERPRISE_ID, DST_IP_CITY, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DST_IP_CITY", "dst_city", "", "City where the dst IP is located",NO_FN,NO_CHILDS)\
+	X(NTOP_ENTERPRISE_ID, IPV6_SRC_IP_COUNTRY, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_SRC_IP_COUNTRY", "src_country_code", "", "Country where the src IP is located (IPv6)",print_country6_code, NO_CHILDS)\
+	X(NTOP_ENTERPRISE_ID, IPV6_SRC_IP_COUNTRY_LONG, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_SRC_IP_COUNTRY_LONG", "src_country", "", "Country where the src IP is located (long format) (IPv6)",NO_FN,NO_CHILDS)\
+	X(NTOP_ENTERPRISE_ID, IPV6_DST_IP_COUNTRY, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_DST_IP_COUNTRY", "dst_country_code", "", "Country where the dst IP is located (IPv6)",print_country6_code, NO_CHILDS)\
+	X(NTOP_ENTERPRISE_ID, IPV6_DST_IP_COUNTRY_LONG, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_DST_IP_COUNTRY_LONG", "dst_country", "", "Country where the dst IP is located (long format) (IPv6)",NO_FN,NO_CHILDS)
 #else
 #define X_GEO_IP
 #endif
 
 #ifdef SECONDS_PRECISION
 #define X_SECONDS_PRECISION
-	X(STANDARD_ENTERPRISE_ID, CISCO_SECONDS_PRECISION, NTOP_BASE_ID + 509, DONT_QUOTE_OUTPUT, "CISCO_SECONDS", "second", "flowEndSysUpTime", "SysUptime (msec) of the last flow pkt",NO_FN, NO_CHILDS)
+	X(STANDARD_ENTERPRISE_ID, CISCO_SECONDS_PRECISION, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "CISCO_SECONDS", "second", "flowEndSysUpTime", "SysUptime (msec) of the last flow pkt",NO_FN, NO_CHILDS)
 #else
 #define X_SECONDS_PRECISION
 #endif
@@ -62,32 +64,32 @@ const char* getStandardFieldId(size_t id);
 #ifdef HAVE_CISCO_URL
 #define X_CISCO_URL \
 	X(CISCO_ENTERPRISE_ID, CISCO_URL, 12235, QUOTE_OUTPUT, "CISCO_URL", "", "", "CISCO HTTP.",NO_FN,C(CISCO_HTTP_URL,CISCO_HTTP_HOST,CISCO_HTTP_USER_AGENT,CISCO_HTTP_REFERER,CISCO_HTTPS_COMMON_NAME))\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_URL, NTOP_BASE_ID+370, QUOTE_OUTPUT, "HTTP_URL", "http_url", "", "CISCO HTTP_URL information.",print_http_url,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_HOST, NTOP_BASE_ID+371, QUOTE_OUTPUT, "HTTP_HOST", "http_host", "", "CISCO HTTP_HOST information.",print_http_host,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_HOST_L1, NTOP_BASE_ID+372, QUOTE_OUTPUT, "HTTP_HOST_L1", "http_host_l1", "", "CISCO HTTP_HOST level 1 domain information.",NO_FN,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_HOST_L2, NTOP_BASE_ID+373, QUOTE_OUTPUT, "HTTP_HOST_L2", "http_host_l2", "", "CISCO HTTP_HOST level 2 domain information.",NO_FN,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_USER_AGENT, NTOP_BASE_ID+374, QUOTE_OUTPUT, "HTTP_USER_AGENT", "http_user_agent", "", "CISCO HTTP_USER_AGENT information.",print_http_user_agent,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_USER_AGENT_OS, NTOP_BASE_ID+375, QUOTE_OUTPUT, "HTTP_USER_AGENT_OS", "http_user_agent_os", "", "CISCO HTTP_USER_AGENT OS information.",NO_FN,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_REFERER, NTOP_BASE_ID+376, QUOTE_OUTPUT, "HTTP_REFERER", "http_referer", "", "CISCO HTTP_REFERER information.",print_http_referer,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_REFERER_L1, NTOP_BASE_ID+377, QUOTE_OUTPUT, "HTTP_REFERER_L1", "http_referer_l1", "", "CISCO HTTP_REFERER level 1 domain.",NO_FN,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_REFERER_L2, NTOP_BASE_ID+378, QUOTE_OUTPUT, "HTTP_REFERER_L2", "http_referer_l2", "", "CISCO HTTP_REFERER level 2 domain.",NO_FN,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTPS_COMMON_NAME, NTOP_BASE_ID + 513, QUOTE_OUTPUT, "HTTPS_COMMON_NAME", "https_common_name", "", "CISCO HTTPS certificate common name.",print_https_common_name,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_SOCIAL_USER_FB, NTOP_BASE_ID+501, QUOTE_OUTPUT, "HTTP_SOCIAL_USER_FB", "http_social_user", "", "Social media id (based on CISCO HTTP_URL information.)",NO_FN,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_SOCIAL_MEDIA_IG, NTOP_BASE_ID+502, QUOTE_OUTPUT, "HTTP_SOCIAL_MEDIA_IG", "http_social_media", "", "Social media id (based on CISCO HTTP_URL information.)",NO_FN,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_SOCIAL_MEDIA_YT, NTOP_BASE_ID+503, QUOTE_OUTPUT, "HTTP_SOCIAL_MEDIA_YT", "http_social_media", "", "Social media id (based on CISCO HTTP_URL information.)",NO_FN,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_SOCIAL_MEDIA_TT, NTOP_BASE_ID+504, QUOTE_OUTPUT, "HTTP_SOCIAL_MEDIA_TT", "http_social_media", "", "Social media id (based on CISCO HTTP_URL information.)",NO_FN,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_SOCIAL_USER_TT, NTOP_BASE_ID+505, QUOTE_OUTPUT, "HTTP_SOCIAL_USER", "http_social_user", "", "Social media id (based on CISCO HTTP_URL information.)",NO_FN,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_SOCIAL_USER_YT, NTOP_BASE_ID+506, QUOTE_OUTPUT, "HTTP_SOCIAL_USER_YT", "http_social_user", "", "Social media id (based on CISCO HTTP_URL information.)",NO_FN,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_SOCIAL_USER_YT_REFERER, NTOP_BASE_ID+507, QUOTE_OUTPUT, "HTTP_SOCIAL_USER_YT_REFERER", "http_social_user", "", "Social media id (based on CISCO HTTP_URL information.)",NO_FN,NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_SOCIAL_USER_DROPBOX, NTOP_BASE_ID + 508, QUOTE_OUTPUT, "HTTP_SOCIAL_USER_DROPBOX", "http_social_user", "", "Social media id (based on CISCO HTTP_URL information.)",NO_FN,NO_CHILDS)
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_URL, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_URL", "http_url", "", "CISCO HTTP_URL information.",print_http_url,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_HOST, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_HOST", "http_host", "", "CISCO HTTP_HOST information.",print_http_host,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_HOST_L1, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_HOST_L1", "http_host_l1", "", "CISCO HTTP_HOST level 1 domain information.",NO_FN,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_HOST_L2, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_HOST_L2", "http_host_l2", "", "CISCO HTTP_HOST level 2 domain information.",NO_FN,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_USER_AGENT, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_USER_AGENT", "http_user_agent", "", "CISCO HTTP_USER_AGENT information.",print_http_user_agent,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_USER_AGENT_OS, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_USER_AGENT_OS", "http_user_agent_os", "", "CISCO HTTP_USER_AGENT OS information.",NO_FN,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_REFERER, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_REFERER", "http_referer", "", "CISCO HTTP_REFERER information.",print_http_referer,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_REFERER_L1, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_REFERER_L1", "http_referer_l1", "", "CISCO HTTP_REFERER level 1 domain.",NO_FN,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_REFERER_L2, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_REFERER_L2", "http_referer_l2", "", "CISCO HTTP_REFERER level 2 domain.",NO_FN,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTPS_COMMON_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTPS_COMMON_NAME", "https_common_name", "", "CISCO HTTPS certificate common name.",print_https_common_name,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_SOCIAL_USER_FB, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_SOCIAL_USER_FB", "http_social_user", "", "Social media id (based on CISCO HTTP_URL information.)",NO_FN,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_SOCIAL_MEDIA_IG, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_SOCIAL_MEDIA_IG", "http_social_media", "", "Social media id (based on CISCO HTTP_URL information.)",NO_FN,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_SOCIAL_MEDIA_YT, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_SOCIAL_MEDIA_YT", "http_social_media", "", "Social media id (based on CISCO HTTP_URL information.)",NO_FN,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_SOCIAL_MEDIA_TT, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_SOCIAL_MEDIA_TT", "http_social_media", "", "Social media id (based on CISCO HTTP_URL information.)",NO_FN,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_SOCIAL_USER_TT, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_SOCIAL_USER", "http_social_user", "", "Social media id (based on CISCO HTTP_URL information.)",NO_FN,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_SOCIAL_USER_YT, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_SOCIAL_USER_YT", "http_social_user", "", "Social media id (based on CISCO HTTP_URL information.)",NO_FN,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_SOCIAL_USER_YT_REFERER, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_SOCIAL_USER_YT_REFERER", "http_social_user", "", "Social media id (based on CISCO HTTP_URL information.)",NO_FN,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CISCO_HTTP_SOCIAL_USER_DROPBOX, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "HTTP_SOCIAL_USER_DROPBOX", "http_social_user", "", "Social media id (based on CISCO HTTP_URL information.)",NO_FN,NO_CHILDS)
 #else
 #define X_CISCO_URL
 #endif
 
 #ifdef HAVE_UDNS
 #define X_UDNS \
-	X(STANDARD_ENTERPRISE_ID, DNS_CLIENT_NAME, NTOP_BASE_ID + 514, QUOTE_OUTPUT, "DNS_CLIENT_NAME", "client_name", "client_name", "Client name obtained via reversed DNS" ,print_client_name, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, DNS_TARGET_NAME, NTOP_BASE_ID + 515, QUOTE_OUTPUT, "DNS_TARGET_NAME", "target_name", "target_name", "Target name obtained via reversed DNS" ,print_target_name, NO_CHILDS)
+	X(STANDARD_ENTERPRISE_ID, DNS_CLIENT_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DNS_CLIENT_NAME", "client_name", "client_name", "Client name obtained via reversed DNS" ,print_client_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, DNS_TARGET_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DNS_TARGET_NAME", "target_name", "target_name", "Target name obtained via reversed DNS" ,print_target_name, NO_CHILDS)
 #else
 #define X_UDNS
 #endif
@@ -103,38 +105,38 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, IN_PKTS,2, DONT_QUOTE_OUTPUT, "IN_PKTS", "pkts", "packetDeltaCount", "Incoming flow packets (src->dst)", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, FLOWS,3, DONT_QUOTE_OUTPUT, "FLOWS", "flows", "<reserved>", "Number of flows", NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, PROTOCOL,4, DONT_QUOTE_OUTPUT, "PROTOCOL", "l4_proto", "protocolIdentifier", "IP protocol byte",print_number , NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, PROTOCOL_MAP,NTOP_BASE_NETFLOW_ID+4, QUOTE_OUTPUT, "PROTOCOL_MAP", "l4_proto_name", "", "IP protocol name", print_proto_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, PROTOCOL_MAP,PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "PROTOCOL_MAP", "l4_proto_name", "", "IP protocol name", print_proto_name, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, SRC_TOS, 5, DONT_QUOTE_OUTPUT, "SRC_TOS", "tos", "ipClassOfService", "Type of service byte", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, TCP_FLAGS, 6, QUOTE_OUTPUT, "TCP_FLAGS", "tcp_flags", "tcpControlBits", "Cumulative of all flow TCP flags", print_tcp_flags, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, L4_SRC_PORT, 7, DONT_QUOTE_OUTPUT, "L4_SRC_PORT", "src_port", "src_port", "IPv4 source port",print_src_port,C(L4_SRV_PORT))\
-	X(STANDARD_ENTERPRISE_ID, L4_SRC_PORT_MAP, NTOP_BASE_NETFLOW_ID+7, QUOTE_OUTPUT, "L4_SRC_PORT_MAP", "src_port_name", "", "Layer 4 source port symbolic name", NO_FN,NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, L4_SRC_PORT_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "L4_SRC_PORT_MAP", "src_port_name", "", "Layer 4 source port symbolic name", NO_FN,NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_ADDR, 8, QUOTE_OUTPUT, "IPV4_SRC_ADDR", "src", "sourceIPv4Address", "IPv4 source address" , print_ipv4_src_addr, C(IPV4_SRC_NET, IPV4_SRC_ASNUM, SRC_IP_COUNTRY))\
-	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_ASNUM,NTOP_BASE_ID+352, DONT_QUOTE_OUTPUT, "IPV4_SRC_ASNUM", "src_as", "sourceIPv4Address", "IPv4 source address",print_AS_ipv4, C(IPV4_SRC_ASNUM_NAME))\
-	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_ASNUM_NAME,NTOP_BASE_ID+353, QUOTE_OUTPUT, "IPV4_SRC_ASNUM_NAME", "src_as_name", "sourceIPv4Address", "IPv4 source address Autonomous system name",print_AS_ipv4_name, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_NAME, NTOP_BASE_ID+354, QUOTE_OUTPUT, "IPV4_SRC_NAME", "src_name", "sourceIPv4Name", "IPv4 source name", NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_NET_NAME, NTOP_BASE_ID+355, QUOTE_OUTPUT, "IPV4_SRC_NET_NAME", "src_net_name", "sourceIPv4NetName", "IPv4 source net name",print_net_name, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_NET, NTOP_BASE_ID+356, QUOTE_OUTPUT, "IPV4_SRC_NET", "src_net", "sourceIPv4Net", "IPv4 source net name",print_net,C(IPV4_SRC_NET_NAME))\
+	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_ASNUM,PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "IPV4_SRC_ASNUM", "src_as", "sourceIPv4Address", "IPv4 source address",print_AS_ipv4, C(IPV4_SRC_ASNUM_NAME))\
+	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_ASNUM_NAME,PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_SRC_ASNUM_NAME", "src_as_name", "sourceIPv4Address", "IPv4 source address Autonomous system name",print_AS_ipv4_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_SRC_NAME", "src_name", "sourceIPv4Name", "IPv4 source name", NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_NET_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_SRC_NET_NAME", "src_net_name", "sourceIPv4NetName", "IPv4 source net name",print_net_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_NET, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_SRC_NET", "src_net", "sourceIPv4Net", "IPv4 source net name",print_net,C(IPV4_SRC_NET_NAME))\
 	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_MASK, 9, QUOTE_OUTPUT, "IPV4_SRC_MASK", "ipv4_src_mask", "sourceIPv4PrefixLength", "IPv4 source subnet mask (/<bits>)", NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, INPUT_SNMP, 10, DONT_QUOTE_OUTPUT, "INPUT_SNMP", "input_snmp", "ingressInterface", "Input interface SNMP idx",print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, L4_DST_PORT, 11, DONT_QUOTE_OUTPUT, "L4_DST_PORT", "dst_port", "destinationTransportPort", "IPv4 destination port",print_dst_port,C(L4_SRV_PORT))\
-	X(STANDARD_ENTERPRISE_ID, L4_DST_PORT_MAP, NTOP_BASE_NETFLOW_ID+11, QUOTE_OUTPUT, "L4_DST_PORT_MAP", "dst_port_name", "", "Layer 4 destination port symbolic name", NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, L4_SRV_PORT, NTOP_BASE_NETFLOW_ID+12, DONT_QUOTE_OUTPUT, "L4_SRV_PORT", "srv_port", "", "Layer 4 server port", print_srv_port, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, L4_SRV_PORT_MAP, NTOP_BASE_NETFLOW_ID+13, QUOTE_OUTPUT, "L4_SRV_PORT_MAP", "srv_port_name", "", "Layer 4 server port symbolic name", NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, L4_DST_PORT_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "L4_DST_PORT_MAP", "dst_port_name", "", "Layer 4 destination port symbolic name", NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, L4_SRV_PORT, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "L4_SRV_PORT", "srv_port", "", "Layer 4 server port", print_srv_port, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, L4_SRV_PORT_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "L4_SRV_PORT_MAP", "srv_port_name", "", "Layer 4 server port symbolic name", NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV4_DST_ADDR, 12, QUOTE_OUTPUT, "IPV4_DST_ADDR", "dst", "destinationIPv4Address", "IPv4 destination address", print_ipv4_dst_addr, C(IPV4_DST_NET, IPV4_DST_ASNUM, DST_IP_COUNTRY))\
-	X(STANDARD_ENTERPRISE_ID, IPV4_DST_ASNUM, NTOP_BASE_ID+360, DONT_QUOTE_OUTPUT, "IPV4_DST_ASNUM", "dst_as", "destinationIPv4AddressAsNumber", "IPv4 destination address Autonomous System number",print_AS_ipv4,IPV4_DST_ASNUM_NAME)\
-	X(STANDARD_ENTERPRISE_ID, IPV4_DST_ASNUM_NAME, NTOP_BASE_ID+361, QUOTE_OUTPUT, "IPV4_DST_ASNUM_NAME", "dst_as_name", "destinationIPv4AddressAsNumber", "IPv4 destination address Autonomous System name",print_AS_ipv4_name, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV4_DST_NAME, NTOP_BASE_ID+357, QUOTE_OUTPUT, "IPV4_DST_NAME", "dst_name", "destinationIPv4Address", "IPv4 destination name", NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV4_DST_NET_NAME, NTOP_BASE_ID+358, QUOTE_OUTPUT, "IPV4_DST_NET_NAME", "dst_net_name", "destinationIPv4NetName", "IPv4 destination net name", print_net_name, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV4_DST_NET, NTOP_BASE_ID+359, QUOTE_OUTPUT, "IPV4_DST_NET", "dst_net", "destinationIPv4Net", "IPv4 destination net name",print_net ,C(IPV4_DST_NET_NAME))\
+	X(STANDARD_ENTERPRISE_ID, IPV4_DST_ASNUM, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "IPV4_DST_ASNUM", "dst_as", "destinationIPv4AddressAsNumber", "IPv4 destination address Autonomous System number",print_AS_ipv4,IPV4_DST_ASNUM_NAME)\
+	X(STANDARD_ENTERPRISE_ID, IPV4_DST_ASNUM_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_DST_ASNUM_NAME", "dst_as_name", "destinationIPv4AddressAsNumber", "IPv4 destination address Autonomous System name",print_AS_ipv4_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV4_DST_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_DST_NAME", "dst_name", "destinationIPv4Address", "IPv4 destination name", NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV4_DST_NET_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_DST_NET_NAME", "dst_net_name", "destinationIPv4NetName", "IPv4 destination net name", print_net_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV4_DST_NET, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_DST_NET", "dst_net", "destinationIPv4Net", "IPv4 destination net name",print_net ,C(IPV4_DST_NET_NAME))\
 	X(STANDARD_ENTERPRISE_ID, IPV4_DST_MASK, 13, QUOTE_OUTPUT, "IPV4_DST_MASK", "ipv4_dst_mask", "destinationIPv4PrefixLength", "IPv4 dest subnet mask (/<bits>)", NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, OUTPUT_SNMP, 14, DONT_QUOTE_OUTPUT, "OUTPUT_SNMP", "output_snmp", "egressInterface", "Output interface SNMP idx",print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV4_NEXT_HOP, 15, QUOTE_OUTPUT, "IPV4_NEXT_HOP", "ipv4_next_hop", "ipNextHopIPv4Address", "IPv4 next hop address", NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, SRC_AS, 16, DONT_QUOTE_OUTPUT, "SRC_AS", "prev_as", "bgpSourceAsNumber", "Source BGP AS",print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, DST_AS, 17, DONT_QUOTE_OUTPUT, "DST_AS", "next_as", "bgpDestinationAsNumber", "Destination BGP AS",print_number, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_AS, NTOP_BASE_ID+415, DONT_QUOTE_OUTPUT, "IPV6_SRC_AS", "src_as", "bgpSourceAsNumber", "Source BGP AS" , print_AS6, C(IPV6_SRC_AS_NAME))\
-	X(STANDARD_ENTERPRISE_ID, IPV6_DST_AS, NTOP_BASE_ID+416, DONT_QUOTE_OUTPUT, "IPV6_DST_AS", "dst_as", "bgpDestinationAsNumber", "Destination BGP AS", print_AS6, C(IPV6_DST_AS_NAME))\
-	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_AS_NAME, NTOP_BASE_ID+417, QUOTE_OUTPUT, "IPV6_SRC_AS_NAME", "src_as_name", "bgpSourceAsNumber", "Source BGP AS", print_AS6_name, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV6_DST_AS_NAME, NTOP_BASE_ID+418, QUOTE_OUTPUT, "IPV6_DST_AS_NAME", "dst_as_name", "bgpDestinationAsNumber", "Destination BGP AS", print_AS6_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_AS, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "IPV6_SRC_AS", "src_as", "bgpSourceAsNumber", "Source BGP AS" , print_AS6, C(IPV6_SRC_AS_NAME))\
+	X(STANDARD_ENTERPRISE_ID, IPV6_DST_AS, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "IPV6_DST_AS", "dst_as", "bgpDestinationAsNumber", "Destination BGP AS", print_AS6, C(IPV6_DST_AS_NAME))\
+	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_AS_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_SRC_AS_NAME", "src_as_name", "bgpSourceAsNumber", "Source BGP AS", print_AS6_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV6_DST_AS_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_DST_AS_NAME", "dst_as_name", "bgpDestinationAsNumber", "Destination BGP AS", print_AS6_name, NO_CHILDS)\
 	/*X(STANDARD_ENTERPRISE_ID, BGP_IPV4_NEXT_HOP, 18, DONT_QUOTE_OUTPUT, "BGP_IPV4_NEXT_HOP", "bgp_ipv4_next_hop", "bgpNexthopIPv4Address", "")*/\
 	/*X(STANDARD_ENTERPRISE_ID, MUL_DST_PKTS, 19, DONT_QUOTE_OUTPUT, "MUL_DST_PKTS", "mul_dst_pkts", "postMCastPacketDeltaCount", "")*/\
 	/*X(STANDARD_ENTERPRISE_ID, MUL_DST_BYTES, 20, DONT_QUOTE_OUTPUT, "MUL_DST_BYTES", "mul_dst_bytes", "postMCastOctetDeltaCount", "")*/\
@@ -147,13 +149,13 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, IPV6_DST_ADDR, 28, QUOTE_OUTPUT, "IPV6_DST_ADDR", "dst", "destinationIPv6Address", "IPv6 destination address" ,print_ipv6_dst_addr, C(IPV6_DST_NET,IPV6_SRC_IP_COUNTRY, IPV6_SRC_AS))\
 	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_MASK, 29, DONT_QUOTE_OUTPUT, "IPV6_SRC_MASK", "ipv6_src_mask", "sourceIPv6PrefixLength", "IPv6 source mask",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV6_DST_MASK, 30, DONT_QUOTE_OUTPUT, "IPV6_DST_MASK", "ipv6_dst_mask", "destinationIPv6PrefixLength", "IPv6 destination mask",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_ASNUM, NTOP_BASE_ID+381, DONT_QUOTE_OUTPUT, "IPV6_SRC_ASNUM", "src_asnum", "sourceIPv4Address", "IPv6 source address",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_NAME, NTOP_BASE_ID+382, QUOTE_OUTPUT, "IPV6_SRC_NAME", "src_name", "sourceIPv6Name", "IPv6 source name",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_NET_NAME, NTOP_BASE_ID+383, QUOTE_OUTPUT, "IPV6_SRC_NET_NAME", "src_net_name", "sourceIPv6NetName", "IPv6 source net name",print_net_name_v6, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_NET, NTOP_BASE_ID+384, QUOTE_OUTPUT, "IPV6_SRC_NET", "src_net", "sourceIPv6Net", "IPv6 source net name",print_net_v6, IPV6_SRC_NET_NAME)\
-	X(STANDARD_ENTERPRISE_ID, IPV6_DST_NAME, NTOP_BASE_ID+385, QUOTE_OUTPUT, "IPV6_DST_NAME", "dst_name", "destinationIPv6Address", "IPv6 destination name",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV6_DST_NET_NAME, NTOP_BASE_ID+386, QUOTE_OUTPUT, "IPV6_DST_NET_NAME", "dst_net_name", "destinationIPv6NetName", "IPv6 destination net name",print_net_name_v6, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV6_DST_NET, NTOP_BASE_ID+387, QUOTE_OUTPUT, "IPV6_DST_NET", "dst_net", "destinationIPv6Net", "IPv6 destination net name",print_net_v6, IPV6_DST_NET_NAME)\
+	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_ASNUM, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "IPV6_SRC_ASNUM", "src_asnum", "sourceIPv4Address", "IPv6 source address",NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_SRC_NAME", "src_name", "sourceIPv6Name", "IPv6 source name",NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_NET_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_SRC_NET_NAME", "src_net_name", "sourceIPv6NetName", "IPv6 source net name",print_net_name_v6, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_NET, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_SRC_NET", "src_net", "sourceIPv6Net", "IPv6 source net name",print_net_v6, IPV6_SRC_NET_NAME)\
+	X(STANDARD_ENTERPRISE_ID, IPV6_DST_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_DST_NAME", "dst_name", "destinationIPv6Address", "IPv6 destination name",NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV6_DST_NET_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_DST_NET_NAME", "dst_net_name", "destinationIPv6NetName", "IPv6 destination net name",print_net_name_v6, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV6_DST_NET, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_DST_NET", "dst_net", "destinationIPv6Net", "IPv6 destination net name",print_net_v6, IPV6_DST_NET_NAME)\
 	X(STANDARD_ENTERPRISE_ID, ICMP_TYPE, 32, DONT_QUOTE_OUTPUT, "ICMP_TYPE", "icmp_type", "icmpTypeCodeIPv4", "ICMP Type * 256 + ICMP code",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, SAMPLING_INTERVAL, 34, DONT_QUOTE_OUTPUT, "SAMPLING_INTERVAL", "sampling_interval", "<reserved>", "Sampling rate",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, SAMPLING_ALGORITHM, 35, DONT_QUOTE_OUTPUT, "SAMPLING_ALGORITHM", "sampling_algorithm", "<reserved>", "Sampling type (deterministic/random)",NO_FN, NO_CHILDS)\
@@ -161,7 +163,7 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, FLOW_INACTIVE_TIMEOUT, 37, DONT_QUOTE_OUTPUT, "FLOW_INACTIVE_TIMEOUT", "flow_inactive_timeout", "flowIdleTimeout", "Inactivity timeout of flow cache entries",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, ENGINE_TYPE, 38, DONT_QUOTE_OUTPUT, "ENGINE_TYPE", "engine_type", "<reserved>", "Flow switching engine",print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, ENGINE_ID, 39, DONT_QUOTE_OUTPUT, "ENGINE_ID", "engine_id", "<reserved>", "Id of the flow switching engine",NO_FN,ENGINE_ID_NAME)\
-	X(STANDARD_ENTERPRISE_ID, ENGINE_ID_NAME, NTOP_BASE_ID+369, QUOTE_OUTPUT, "ENGINE_ID_NAME", "engine_id_name", "<reserved>", "Id of the flow switching engine",print_engine_id_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, ENGINE_ID_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "ENGINE_ID_NAME", "engine_id_name", "<reserved>", "Id of the flow switching engine",print_engine_id_name, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, TOTAL_BYTES_EXP, 40, DONT_QUOTE_OUTPUT, "TOTAL_BYTES_EXP", "total_bytes_exp", "exportedOctetTotalCount", "Total bytes exported",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, TOTAL_PKTS_EXP, 41, DONT_QUOTE_OUTPUT, "TOTAL_PKTS_EXP", "total_pkts_exp", "exportedMessageTotalCount", "Total flow packets exported",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, TOTAL_FLOWS_EXP, 42, DONT_QUOTE_OUTPUT, "TOTAL_FLOWS_EXP", "total_flows_exp", "exportedFlowRecordTotalCount", "Total number of exported flows",NO_FN, NO_CHILDS)\
@@ -170,19 +172,19 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, MAX_TTL, 53, DONT_QUOTE_OUTPUT, "MAX_TTL", "max_ttl", "maximumTTL", "Max flow TTL",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IN_SRC_MAC, 56, QUOTE_OUTPUT, "IN_SRC_MAC", "in_src_mac", "sourceMacAddress", "Source MAC Address", save_src_mac, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, OUT_SRC_MAC, 81, QUOTE_OUTPUT, "OUT_SRC_MAC", "out_src_mac", "sourceMacAddress", "Source MAC Address after observation point" ,save_post_src_mac, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IN_SRC_MAC_MAP, NTOP_BASE_ID+394, QUOTE_OUTPUT, "IN_SRC_MAC_MAP", "in_src_mac_name", "sourceMacAddress", "Name of Source MAC Address",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, OUT_SRC_MAC_MAP, NTOP_BASE_ID+396, QUOTE_OUTPUT, "OUT_SRC_MAC_MAP", "out_src_mac_name", "sourceMacAddress", "Name of Source MAC Address after observation point",NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IN_SRC_MAC_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IN_SRC_MAC_MAP", "in_src_mac_name", "sourceMacAddress", "Name of Source MAC Address",NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, OUT_SRC_MAC_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "OUT_SRC_MAC_MAP", "out_src_mac_name", "sourceMacAddress", "Name of Source MAC Address after observation point",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, SRC_VLAN, 58, DONT_QUOTE_OUTPUT, "CISCO_SRC_VLAN", "cisco_src_vlan", "preVlanId", "Source VLAN", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, DST_VLAN, 59, DONT_QUOTE_OUTPUT, "CISCO_DST_VLAN", "cisco_dst_vlan", "postVlanId", "Destination VLAN", print_number, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, DST_VLAN_MAP, NTOP_BASE_ID+364, QUOTE_OUTPUT, "CISCO_DST_VLAN_MAP", "cisco_dst_vlan_name", "postVlanId_map", "Destination VLAN name",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, SRC_VLAN_MAP, NTOP_BASE_ID+365, QUOTE_OUTPUT, "CISCO_SRC_VLAN_MAP", "cisco_src_vlan_name", "preVlanId_map", "Source VLAN name",NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, DST_VLAN_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "CISCO_DST_VLAN_MAP", "cisco_dst_vlan_name", "postVlanId_map", "Destination VLAN name",NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, SRC_VLAN_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "CISCO_SRC_VLAN_MAP", "cisco_src_vlan_name", "preVlanId_map", "Source VLAN name",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, DOT_1Q_VLANID, 243, DONT_QUOTE_OUTPUT, "SRC_VLAN", "src_vlan", "preVlanId", "Source VLAN", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, POST_DOT_1Q_VLANID, 254, DONT_QUOTE_OUTPUT, "DST_VLAN", "dst_vlan", "postVlanId", "Destination VLAN", print_number, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, DOT_1Q_VLANID_MAP, NTOP_BASE_ID+392, QUOTE_OUTPUT, "SRC_VLAN_MAP", "src_vlan_name", "preVlanId_map", "Source VLAN name",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, POST_DOT_1Q_VLANID_MAP, NTOP_BASE_ID+393, QUOTE_OUTPUT, "DST_VLAN_MAP", "dst_vlan_name", "postVlanId_map", "Destination VLAN name",NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, DOT_1Q_VLANID_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "SRC_VLAN_MAP", "src_vlan_name", "preVlanId_map", "Source VLAN name",NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, POST_DOT_1Q_VLANID_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DST_VLAN_MAP", "dst_vlan_name", "postVlanId_map", "Destination VLAN name",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IP_PROTOCOL_VERSION, 60, DONT_QUOTE_OUTPUT, "IP_PROTOCOL_VERSION", "ip_protocol_version", "ipVersion", "[4=IPv4][6=IPv6]", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, DIRECTION, 61, QUOTE_OUTPUT, "DIRECTION", "direction", "direction", "Flow direction", save_direction, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, PRINT_DIRECTION, NTOP_BASE_ID + 511, QUOTE_OUTPUT, "DIRECTION", "direction", "flowDirection", "Indicates flow direction", print_direction,NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, PRINT_DIRECTION, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DIRECTION", "direction", "flowDirection", "Indicates flow direction", print_direction,NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV6_NEXT_HOP, 62, QUOTE_OUTPUT, "IPV6_NEXT_HOP", "ipv6_next_hop", "ipNextHopIPv6Address", "IPv6 next hop address",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, MPLS_LABEL_1, 70, DONT_QUOTE_OUTPUT, "MPLS_LABEL_1", "mpls_label_1", "mplsTopLabelStackSection", "MPLS label at position 1",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, MPLS_LABEL_2, 71, DONT_QUOTE_OUTPUT, "MPLS_LABEL_2", "mpls_label_2", "mplsLabelStackSection2", "MPLS label at position 2",NO_FN, NO_CHILDS)\
@@ -195,12 +197,12 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, MPLS_LABEL_9, 78, DONT_QUOTE_OUTPUT, "MPLS_LABEL_9", "mpls_label_9", "mplsLabelStackSection9", "MPLS label at position 9",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, MPLS_LABEL_10, 79, DONT_QUOTE_OUTPUT, "MPLS_LABEL_10", "mpls_label_10", "mplsLabelStackSection10", "MPLS label at position 10",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IN_DST_MAC, 80, QUOTE_OUTPUT, "IN_DST_MAC", "in_dst_mac", "destinationMacAddress", "Destination MAC Address",save_dst_mac, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IN_DST_MAC_MAP, NTOP_BASE_ID+395, QUOTE_OUTPUT, "IN_DST_MAC_MAP", "in_dst_mac_name", "destinationMacAddress", "Name Destination MAC Address",NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IN_DST_MAC_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IN_DST_MAC_MAP", "in_dst_mac_name", "destinationMacAddress", "Name Destination MAC Address",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, OUT_DST_MAC, 57, QUOTE_OUTPUT, "OUT_DST_MAC", "out_dst_mac", "PostdestinationMacAddress", "Destination MAC Address after observation point",save_post_dst_mac, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, OUT_DST_MAC_MAP, NTOP_BASE_ID+397, QUOTE_OUTPUT, "OUT_DST_MAC_MAP", "out_dst_mac_name", "PostdestinationMacAddress", "Name Destination MAC Address after observation point",NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, OUT_DST_MAC_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "OUT_DST_MAC_MAP", "out_dst_mac_name", "PostdestinationMacAddress", "Name Destination MAC Address after observation point",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, APPLICATION_ID, 95, QUOTE_OUTPUT, "APPLICATION_ID", "application_id",  "application_id", "Cisco NBAR Application Id",NO_FN, C(APPLICATION_ID_NAME, ENGINE_ID))\
 	X(STANDARD_ENTERPRISE_ID, APPLICATION_NAME, 96, QUOTE_OUTPUT, "APPLICATION_NAME", "application_name",  "application_name", "Cisco NBAR Application Name",print_string, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, APPLICATION_ID_NAME, NTOP_BASE_ID+368, QUOTE_OUTPUT, "APPLICATION_ID_NAME", "application_id_name",  "application_id_name", "Cisco NBAR Application Id Name",print_application_id_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, APPLICATION_ID_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "APPLICATION_ID_NAME", "application_id_name",  "application_id_name", "Cisco NBAR Application Id Name",print_application_id_name, NO_CHILDS)\
 	/* Use selector_id and engine_id */\
 	/*X(STANDARD_ENTERPRISE_ID, APPLICATION_ID_MAJOR, DONT_QUOTE_OUTPUT, "APPLICATION_ID_MAJOR", "application_id_major",  "application_id_major", "Cisco NBAR Application Id (major number)")*/\
 	/*X(STANDARD_ENTERPRISE_ID, APPLICATION_ID_MINOR, DONT_QUOTE_OUTPUT, "APPLICATION_ID_MINOR", "application_id_minor",  "application_id_minor", "Cisco NBAR Application Id (minor number)")*/\
@@ -282,16 +284,16 @@ const char* getStandardFieldId(size_t id);
 	X_CISCO_URL \
 	X(CISCO_ENTERPRISE_ID, WLAN_SSID, 147, QUOTE_OUTPUT, "WLAN_SSID", "wireless_id", "wlan_ssid", "SSID of Wireless LAN", print_ssid_name, NO_CHILDS)\
 	X(CISCO_ENTERPRISE_ID, STA_MAC_ADDRESS, 365, QUOTE_OUTPUT, "STA_MAC_ADDRESS", "sta_mac", "apMacAddress", "Access Point MAC Address", NO_FN,CLIENT_MAC_ADDRESS)\
-	X(CISCO_ENTERPRISE_ID, CLIENT_MAC_ADDRESS, NTOP_BASE_ID+410, QUOTE_OUTPUT, "CLIENT_MAC_ADDRESS", "client_mac", "apMacAddress", "Access Point MAC Address", print_client_mac, CLIENT_MAC_VENDOR)\
-	X(CISCO_ENTERPRISE_ID, CLIENT_MAC_BASED_ON_DIRECTION, NTOP_BASE_ID+423, QUOTE_OUTPUT, "DIRECTION_BASED_CLIENT_MAC_ADDRESS", "client_mac", "apMacAddress", "Access Point MAC Address", print_direction_based_client_mac, DIRECTION_BASED_CLIENT_MAC_VENDOR)\
-	X(CISCO_ENTERPRISE_ID, CLIENT_MAC_MAP, NTOP_BASE_ID+413, QUOTE_OUTPUT, "CLIENT_MAC_ADDRESS_NAME", "client_mac_name", "apMacAddressName", "Access Point MAC Address Name" , print_mac_map, NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, CLIENT_MAC_VENDOR, NTOP_BASE_ID+411, QUOTE_OUTPUT, "CLIENT_MAC_ADDRESS_VENDOR", "client_mac_vendor", "apMacAddressName", "Access Point MAC Address Name" , print_mac_vendor, NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, DIRECTION_BASED_CLIENT_MAC_VENDOR, NTOP_BASE_ID+412, QUOTE_OUTPUT, "DIRECTION_BASED_CLIENT_MAC_ADDRESS_VENDOR", "client_mac_vendor", "apMacAddressName", "Access Point MAC Address Name" , print_direction_based_client_mac_vendor, NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CLIENT_MAC_ADDRESS, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "CLIENT_MAC_ADDRESS", "client_mac", "apMacAddress", "Access Point MAC Address", print_client_mac, CLIENT_MAC_VENDOR)\
+	X(CISCO_ENTERPRISE_ID, CLIENT_MAC_BASED_ON_DIRECTION, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DIRECTION_BASED_CLIENT_MAC_ADDRESS", "client_mac", "apMacAddress", "Access Point MAC Address", print_direction_based_client_mac, DIRECTION_BASED_CLIENT_MAC_VENDOR)\
+	X(CISCO_ENTERPRISE_ID, CLIENT_MAC_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "CLIENT_MAC_ADDRESS_NAME", "client_mac_name", "apMacAddressName", "Access Point MAC Address Name" , print_mac_map, NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CLIENT_MAC_VENDOR, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "CLIENT_MAC_ADDRESS_VENDOR", "client_mac_vendor", "apMacAddressName", "Access Point MAC Address Name" , print_mac_vendor, NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, DIRECTION_BASED_CLIENT_MAC_VENDOR, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DIRECTION_BASED_CLIENT_MAC_ADDRESS_VENDOR", "client_mac_vendor", "apMacAddressName", "Access Point MAC Address Name" , print_direction_based_client_mac_vendor, NO_CHILDS)\
 	X(CISCO_ENTERPRISE_ID, STA_IPV4_ADDRESS, 366, QUOTE_OUTPUT, "STA_IPV4_ADDRESS", "src", "src", "IPv4 destination address",print_ipv4_src_addr, C(IPV4_SRC_NET, IPV4_SRC_ASNUM, SRC_IP_COUNTRY))\
-	X(CISCO_ENTERPRISE_ID, STA_IPV4_ADDRESS_MAP, NTOP_BASE_ID+390, QUOTE_OUTPUT, "STA_IPV4_ADDRESS_NAME", "src_name","src_name", "IPv4 destination address Name",NO_FN,NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, STA_IPV4_ADDRESS_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "STA_IPV4_ADDRESS_NAME", "src_name","src_name", "IPv4 destination address Name",NO_FN,NO_CHILDS)\
 	X(CISCO_ENTERPRISE_ID, WAP_MAC_ADDRESS, 367, QUOTE_OUTPUT, "WAP_MAC_ADDRESS", "wireless_station", "devMacAddr", "Device MAC Address",print_mac, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, REDBORDER_TYPE, NTOP_BASE_ID+414, QUOTE_OUTPUT, "REDBORDER_TYPE", "type", "type", "Redborder internal flowtype (currenly, netflow version)" ,print_netflow_type, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, FLOW_SEQUENCE, NTOP_BASE_ID + 512, QUOTE_OUTPUT, "FLOW_SEQUENCE", "flow_sequence", "flow_sequence", "flow sequence number" ,print_number, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, REDBORDER_TYPE, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "REDBORDER_TYPE", "type", "type", "Redborder internal flowtype (currenly, netflow version)" ,print_netflow_type, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, FLOW_SEQUENCE, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "FLOW_SEQUENCE", "flow_sequence", "flow_sequence", "flow sequence number" ,print_number, NO_CHILDS)\
 	X_UDNS \
 	X(STANDARD_ENTERPRISE_ID, END_OF_ENTITIES, 0, false, NULL, NULL, NULL, NULL, NULL, NO_CHILDS ) /* That's all folks */
 
