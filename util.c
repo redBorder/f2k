@@ -532,8 +532,11 @@ size_t append_escaped(struct printbuf *buffer,const char *string,size_t string_l
   return buffer->bpos - start_bpos;
 }
 
-size_t printNetflowRecordWithTemplate(struct printbuf * kafka_line_buffer, const V9V10TemplateElementId * templateElement, const char * buffer,const size_t real_field_len, const size_t real_field_len_offset, struct flowCache *flowCache)
-{
+size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
+    const V9V10TemplateElementId *templateElement,
+    const void *vbuffer, const size_t real_field_len,
+    const size_t real_field_len_offset, struct flowCache *flowCache) {
+  const uint8_t *buffer = vbuffer;
   #ifdef CISCO_URL
   #if 1
   //static __thread char url[2048] = {'\0'};

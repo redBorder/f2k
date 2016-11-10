@@ -488,8 +488,19 @@ static inline int flowCache_want_target_dns(const struct flowCache *c) {
 }
 #endif
 
-// @TODO make an struct with all parameters
-size_t printNetflowRecordWithTemplate(struct printbuf * kafka_line_buffer, const V9V10TemplateElementId * templateElement, const char * buffer,const size_t real_field_len, const size_t real_field_len_offset, struct flowCache *flowCache);
+/** Prints a netflow entity value with a given template
+ * @param  kafka_line_buffer     Buffer to print entity.
+ * @param  templateElement       Expected element in buffer
+ * @param  buffer                Flow element
+ * @param  real_field_len        Length of element
+ * @param  real_field_len_offset Offset of element
+ * @param  flowCache             Flow cache
+ * @return                       Number of bytes written
+ */
+size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
+  const V9V10TemplateElementId *templateElement, const void* buffer,
+  const size_t real_field_len, const size_t real_field_len_offset,
+  struct flowCache *flowCache);
 struct string_list * rb_separate_long_time_flow(
   struct printbuf * kafka_line_buffer,
   uint64_t export_timestamp, uint64_t dSwitched, uint64_t dInterval,uint64_t max_intervals,

@@ -145,9 +145,6 @@ struct worker_s {
   pthread_t tid;
 };
 
-/* forward */
-size_t printNetflowRecordWithTemplate(struct printbuf * line_buffer, const V9V10TemplateElementId * template_id, const char * buffer,const size_t real_field_len, const size_t real_field_len_offset, struct flowCache *flowCache);
-
 /* ********************************************************* */
 
 static void kafka_produce(struct printbuf *kafka_line_buffer, uint64_t client_mac){
@@ -234,16 +231,16 @@ static struct string_list *time_split_flow(struct printbuf *kafka_line_buffer,
     const uint64_t bytes_sw = ntohll(bytes);
     const uint64_t pkts_sw = ntohll(pkts);
     printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(FIRST_SWITCHED), (const char *)&first_timestamp_sw,
+      TEMPLATE_OF(FIRST_SWITCHED), &first_timestamp_sw,
       sizeof(first_timestamp_sw), 0, flowCache);
     printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(LAST_SWITCHED), (const char *)&last_timestamp_sw,
+      TEMPLATE_OF(LAST_SWITCHED), &last_timestamp_sw,
       sizeof(last_timestamp_sw), 0, flowCache);
     printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(IN_BYTES), (const char *)&bytes_sw,
+      TEMPLATE_OF(IN_BYTES), &bytes_sw,
       sizeof(bytes_sw), 0, flowCache);
     printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(IN_PKTS), (const char *)&pkts_sw,
+      TEMPLATE_OF(IN_PKTS), &pkts_sw,
       sizeof(pkts_sw), 0, flowCache);
     printbuf_memappend_fast(kafka_line_buffer,"}",(ssize_t)strlen("}"));
     /// @TODO make a function that create a list with 1 node
@@ -265,7 +262,7 @@ static void dissectNetFlowV5Field(const NetFlow5Record *the5Record,
       const size_t flow_idx,const size_t field_idx,struct printbuf *kafka_line_buffer,
       struct flowCache *flowCache) {
   size_t value_ret = 0;
-  const char * buffer = NULL;
+  const void * buffer = NULL;
   size_t real_field_len=0;
 
   switch (v5TemplateFields[field_idx]->templateElementId) {
@@ -274,10 +271,10 @@ static void dissectNetFlowV5Field(const NetFlow5Record *the5Record,
       break;
   case IPV4_DST_ADDR:
       real_field_len=4;
-      buffer = (const char *)&the5Record->flowRecord[flow_idx].dstaddr;
+      buffer = &the5Record->flowRecord[flow_idx].dstaddr;
       break;
   case IPV4_SRC_ADDR:
-      buffer = (const char *)&the5Record->flowRecord[flow_idx].srcaddr;
+      buffer = &the5Record->flowRecord[flow_idx].srcaddr;
       real_field_len=4;
       break;
   case IN_PKTS:
@@ -286,43 +283,43 @@ static void dissectNetFlowV5Field(const NetFlow5Record *the5Record,
       break;
   case L4_SRC_PORT:
     real_field_len = 2;
-    buffer = (const char *)&the5Record->flowRecord[flow_idx].srcport;
+    buffer = &the5Record->flowRecord[flow_idx].srcport;
     break;
   case L4_DST_PORT:
     real_field_len = 2;
-    buffer = (const char *)&the5Record->flowRecord[flow_idx].dstport;
+    buffer = &the5Record->flowRecord[flow_idx].dstport;
     break;
   case INPUT_SNMP:
     real_field_len = 2;
-    buffer = (const char *)&the5Record->flowRecord[flow_idx].input;
+    buffer = &the5Record->flowRecord[flow_idx].input;
     break;
   case OUTPUT_SNMP:
     real_field_len = 2;
-    buffer = (const char *)&the5Record->flowRecord[flow_idx].output;
+    buffer = &the5Record->flowRecord[flow_idx].output;
     break;
   case ENGINE_ID:
     real_field_len = 1;
-    buffer = (const char *)&the5Record->flowHeader.engine_id;
+    buffer = &the5Record->flowHeader.engine_id;
     break;
   case ENGINE_TYPE:
     real_field_len = 1;
-    buffer = (const char *)&the5Record->flowHeader.engine_type;
+    buffer = &the5Record->flowHeader.engine_type;
     break;
   case IPV4_NEXT_HOP:
     real_field_len = 4;
-    buffer = (const char *)&the5Record->flowRecord[flow_idx].nexthop;
+    buffer = &the5Record->flowRecord[flow_idx].nexthop;
     break;
   case SRC_TOS:
     real_field_len = 1;
-    buffer = (const char *)&the5Record->flowRecord[flow_idx].tos;
+    buffer = &the5Record->flowRecord[flow_idx].tos;
     break;
   case PROTOCOL:
     real_field_len = 1;
-    buffer = (const char *)&the5Record->flowRecord[flow_idx].proto;
+    buffer = &the5Record->flowRecord[flow_idx].proto;
     break;
   case TCP_FLAGS:
     real_field_len = 1;
-    buffer = (const char *)&the5Record->flowRecord[flow_idx].tcp_flags;
+    buffer = &the5Record->flowRecord[flow_idx].tcp_flags;
     break;
   default:
     traceEvent(TRACE_ERROR,"Unknown case in V5 flow");
@@ -412,9 +409,9 @@ static struct string_list *dissectNetFlowV5Record(const NetFlow5Record *the5Reco
   associateSensor(&flowCache,sensor_object);
   uint64_t field_idx=0;
   printNetflowRecordWithTemplate(kafka_line_buffer, TEMPLATE_OF(REDBORDER_TYPE),
-    (const char *)flowVersion, 2, 0, &flowCache);
+    flowVersion, 2, 0, &flowCache);
   printNetflowRecordWithTemplate(kafka_line_buffer, TEMPLATE_OF(FLOW_SEQUENCE),
-    (const char *)&flowSecuence, sizeof(flowSecuence), 0, &flowCache);
+    &flowSecuence, sizeof(flowSecuence), 0, &flowCache);
 
   for (field_idx=0; NULL!=v5TemplateFields[field_idx]; ++field_idx) {
     dissectNetFlowV5Field(the5Record, flow_idx, field_idx, kafka_line_buffer,
@@ -1071,10 +1068,10 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
     associateSensor(flowCache, sensor_object);
 
     printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(REDBORDER_TYPE), (const char *)&flowVersion_sw,
+      TEMPLATE_OF(REDBORDER_TYPE), &flowVersion_sw,
       sizeof(flowVersion_sw), 0, flowCache);
     printNetflowRecordWithTemplate(kafka_line_buffer,
-        TEMPLATE_OF(FLOW_SEQUENCE), (const char *)&_flowSequence,
+        TEMPLATE_OF(FLOW_SEQUENCE), &_flowSequence,
         sizeof(_flowSequence), 0, flowCache);
 
     for(fieldId=0; fieldId<cursor->templateInfo.fieldCount; fieldId++) {
@@ -1136,7 +1133,7 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
           default:
             /// @TODO delete this cast, move all to uint8_t *
             printNetflowRecordWithTemplate(kafka_line_buffer,
-              fields[fieldId].v9_template, (const char *)&buffer[displ],
+              fields[fieldId].v9_template, &buffer[displ],
               real_field_len, real_field_len_offset, flowCache);
             break;
         };
