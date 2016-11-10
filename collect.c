@@ -242,7 +242,7 @@ static struct string_list *time_split_flow(struct printbuf *kafka_line_buffer,
     printNetflowRecordWithTemplate(kafka_line_buffer,
       TEMPLATE_OF(IN_PKTS), &pkts_sw,
       sizeof(pkts_sw), 0, flowCache);
-    printbuf_memappend_fast(kafka_line_buffer,"}",(ssize_t)strlen("}"));
+    printbuf_memappend_fast(kafka_line_buffer,"}",strlen("}"));
     /// @TODO make a function that create a list with 1 node
     ret = calloc(1,sizeof(ret[0]));
     if (likely(ret)) {
@@ -404,7 +404,7 @@ static struct string_list *dissectNetFlowV5Record(const NetFlow5Record *the5Reco
     return NULL;
   }
 
-  printbuf_memappend_fast(kafka_line_buffer, "{", (ssize_t)strlen("{"));
+  printbuf_memappend_fast(kafka_line_buffer, "{", strlen("{"));
   struct flowCache flowCache = {0};
   associateSensor(&flowCache,sensor_object);
   uint64_t field_idx=0;
@@ -1063,7 +1063,7 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
       printbuf_free(kafka_line_buffer);
       return kafka_string_list;
     }
-    printbuf_memappend_fast(kafka_line_buffer,"{",(ssize_t)strlen("{"));
+    printbuf_memappend_fast(kafka_line_buffer,"{",strlen("{"));
 
     associateSensor(flowCache, sensor_object);
 
