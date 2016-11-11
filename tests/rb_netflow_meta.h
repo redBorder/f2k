@@ -59,6 +59,7 @@
 
 /* ********************** TEMPLATE & FLOW COMMON STUFF ********************** */
 #define BYTE_ARRAY_SIZE(...) sizeof((uint8_t[]){ __VA_ARGS__ })
+#define NOTHING(...)
 
 /* ***************************** TEMPLATE STUFF ***************************** */
 #define TEMPLATE_BYTES_0(entity, length, pen) \
@@ -71,12 +72,40 @@
 
 #define TEMPLATE_ENTITY_SIZE(entity, length, pen, ...) \
 	+BYTE_ARRAY_SIZE(TEMPLATE_BYTES(entity, length, pen, __VA_ARGS__))
-#define TEMPLATE_BYTES_LENGTH(ENTITIES) ENTITIES(TEMPLATE_ENTITY_SIZE)
+#define TEMPLATE_BYTES_LENGTH(ENTITIES) ENTITIES(TEMPLATE_ENTITY_SIZE, NOTHING)
 
 #define R_1(...) +1
-#define TEMPLATE_ENTITIES_COUNT(ENTITIES) ENTITIES(R_1)
+#define TEMPLATE_ENTITIES_COUNT(ENTITIES) ENTITIES(R_1, NOTHING)
 
-#define IPFIX_1TEMPLATE(var, FLOW_HEADER, TEMPLATE_ID, ENTITIES) \
+#define NF9_TEMPLATE_ENTITY(entity, length, ...) \
+	{ .templateId = constexpr_be16toh(entity), \
+	  .flowsetLen = constexpr_be16toh(length)},
+
+#define NF9_TEMPLATE_ENTITIES(ENTITIES) ENTITIES(NF9_TEMPLATE_ENTITY, NOTHING)
+
+#define NF9_TEMPLATE(var, FLOW_HEADER, TEMPLATE_ID, ENTITIES) \
+struct { \
+	V9FlowHeader flow_header; \
+	V9TemplateHeader flow_set_header; \
+	V9TemplateDef template_header; \
+	V9FlowSet template_set[TEMPLATE_ENTITIES_COUNT(ENTITIES)]; \
+} __attribute__((packed)) var = { \
+	.flow_header = { \
+		.version = constexpr_be16toh(9), \
+		.count = constexpr_be16toh(1), \
+		FLOW_HEADER \
+	}, .flow_set_header = { \
+		.templateFlowset = 0, \
+		.flowsetLen = \
+			constexpr_be16toh(TEMPLATE_BYTES_LENGTH(ENTITIES)), \
+	}, .template_header = { \
+		.templateId = constexpr_be16toh(TEMPLATE_ID), \
+		.fieldCount = \
+			constexpr_be16toh(TEMPLATE_ENTITIES_COUNT(ENTITIES)), \
+	}, .template_set = { NF9_TEMPLATE_ENTITIES(ENTITIES) } \
+};
+
+#define IPFIX_TEMPLATE(var, FLOW_HEADER, TEMPLATE_ID, ENTITIES) \
 struct { \
 	IPFIXFlowHeader flowHeader; \
 	IPFIXSet flowSetHeader; \
@@ -98,7 +127,7 @@ struct { \
 		.templateId = constexpr_be16toh(TEMPLATE_ID), \
 		.fieldCount = constexpr_be16toh( \
 			TEMPLATE_ENTITIES_COUNT(ENTITIES)), \
-	}, .templateBuffer = { ENTITIES(TEMPLATE_BYTES) } \
+	}, .templateBuffer = { ENTITIES(TEMPLATE_BYTES, NOTHING) } \
 }
 
 /* ******************************* FLOW STUFF ******************************* */
@@ -106,8 +135,27 @@ struct { \
 
 #define FLOW_ENTITY_SIZE(entity, length, pen, ...) \
 	+BYTE_ARRAY_SIZE(FLOW_BYTES(entity, length, pen, __VA_ARGS__))
-#define FLOW_BYTES_LENGTH(ENTITIES) ENTITIES(FLOW_ENTITY_SIZE)
-#define IPFIX_1FLOW(var, FLOW_HEADER, TEMPLATE_ID, ENTITIES) \
+#define FLOW_BYTES_LENGTH(ENTITIES) ENTITIES(FLOW_ENTITY_SIZE, FLOW_ENTITY_SIZE)
+
+#define NF9_FLOW(var, FLOW_HEADER, TEMPLATE_ID, ENTITIES) \
+struct { \
+	V9FlowHeader flow_header; \
+	V9TemplateHeader flow_set_header; \
+	uint8_t buffer[FLOW_BYTES_LENGTH(ENTITIES)]; \
+} var = { \
+	.flow_header = { \
+		.version = constexpr_be16toh(9), \
+		.count = constexpr_be16toh(1), \
+		FLOW_HEADER \
+	}, .flow_set_header = { \
+		.templateFlowset = constexpr_be16toh(TEMPLATE_ID), \
+		.flowsetLen = \
+			constexpr_be16toh(FLOW_BYTES_LENGTH(ENTITIES) + \
+				sizeof(V9TemplateHeader)), \
+	}, .buffer = { ENTITIES(FLOW_BYTES, FLOW_BYTES) } \
+};
+
+#define IPFIX_FLOW(var, FLOW_HEADER, TEMPLATE_ID, ENTITIES) \
 struct { \
 	IPFIXFlowHeader flowHeader; \
 	IPFIXSet flowSetHeader; \
@@ -122,7 +170,7 @@ struct { \
 		.set_id = constexpr_be16toh(TEMPLATE_ID), \
 		.set_len = constexpr_be16toh(FLOW_BYTES_LENGTH(ENTITIES) \
 							+ sizeof(IPFIXSet)), \
-	}, .buffer1 = {	ENTITIES(FLOW_BYTES) }, \
+	}, .buffer1 = {	ENTITIES(FLOW_BYTES, FLOW_BYTES) }, \
 };
 
 /* ************************************************************************** */

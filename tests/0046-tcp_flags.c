@@ -80,7 +80,8 @@ static const NetFlow5Record record5 = {
 
 
 /** Flow + template definitions
-  @param R Macro to call in each flow
+  @param RT Macro to call in each entity that define a template
+  @param R Macro to call in each entity that does not define a template
   @varargs Element of TCP entry
   @note R macro arguments are:
     1) -> Template entity
@@ -88,31 +89,31 @@ static const NetFlow5Record record5 = {
     3) -> PEN number (if >0)
     4..) -> value
   */
-#define FLOW_TCP_FLAGS_ENTITIES(R, ...) \
-	R(IPV4_SRC_ADDR, 4, 0, 208, 67, 222, 222) \
-	R(IPV4_DST_ADDR, 4, 0, 192, 168, 210, 18) \
-	R(IPV4_NEXT_HOP, 4, 0, 192, 168, 210, 18) \
-	R(INPUT_SNMP, 2, 0, UINT16_TO_UINT8_ARR(2)) \
-	R(OUTPUT_SNMP, 2, 0, UINT16_TO_UINT8_ARR(7)) \
-	R(IN_PKTS, 4, 0, UINT32_TO_UINT8_ARR(1)) \
-	R(IN_BYTES, 4, 0, UINT32_TO_UINT8_ARR(88)) \
-	R(L4_SRC_PORT, 2, 0, UINT16_TO_UINT8_ARR(53)) \
-	R(L4_DST_PORT, 2, 0, UINT16_TO_UINT8_ARR(53549)) \
-	R(__VA_ARGS__) \
-	R(PROTOCOL, 1, 0, IPPROTO_UDP) \
-	R(SRC_TOS, 1, 0, 0) \
-	R(IPV4_SRC_MASK, 1, 0, 16) \
-	R(IPV4_DST_MASK, 1, 0, 23) \
-	R(DIRECTION, 1, 0, 0) \
-	R(FLOW_START_SEC, 4, 0, 0x57, 0x74, 0x00, 0x9d) \
-	R(FLOW_END_SEC, 4, 0, 0x57, 0x74, 0x00, 0x9d) \
-	R(12235, 0xffff, 9, 0)
+#define FLOW_TCP_FLAGS_ENTITIES(RT, R, ...) \
+	RT(IPV4_SRC_ADDR, 4, 0, 208, 67, 222, 222) \
+	RT(IPV4_DST_ADDR, 4, 0, 192, 168, 210, 18) \
+	RT(IPV4_NEXT_HOP, 4, 0, 192, 168, 210, 18) \
+	RT(INPUT_SNMP, 2, 0, UINT16_TO_UINT8_ARR(2)) \
+	RT(OUTPUT_SNMP, 2, 0, UINT16_TO_UINT8_ARR(7)) \
+	RT(IN_PKTS, 4, 0, UINT32_TO_UINT8_ARR(1)) \
+	RT(IN_BYTES, 4, 0, UINT32_TO_UINT8_ARR(88)) \
+	RT(L4_SRC_PORT, 2, 0, UINT16_TO_UINT8_ARR(53)) \
+	RT(L4_DST_PORT, 2, 0, UINT16_TO_UINT8_ARR(53549)) \
+	RT(__VA_ARGS__) \
+	RT(PROTOCOL, 1, 0, IPPROTO_UDP) \
+	RT(SRC_TOS, 1, 0, 0) \
+	RT(IPV4_SRC_MASK, 1, 0, 16) \
+	RT(IPV4_DST_MASK, 1, 0, 23) \
+	RT(DIRECTION, 1, 0, 0) \
+	RT(FLOW_START_SEC, 4, 0, 0x57, 0x74, 0x00, 0x9d) \
+	RT(FLOW_END_SEC, 4, 0, 0x57, 0x74, 0x00, 0x9d) \
+	RT(12235, 0xffff, 9, 0)
 
 /// Flow entities for 1byte TCP flags
-#define FLOW_ENTITIES_TCP_FLAGS_1B(R) \
-	FLOW_TCP_FLAGS_ENTITIES(R, TCP_FLAGS, 1, 0, 0x6e)
-#define FLOW_ENTITIES_TCP_FLAGS_2B(R) \
-	FLOW_TCP_FLAGS_ENTITIES(R, TCP_FLAGS, 2, 0, 0x00, 0x6e)
+#define FLOW_ENTITIES_TCP_FLAGS_1B(R, RT) \
+	FLOW_TCP_FLAGS_ENTITIES(R, RT, TCP_FLAGS, 1, 0, 0x6e)
+#define FLOW_ENTITIES_TCP_FLAGS_2B(R, RT) \
+	FLOW_TCP_FLAGS_ENTITIES(R, RT, TCP_FLAGS, 2, 0, 0x00, 0x6e)
 
 #define TEST_TEMPLATE_ID 1025
 
@@ -244,18 +245,18 @@ static int prepare_test_ipfix_tcpflags(void **state,
 }
 
 static int prepare_test_ipfix_tcpflags_1b(void **state) {
-	static const IPFIX_1TEMPLATE(template, TEST_FLOW_HEADER,
+	static const IPFIX_TEMPLATE(template, TEST_FLOW_HEADER,
 		TEST_TEMPLATE_ID, FLOW_ENTITIES_TCP_FLAGS_1B);
-	static const IPFIX_1FLOW(flow, TEST_FLOW_HEADER, TEST_TEMPLATE_ID,
+	static const IPFIX_FLOW(flow, TEST_FLOW_HEADER, TEST_TEMPLATE_ID,
 		FLOW_ENTITIES_TCP_FLAGS_1B);
 	return prepare_test_ipfix_tcpflags(state,
 		&template, sizeof(template), &flow, sizeof(flow));
 }
 
 static int prepare_test_ipfix_tcpflags_2b(void **state) {
-	static const IPFIX_1TEMPLATE(template, TEST_FLOW_HEADER,
+	static const IPFIX_TEMPLATE(template, TEST_FLOW_HEADER,
 		TEST_TEMPLATE_ID, FLOW_ENTITIES_TCP_FLAGS_2B);
-	static const IPFIX_1FLOW(flow, TEST_FLOW_HEADER, TEST_TEMPLATE_ID,
+	static const IPFIX_FLOW(flow, TEST_FLOW_HEADER, TEST_TEMPLATE_ID,
 		FLOW_ENTITIES_TCP_FLAGS_2B);
 	return prepare_test_ipfix_tcpflags(state,
 		&template, sizeof(template), &flow, sizeof(flow));
