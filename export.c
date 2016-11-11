@@ -31,6 +31,10 @@
 #define NETFLOW_DIRECTION_INGRESS 0
 #define NETFLOW_DIRECTION_EGRESS  1
 
+typedef size_t (*entity_fn)(struct printbuf *kafka_line_buffer,
+    const void *vbuffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache);
+
 #define assert_multi(...) do {size_t assert_i; \
   for(assert_i=0; \
       assert_i<sizeof((const void *[]){__VA_ARGS__})/sizeof(const void *);\
@@ -216,6 +220,109 @@ size_t print_string(struct printbuf *kafka_line_buffer,
   printbuf_memappend_fast(kafka_line_buffer, buffer + real_field_offset,
                                                                 real_field_len);
   return kafka_line_buffer->bpos - bef_len;
+}
+
+#define SAVE_FLOWCACHE_NUMBER_PARAMETER(kafka_line_buffer, buffer,             \
+                real_field_len, real_field_offset, flowCache, parameter) do {  \
+  assert_multi(buffer, flowCache); unused_params(kafka_line_buffer);           \
+  flowCache->parameter = net2number(                                           \
+    (const uint8_t *)buffer + real_field_offset, real_field_len);              \
+  return 0; } while(0)
+
+size_t save_first_second(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache) {
+  SAVE_FLOWCACHE_NUMBER_PARAMETER(kafka_line_buffer, buffer,
+      real_field_len, real_field_offset, flowCache, time.first_timestamp_s);
+}
+
+size_t save_last_second(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache) {
+  SAVE_FLOWCACHE_NUMBER_PARAMETER(kafka_line_buffer, buffer,
+      real_field_len, real_field_offset, flowCache, time.last_timestamp_s);
+}
+
+/** Auxiliar function for first/last switched
+ * @param  dst               Destination to save buffer
+ * @param  buffer            Uptime buffer
+ * @param  real_field_len    Buffer length
+ * @param  real_field_offset Uptime offset in the buffer
+ */
+static void save_x_switched(uint64_t *dst, const void *vbuffer,
+    const size_t real_field_len, const size_t real_field_offset) {
+  const uint8_t *buffer = vbuffer;
+  assert_multi(dst, buffer);
+  // uptime switched in miliseconds
+  *dst = net2number(buffer + real_field_offset, real_field_len)/1000;
+}
+
+size_t save_first_switched(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache) {
+  unused_params(kafka_line_buffer);
+  save_x_switched(&flowCache->time.first_switched_uptime_s,
+    buffer, real_field_len, real_field_offset);
+  return 0;
+}
+
+size_t save_last_switched(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache) {
+  unused_params(kafka_line_buffer);
+  save_x_switched(&flowCache->time.last_switched_uptime_s,
+    buffer, real_field_len, real_field_offset);
+  return 0;
+}
+
+size_t save_flow_bytes(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache) {
+  SAVE_FLOWCACHE_NUMBER_PARAMETER(kafka_line_buffer, buffer,
+                  real_field_len, real_field_offset, flowCache, bytes);
+}
+
+size_t save_flow_pkts(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache) {
+  SAVE_FLOWCACHE_NUMBER_PARAMETER(kafka_line_buffer, buffer,
+                  real_field_len, real_field_offset, flowCache, packets);
+}
+
+/** Calls cb assuming that buffers brings the number in mili(units)
+ * @param  cb                Callback to call with number(buffer)/1000
+ * @param  kafka_line_buffer Kafka line buffer to use with cb
+ * @param  buffer            Buffer that contains the mili-value
+ * @param  real_field_len    Length of buffer
+ * @param  real_field_offset Offset of value in buffer
+ * @param  flowCache         Flow cache to call with number(buffer)/1000
+ * @return                   Callback return
+ */
+static size_t callback_mili_buffer(entity_fn cb,
+    struct printbuf *kafka_line_buffer,
+    const void *vbuffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache) {
+  const uint8_t *buffer = vbuffer;
+  assert_multi(buffer);
+
+  const uint64_t number = net2number(buffer + real_field_offset,
+                                                                real_field_len);
+  const uint64_t be_number = htonll(number);
+  return cb(kafka_line_buffer, &be_number, sizeof(be_number), 0, flowCache);
+}
+
+size_t save_first_msecond(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache) {
+  return callback_mili_buffer(save_first_second, kafka_line_buffer,
+    buffer, real_field_len, real_field_offset, flowCache);
+}
+
+size_t save_last_msecond(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache) {
+  return callback_mili_buffer(save_last_second, kafka_line_buffer,
+    buffer, real_field_len, real_field_offset, flowCache);
 }
 
 size_t print_tcp_flags(struct printbuf *kafka_line_buffer,

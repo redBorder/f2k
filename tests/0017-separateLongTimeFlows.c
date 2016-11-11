@@ -17,183 +17,487 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "rb_netflow_test.h"
 
-#include <jansson.h>
+#include "f2k.h"
 
-#include <assert.h>
-#include <stdio.h>
-
-#include <f2k.h>
-#include <librd/rdfloat.h>
+#include <librd/rd.h>
 
 #include <setjmp.h>
 #include <cmocka.h>
 
-#define double_equals rd_deq
+/* *********************** FIRST TEST: NF5 split flow *********************** */
 
-static void free_string_list(struct string_list *sl){
-	while(sl) {
-		struct string_list *next = sl->next;
-		printbuf_free(sl->string);
-		free(sl);
-		sl = next;
+#define NF5_RECORD(...) {            \
+	.srcaddr = NF5_IP(8, 8, 8, 8),  /* Source IP Address */                \
+	.dstaddr = NF5_IP(10,10,10,10),  /* Source IP Address */               \
+	.nexthop = NF5_IP(0,0,0,0),  /* Next hop router's IP Address */        \
+	.input   = 0,            /* Input interface index */                   \
+	.output  = 255,          /* Output interface index */                  \
+	.srcport = constexpr_be16toh(443), /* source port number */            \
+	.dstport = constexpr_be16toh(10101), /* destination port number */     \
+	.tcp_flags = 0,          /* Cumulative OR of tcp flags */              \
+	.proto   = 2,           /* IP protocol, e.g., 6=TCP, 17=UDP, etc... */ \
+	.tos     = 0,            /* IP Type-of-Service */                      \
+	.src_as  = 0,            /* source peer/origin Autonomous System */    \
+	.dst_as  = 0,            /* dst peer/origin Autonomous System */       \
+	.src_mask = 0,           /* source route's mask bits */                \
+	.dst_mask = 0,           /* destination route's mask bits */           \
+	__VA_ARGS__ \
+}
+
+static const NetFlow5Record record5 = {
+	.flowHeader = {
+		.version = constexpr_be16toh(5),
+		.count = constexpr_be16toh(4),
+		.sys_uptime = constexpr_be32toh(600000),
+		.unix_secs = constexpr_be32toh(1200),
+		.unix_nsecs = constexpr_be32toh(12345),
+		.flow_sequence = constexpr_be16toh(1050),
+		.engine_type = 0,
+		.engine_id  = 0,
+		.sampleRate = 0,
+	},
+	.flowRecord = {
+		NF5_RECORD(
+			.dPkts   = constexpr_be32toh(20),
+			.dOctets = constexpr_be32toh(30),
+			.first   = constexpr_be32toh(400000),
+			.last    = constexpr_be32toh(400000)),
+
+		NF5_RECORD(
+			.dPkts   = constexpr_be32toh(20),
+			.dOctets = constexpr_be32toh(30),
+			.first   = constexpr_be32toh(400000),
+			.last    = constexpr_be32toh(416000)),
+
+		NF5_RECORD(
+			.dPkts   = constexpr_be32toh(20),
+			.dOctets = constexpr_be32toh(30),
+			.first   = constexpr_be32toh(400000),
+			.last    = constexpr_be32toh(470000)),
+
+		NF5_RECORD(
+			.dPkts   = constexpr_be32toh(20),
+			.dOctets = constexpr_be32toh(30),
+			.first   = constexpr_be32toh(400000),
+			.last    = constexpr_be32toh(540000)),
 	}
+};
+
+/* ***************************** 2ND: NF9 TESTS ***************************** */
+
+#define TEST_TEMPLATE_ID 1025
+
+#define NF9_HEADER \
+	.sys_uptime = constexpr_be32toh(12345), /* CISCO WLC sent this ! */ \
+	.unix_secs = constexpr_be32toh(1000), \
+	.flow_sequence = constexpr_be32toh(1050), \
+	.sourceId = constexpr_be32toh(1),
+
+#define NF9_ENTITIES_BASE(X) \
+	X(IPV4_SRC_ADDR, 4, 0, 208, 67, 222, 222) \
+	X(IPV4_DST_ADDR, 4, 0, 192, 168, 210, 18) \
+	X(IN_PKTS, 4, 0, UINT32_TO_UINT8_ARR(20)) \
+	X(IN_BYTES, 4, 0, UINT32_TO_UINT8_ARR(30)) \
+	X(L4_SRC_PORT, 2, 0, UINT16_TO_UINT8_ARR(53)) \
+	X(L4_DST_PORT, 2, 0, UINT16_TO_UINT8_ARR(53549)) \
+	X(PROTOCOL, 1, 0, IPPROTO_UDP)
+
+#define NF_WLC_NO_TIME_ENTITIES(RT, R) \
+	NF9_ENTITIES_BASE(RT) \
+
+static const NF9_TEMPLATE(nf9_notime_template, NF9_HEADER,
+	TEST_TEMPLATE_ID, NF_WLC_NO_TIME_ENTITIES);
+static const NF9_FLOW(nf9_notime_flow, NF9_HEADER,
+	TEST_TEMPLATE_ID, NF_WLC_NO_TIME_ENTITIES);
+
+/* **************************** 3RD: IPFIX TESTS **************************** */
+
+#define IPFIX_HEADER \
+	.unix_secs = constexpr_be32toh(1000), \
+	.flow_sequence = constexpr_be32toh(12372811), \
+	.observationDomainId = 0
+
+#define IPFIX_ENTITIES_BASE(X) NF9_ENTITIES_BASE(X)
+
+// IPFIX uptime model
+#define IPFIX_UPTIME_ENTITIES(RT, R) \
+	IPFIX_ENTITIES_BASE(RT) \
+	RT(FIRST_SWITCHED, 4, 0, UINT32_TO_UINT8_ARR(400000)) \
+	RT(LAST_SWITCHED,  4, 0, UINT32_TO_UINT8_ARR(400000)) \
+	IPFIX_ENTITIES_BASE(R) \
+	R(FIRST_SWITCHED, 4, 0, UINT32_TO_UINT8_ARR(400000)) \
+	R(LAST_SWITCHED,  4, 0, UINT32_TO_UINT8_ARR(416000)) \
+	IPFIX_ENTITIES_BASE(R) \
+	R(FIRST_SWITCHED, 4, 0, UINT32_TO_UINT8_ARR(400000)) \
+	R(LAST_SWITCHED,  4, 0, UINT32_TO_UINT8_ARR(470000)) \
+	IPFIX_ENTITIES_BASE(R) \
+	R(FIRST_SWITCHED, 4, 0, UINT32_TO_UINT8_ARR(400000)) \
+	R(LAST_SWITCHED,  4, 0, UINT32_TO_UINT8_ARR(540000))
+
+// IPFIX timestamp model
+#define IPFIX_TIMESTAMP_ENTITIES(RT, R) \
+	IPFIX_ENTITIES_BASE(RT) \
+	RT(FLOW_START_SEC, 4, 0, UINT32_TO_UINT8_ARR(1000)) \
+	RT(FLOW_END_SEC,  4, 0, UINT32_TO_UINT8_ARR(1000)) \
+	IPFIX_ENTITIES_BASE(R) \
+	R(FLOW_START_SEC, 4, 0, UINT32_TO_UINT8_ARR(984)) \
+	R(FLOW_END_SEC,  4, 0, UINT32_TO_UINT8_ARR(1000)) \
+	IPFIX_ENTITIES_BASE(R) \
+	R(FLOW_START_SEC, 4, 0, UINT32_TO_UINT8_ARR(930)) \
+	R(FLOW_END_SEC,  4, 0, UINT32_TO_UINT8_ARR(1000)) \
+	IPFIX_ENTITIES_BASE(R) \
+	R(FLOW_START_SEC, 4, 0, UINT32_TO_UINT8_ARR(860)) \
+	R(FLOW_END_SEC,  4, 0, UINT32_TO_UINT8_ARR(1000))
+
+static const IPFIX_TEMPLATE(ipfix_uptime_template, IPFIX_HEADER,
+	TEST_TEMPLATE_ID, IPFIX_UPTIME_ENTITIES);
+static const IPFIX_FLOW(ipfix_uptime_flow, IPFIX_HEADER, TEST_TEMPLATE_ID,
+	IPFIX_UPTIME_ENTITIES);
+
+static const IPFIX_TEMPLATE(ipfix_timestamp_template, IPFIX_HEADER,
+	TEST_TEMPLATE_ID, IPFIX_TIMESTAMP_ENTITIES);
+static const IPFIX_FLOW(ipfix_timestamp_flow, IPFIX_HEADER, TEST_TEMPLATE_ID,
+	IPFIX_TIMESTAMP_ENTITIES);
+
+/* ******************************* NF CHECKS ******************************* */
+// d = 0
+static const struct checkdata_value timestamp_0_chks[] = {
+	{.key="timestamp",.value="1000"},
+	{.key="bytes",.value="30"},
+	{.key="pkts",.value="20"},
+};
+
+// d = 16
+static const struct checkdata_value timestamp_16_chks[] = {
+	{.key="timestamp",.value="1000"},
+	{.key="bytes",.value="30"},
+	{.key="pkts",.value="20"},
+};
+
+// d = 70
+static const struct checkdata_value timestamp_70_1_chks[] = {
+	{.key="timestamp",.value="1060"},
+	{.key="bytes",.value="4"},
+	{.key="pkts",.value="2"},
+};
+
+static const struct checkdata_value timestamp_70_2_chks[] = {
+	{.key="timestamp",.value="1000"},
+	{.key="bytes",.value="26"},
+	{.key="pkts",.value="18"},
+};
+
+// d = 140
+static const struct checkdata_value timestamp_140_1_chks[] = {
+	{.key="timestamp",.value="1120"},
+	{.key="bytes",.value="4"},
+	{.key="pkts",.value="2"},
+};
+
+static const struct checkdata_value timestamp_140_2_chks[] = {
+	{.key="timestamp",.value="1060"},
+	{.key="bytes",.value="13"},
+	{.key="pkts",.value="9"},
+};
+
+static const struct checkdata_value timestamp_140_3_chks[] = {
+	{.key="timestamp",.value="1000"},
+	{.key="bytes",.value="13"},
+	{.key="pkts",.value="9"},
+};
+
+/// @todo use C99 to make this smaller and not to use so many definitions!
+static const struct checkdata checkdata_split[] = {
+	{
+		.size = RD_ARRAYSIZE(timestamp_0_chks),
+		.checks = timestamp_0_chks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_16_chks),
+		.checks = timestamp_16_chks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_70_1_chks),
+		.checks = timestamp_70_1_chks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_70_2_chks),
+		.checks = timestamp_70_2_chks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_140_1_chks),
+		.checks = timestamp_140_1_chks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_140_2_chks),
+		.checks = timestamp_140_2_chks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_140_3_chks),
+		.checks = timestamp_140_3_chks,
+	}
+};
+
+// d = 16
+static const struct checkdata_value timestamp_16_dontsplit_chks[] = {
+	{.key="timestamp",.value="1016"},
+	{.key="bytes",.value="30"},
+	{.key="pkts",.value="20"},
+};
+
+// d = 70
+static const struct checkdata_value timestamp_70_dontsplit_chks[] = {
+	{.key="timestamp",.value="1070"},
+	{.key="bytes",.value="30"},
+	{.key="pkts",.value="20"},
+};
+// d = 140
+static const struct checkdata_value timestamp_140_dontsplit_chks[] = {
+	{.key="timestamp",.value="1140"},
+	{.key="bytes",.value="30"},
+	{.key="pkts",.value="20"},
+};
+
+/// @todo use C99 to make this smaller and not to use so many definitions!
+static const struct checkdata checkdata_dont_split[] = {
+	{
+		.size = RD_ARRAYSIZE(timestamp_0_chks),
+		.checks = timestamp_0_chks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_16_dontsplit_chks),
+		.checks = timestamp_16_dontsplit_chks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_70_dontsplit_chks),
+		.checks = timestamp_70_dontsplit_chks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_140_dontsplit_chks),
+		.checks = timestamp_140_dontsplit_chks,
+	},
+};
+
+/* **************************** IPFIX checkdata **************************** */
+// Uptime split checks
+static const struct checkdata_value timestamp_0_nfchks[] = {
+	{.key="timestamp",.value="1000"},
+	{.key="bytes",.value="30"},
+	{.key="pkts",.value="20"},
+};
+
+// d = 16
+static const struct checkdata_value timestamp_16_nfchks[] = {
+	{.key="timestamp",.value="984"},
+	{.key="bytes",.value="30"},
+	{.key="pkts",.value="20"},
+};
+
+// d = 70
+static const struct checkdata_value timestamp_70_1_nfchks[] = {
+	{.key="timestamp",.value="990"},
+	{.key="bytes",.value="4"},
+	{.key="pkts",.value="2"},
+};
+
+static const struct checkdata_value timestamp_70_2_nfchks[] = {
+	{.key="timestamp",.value="930"},
+	{.key="bytes",.value="26"},
+	{.key="pkts",.value="18"},
+};
+
+// d = 140
+static const struct checkdata_value timestamp_140_1_nfchks[] = {
+	{.key="timestamp",.value="980"},
+	{.key="bytes",.value="4"},
+	{.key="pkts",.value="2"},
+};
+
+static const struct checkdata_value timestamp_140_2_nfchks[] = {
+	{.key="timestamp",.value="920"},
+	{.key="bytes",.value="13"},
+	{.key="pkts",.value="9"},
+};
+
+static const struct checkdata_value timestamp_140_3_nfchks[] = {
+	{.key="timestamp",.value="860"},
+	{.key="bytes",.value="13"},
+	{.key="pkts",.value="9"},
+};
+
+/// @todo use C99 to make this smaller and not to use so many definitions!
+static const struct checkdata ipfix_checkdata_split[] = {
+	{
+		.size = RD_ARRAYSIZE(timestamp_0_nfchks),
+		.checks = timestamp_0_nfchks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_16_nfchks),
+		.checks = timestamp_16_nfchks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_70_1_nfchks),
+		.checks = timestamp_70_1_nfchks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_70_2_nfchks),
+		.checks = timestamp_70_2_nfchks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_140_1_nfchks),
+		.checks = timestamp_140_1_nfchks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_140_2_nfchks),
+		.checks = timestamp_140_2_nfchks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_140_3_nfchks),
+		.checks = timestamp_140_3_nfchks,
+	}
+};
+
+// no split checks
+/// @todo use C99 to make this smaller and not to use so many definitions!
+static const struct checkdata ipfix_checkdata_dont_split[] = {
+	{
+		.size = RD_ARRAYSIZE(timestamp_0_nfchks),
+		.checks = timestamp_0_nfchks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_0_nfchks),
+		.checks = timestamp_0_nfchks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_0_nfchks),
+		.checks = timestamp_0_nfchks,
+	},{
+		.size = RD_ARRAYSIZE(timestamp_0_nfchks),
+		.checks = timestamp_0_nfchks,
+	},
+};
+
+/* ************************************************************************* */
+
+static int prepare_test_timestamp_split(void **state,
+		const void *flow1, size_t flow1_size,
+		const struct checkdata *checkdata1, size_t checkdata1_size,
+		const void *flow2, size_t flow2_size,
+		const struct checkdata *checkdata2, size_t checkdata2_size,
+		bool separate_long_flows) {
+	readOnlyGlobals.separate_long_flows = separate_long_flows;
+
+	struct test_params test_params[] = {
+		[0] = {
+			.config_json_path = "./tests/0000-testFlowV5.json",
+			.host_list_path = NULL,
+			.netflow_src_ip = 0x04030201, .netflow_dst_port = 2055,
+			.record = flow1, .record_size = flow1_size,
+			.checkdata = checkdata1,
+			.checkdata_size = checkdata1_size,
+		},
+		[1] = {
+			.config_json_path = NULL,
+			.host_list_path = NULL,
+			.netflow_src_ip = 0x04030201, .netflow_dst_port = 2055,
+			.record = flow2, .record_size = flow2_size,
+			.checkdata = checkdata2,
+			.checkdata_size = checkdata2_size,
+		},
+	};
+
+	*state = prepare_tests(test_params, flow2 ? 2 : 1);
+	return *state == NULL;
 }
 
-// @todo use the same checks as the rest of the tests!
-static void rb_test_separate_long_time_flow()
-{
-	json_t *json_o,*json_object_son;
-	struct string_list * sl = NULL;
-	struct printbuf *kafka_line_buffer = NULL;
-
-	// traceEvent(TRACE_NORMAL, "Testing a very short flow (duration=0)");
-	kafka_line_buffer = printbuf_new();
-	sprintbuf(kafka_line_buffer, "{\"foo\":\"bar\"");
-	sl = rb_separate_long_time_flow(kafka_line_buffer,1000, 0, 60,60,20,30);
-	// traceEvent(TRACE_NORMAL,"  -> Checking if just one kafka message generated...");
-	assert_null(sl->next);
-	// traceEvent(TRACE_NORMAL,"  -> Checking if kafka message has the correct data...");
-	json_o = json_loads(sl->string->buf,0,NULL);
-	assert_non_null(json_o);
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct timestamp...");
-	json_object_son = json_object_get(json_o,"timestamp");
-	assert_true(double_equals(json_number_value(json_object_son),1000));
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct bytes...");
-	json_object_son = json_object_get(json_o,"bytes");
-	assert_true(double_equals(json_number_value(json_object_son),20));
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct packets...");
-	json_object_son = json_object_get(json_o,"pkts");
-	assert_true(double_equals(json_number_value(json_object_son),30));
-
-	json_decref(json_o);
-	free_string_list(sl);
-
-	// traceEvent(TRACE_NORMAL, "Testing a flow with duration 0 < d < 60");
-	kafka_line_buffer = printbuf_new();
-	sprintbuf(kafka_line_buffer, "{\"foo\":\"bar\"");
-	sl = rb_separate_long_time_flow(kafka_line_buffer,1000, 16, 60,60,20,30);
-	// traceEvent(TRACE_NORMAL,"  -> Checking if just one kafka message generated...");
-	assert_null(sl->next);
-	// traceEvent(TRACE_NORMAL,"  -> Checking if kafka message has the correct data...");
-	json_o = json_loads(sl->string->buf,0,NULL);
-	assert_non_null(json_o);
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct timestamp...");
-	json_object_son = json_object_get(json_o,"timestamp");
-	assert_true(double_equals(json_number_value(json_object_son),1000));
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct bytes...");
-	json_object_son = json_object_get(json_o,"bytes");
-	assert_true(double_equals(json_number_value(json_object_son),20));
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct packets...");
-	json_object_son = json_object_get(json_o,"pkts");
-	assert_true(double_equals(json_number_value(json_object_son),30));
-
-	json_decref(json_o);
-	free_string_list(sl);
-
-	// traceEvent(TRACE_NORMAL, "Testing a flow with duration 60 < d < 120");
-	kafka_line_buffer = printbuf_new();
-	sprintbuf(kafka_line_buffer, "{\"foo\":\"bar\"");
-	sl = rb_separate_long_time_flow(kafka_line_buffer,1000, 70, 60,60,20,30);
-	// traceEvent(TRACE_NORMAL,"  -> Checking if just two kafka message generated...");
-	assert_non_null(sl->next);
-	assert_null(sl->next->next);
-
-	// traceEvent(TRACE_NORMAL,"  -> Checking if kafka 1st message has the correct data...");
-	json_o = json_loads(sl->string->buf,0,NULL);
-	assert_non_null(json_o);
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct timestamp...");
-	json_object_son = json_object_get(json_o,"timestamp");
-	assert_true(double_equals(json_number_value(json_object_son),1060));
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct bytes...");
-	json_object_son = json_object_get(json_o,"bytes");
-	assert_true(double_equals(json_number_value(json_object_son),2));
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct packets...");
-	json_object_son = json_object_get(json_o,"pkts");
-	assert_true(double_equals(json_number_value(json_object_son),4));
-	json_decref(json_o);
-
-	// traceEvent(TRACE_NORMAL,"  -> Checking if kafka 2nd message has the correct data...");
-	json_o = json_loads(sl->next->string->buf,0,NULL);
-	assert_non_null(json_o);
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct timestamp...");
-	json_object_son = json_object_get(json_o,"timestamp");
-	assert_true(double_equals(json_number_value(json_object_son),1000));
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct bytes...");
-	json_object_son = json_object_get(json_o,"bytes");
-	assert_true(double_equals(json_number_value(json_object_son),18));
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct packets...");
-	json_object_son = json_object_get(json_o,"pkts");
-	assert_true(double_equals(json_number_value(json_object_son),26));
-	free_string_list(sl);
-	json_decref(json_o);
-
-	// traceEvent(TRACE_NORMAL, "Testing a flow with duration d > 120");
-	kafka_line_buffer = printbuf_new();
-	sprintbuf(kafka_line_buffer, "{\"foo\":\"bar\"");
-	sl = rb_separate_long_time_flow(kafka_line_buffer,1000, 140, 60,60,40,60);
-	// traceEvent(TRACE_NORMAL,"  -> Checking if just three kafka message generated...");
-	assert_non_null(sl->next);
-	assert_non_null(sl->next->next);
-	assert_null(sl->next->next->next);
-
-	// traceEvent(TRACE_NORMAL,"  -> Checking if kafka 1st message has the correct data...");
-	json_o = json_loads(sl->string->buf,0,NULL);
-	assert_non_null(json_o);
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct timestamp...");
-	json_object_son = json_object_get(json_o,"timestamp");
-	assert_true(double_equals(json_number_value(json_object_son),1120));
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct bytes...");
-	json_object_son = json_object_get(json_o,"bytes");
-	assert_true(double_equals(json_number_value(json_object_son),6));
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct packets...");
-	json_object_son = json_object_get(json_o,"pkts");
-	assert_true(double_equals(json_number_value(json_object_son),8));
-	json_decref(json_o);
-
-	// traceEvent(TRACE_NORMAL,"  -> Checking if kafka 2nd message has the correct data...");
-	json_o = json_loads(sl->next->string->buf,0,NULL);
-	json_object_son = json_object_get(json_o,"timestamp");
-	assert_true(double_equals(json_number_value(json_object_son),1060));
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct bytes...");
-	json_object_son = json_object_get(json_o,"bytes");
-	assert_true(double_equals(json_number_value(json_object_son),17));
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct packets...");
-	json_object_son = json_object_get(json_o,"pkts");
-	assert_true(double_equals(json_number_value(json_object_son),26));
-	json_decref(json_o);
-
-	// traceEvent(TRACE_NORMAL,"  -> Checking if kafka 3rd message has the correct data...");
-	json_o = json_loads(sl->next->next->string->buf,0,NULL);
-	assert_non_null(json_o);
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct timestamp...");
-	json_object_son = json_object_get(json_o,"timestamp");
-	assert_true(double_equals(json_number_value(json_object_son),1000));
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct bytes...");
-	json_object_son = json_object_get(json_o,"bytes");
-	assert_true(double_equals(json_number_value(json_object_son),17));
-	// traceEvent(TRACE_NORMAL,"    -> Checking if kafka message has the correct packets...");
-	json_object_son = json_object_get(json_o,"pkts");
-	assert_true(double_equals(json_number_value(json_object_son),26));
-	json_decref(json_o);
-
-	free_string_list(sl);
-
-	// traceEvent(TRACE_NORMAL,"separateLongTimeFlow() work properly.");
+static int prepare_test_nf5_base(void **state,
+		const struct checkdata *checkdata, size_t checkdata_size,
+		bool slip_flow) {
+	return prepare_test_timestamp_split(state, &record5, sizeof(record5),
+		checkdata, checkdata_size, NULL, 0, NULL, 0, slip_flow);
 }
 
-static void test_separate_long_time_flow(void **state) {
-	(void)state;
-	readWriteGlobals = calloc(1,sizeof(readWriteGlobals[0]));
+static int prepare_test_nf5_timestamp_split(void **state) {
+	return prepare_test_nf5_base(state,
+		checkdata_split, RD_ARRAYSIZE(checkdata_split), true);
+}
 
-	rb_test_separate_long_time_flow();
-	free(readWriteGlobals);
+static int prepare_test_nf5_timestamp_dont_split(void **state) {
+	return prepare_test_nf5_base(state, checkdata_dont_split,
+		RD_ARRAYSIZE(checkdata_dont_split), false);
+}
+
+static int prepare_test_ipfix_uptime_base(void **state,
+		const struct checkdata *checkdata, size_t checkdata_size,
+		bool split_flow) {
+	return prepare_test_timestamp_split(state,
+		&ipfix_uptime_template, sizeof(ipfix_uptime_template), NULL, 0,
+		&ipfix_uptime_flow, sizeof(ipfix_uptime_flow),
+		checkdata, checkdata_size, split_flow);
+}
+
+static int prepare_test_ipfix_timestamp_uptime_dont_split(void **state) {
+	return prepare_test_ipfix_uptime_base(state, ipfix_checkdata_dont_split,
+		RD_ARRAYSIZE(ipfix_checkdata_dont_split), false);
+}
+
+static int prepare_test_ipfix_timestamp_uptime_split(void **state) {
+	return prepare_test_ipfix_uptime_base(state, ipfix_checkdata_split,
+		RD_ARRAYSIZE(ipfix_checkdata_split), true);
+}
+
+static int prepare_test_ipfix_timestamp_base(void **state,
+		const struct checkdata *checkdata, size_t checkdata_size,
+		bool split_flow) {
+	return prepare_test_timestamp_split(state,
+		&ipfix_timestamp_template, sizeof(ipfix_timestamp_template),
+		NULL, 0,
+		&ipfix_timestamp_flow, sizeof(ipfix_timestamp_flow),
+		checkdata, checkdata_size, split_flow);
+}
+
+static int prepare_test_ipfix_timestamp_dont_split(void **state) {
+	return prepare_test_ipfix_timestamp_base(state,
+		ipfix_checkdata_dont_split,
+		RD_ARRAYSIZE(ipfix_checkdata_dont_split), false);
+}
+
+static int prepare_test_ipfix_timestamp_split(void **state) {
+	return prepare_test_ipfix_timestamp_base(state, ipfix_checkdata_split,
+		RD_ARRAYSIZE(ipfix_checkdata_split), true);
+}
+
+static int prepare_test_nf9_no_timestamp_base(void **state, bool split) {
+	static const struct checkdata checkdata_notime = {
+		.size = RD_ARRAYSIZE(timestamp_0_chks),
+		.checks = timestamp_0_chks,
+	};
+
+	return prepare_test_timestamp_split(state,
+		&nf9_notime_template, sizeof(nf9_notime_template),
+		NULL, 0,
+		&nf9_notime_flow, sizeof(nf9_notime_flow),
+		&checkdata_notime, 1, split);
+}
+
+static int prepare_test_nf9_no_timestamp_dont_split(void **state) {
+	return prepare_test_nf9_no_timestamp_base(state, false);
+}
+
+static int prepare_test_nf9_no_timestamp_split(void **state) {
+	return prepare_test_nf9_no_timestamp_base(state, true);
 }
 
 int main() {
-	const struct CMUnitTest tests[] = {
-		cmocka_unit_test(test_separate_long_time_flow)
+	static const struct CMUnitTest tests[] = {
+		cmocka_unit_test_setup_teardown(testFlow,
+			prepare_test_nf5_timestamp_split, check_flow),
+		cmocka_unit_test_setup_teardown(testFlow,
+			prepare_test_nf5_timestamp_dont_split, check_flow),
+
+		cmocka_unit_test_setup_teardown(testFlow,
+			prepare_test_nf9_no_timestamp_dont_split, check_flow),
+		cmocka_unit_test_setup_teardown(testFlow,
+			prepare_test_nf9_no_timestamp_split, check_flow),
+
+		cmocka_unit_test_setup_teardown(testFlow,
+			prepare_test_ipfix_timestamp_uptime_dont_split,
+			check_flow),
+		cmocka_unit_test_setup_teardown(testFlow,
+			prepare_test_ipfix_timestamp_uptime_split,
+			check_flow),
+		cmocka_unit_test_setup_teardown(testFlow,
+			prepare_test_ipfix_timestamp_dont_split,
+			check_flow),
+		cmocka_unit_test_setup_teardown(testFlow,
+			prepare_test_ipfix_timestamp_split,
+			check_flow),
 	};
 
-	return cmocka_run_group_tests(tests, NULL, NULL);
+	return cmocka_run_group_tests(tests, nf_test_setup, nf_test_teardown);
 }

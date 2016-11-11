@@ -161,6 +161,7 @@ void loadApplProtocols(void);
 uint16_t port2ApplProtocol(uint8_t proto, uint16_t port);
 
 #define ntohll(x) be64toh(x)
+#define htonll(x) ntohll(x)
 
 void maximize_socket_buffer(int sock_fd, int buf_type);
 
@@ -433,8 +434,7 @@ static inline uint64_t mac_atoi(const char *number_a)
 /* ******************************************************** */
 
 // Fields that we have to record
-struct flowCache
-{
+struct flowCache {
   uint64_t client_mac;
   struct{
     uint8_t client_mac[6];
@@ -462,8 +462,17 @@ struct flowCache
 
   struct sensor *sensor;
 
-  uint64_t bytes;
-  uint64_t packets;
+  /// Flow time related information
+  struct {
+    uint64_t export_timestamp_s;      ///< Flow export timestamp (seconds)
+    uint64_t sys_uptime_s;            ///< Seconds since probe device boot (s)
+    uint64_t first_switched_uptime_s; ///< First switched uptime in flow
+    uint64_t last_switched_uptime_s;  ///< Last switched uptime in flow
+    uint64_t first_timestamp_s;       ///< First timestamp in flow (s)
+    uint64_t last_timestamp_s;        ///< Last timestamp in flow (s)
+  } time;
+  uint64_t bytes;              ///< Flow bytes
+  uint64_t packets;            ///< Flow packets
 };
 
 static inline uint64_t flowCache_packets(const struct flowCache *c){

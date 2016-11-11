@@ -33,11 +33,11 @@ static const struct {
 		sizeof(V9TemplateDef)];
 } __attribute__((packed)) v10Template = {
 	.flow_header = {
-		/*uint16_t*/ .version = constexpr_be16toh(10), /* Current version=9*/
-		/*uint16_t*/ .len = constexpr_be16toh(148),    /* The number of records in PDU. */
-		/*uint32_t*/ .sysUptime = 0xdd5d6952,     /* Current time in msecs since router booted */
-		/*uint32_t*/ .flow_sequence = 0x38040000, /* Sequence number of total flows seen */
-		/*uint32_t*/ .observationDomainId = constexpr_be32toh(256), /* Source id */
+		.version = constexpr_be16toh(10),
+		.len = constexpr_be16toh(148),
+		.unix_secs = constexpr_be32toh(1382637021),
+		.flow_sequence = 0x38040000,
+		.observationDomainId = constexpr_be32toh(256),
 	},
 
 	.flowset_header = {
@@ -85,16 +85,16 @@ static const struct {
 	const uint8_t buffer1[574 - sizeof(IPFIXFlowHeader) - sizeof(IPFIXSet)];
 } __attribute__((packed)) v10Flow = {
 	.flow_header = {
-		/*uint16_t*/ .version = constexpr_be16toh(10), /* Current version=9*/
-		/*uint16_t*/ .len = constexpr_be16toh(574),   /* The number of records in PDU. */
-		/*uint32_t*/ .sysUptime = 0xdd5d6952ul,     /* Current time in msecs since router booted */
-		/*uint32_t*/ .flow_sequence = constexpr_be32toh(1080), /* Sequence number of total flows seen */
-		/*uint32_t*/ .observationDomainId = constexpr_be32toh(256), /* Source id */
+		/*uint16_t*/ .version = constexpr_be16toh(10),
+		/*uint16_t*/ .len = constexpr_be16toh(574),
+		/*uint32_t*/ .unix_secs = 0xdd5d6952ul,
+		/*uint32_t*/ .flow_sequence = constexpr_be32toh(1080),
+		/*uint32_t*/ .observationDomainId = constexpr_be32toh(256),
 	},
 
 	.flowset_header = {
 		/*uint16_t*/ .set_id = constexpr_be16toh(262),
-		/*uint16_t*/ .set_len = constexpr_be16toh(552),
+		/*uint16_t*/ .set_len = constexpr_be16toh(558),
 	},
 
 	.buffer1 = {
@@ -210,7 +210,7 @@ static const struct checkdata_value checkdata_values1[] = {
 	{.key = "client_mac", .value="60:57:18:c2:87:d8"},
 	{.key = "sensor_ip", .value="4.3.2.1"},
 	{.key = "sensor_name", .value="FlowTest"},
-	{.key = "first_switched", .value="1382633481"},
+	{.key = "first_switched", .value="1382637021"},
 	{.key = "timestamp", .value="1382637021"},
 	{.key = "bytes", .value="818"},
 	{.key = "pkts", .value="7"}

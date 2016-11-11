@@ -40,21 +40,21 @@ struct TestV10Flow{
 
 static const struct TestV10Template v10Template = {
 	.flowHeader = {
-		/*uint16_t*/ .version = 0x0a00,           /* Current version=9*/
-		/*uint16_t*/ .len = 0x7400,           /* The number of records in PDU. */
-		/*uint32_t*/ .sysUptime = 0xdd5d6952,     /* Current time in msecs since router booted */
-		/*uint32_t*/ .flow_sequence = 0x38040000, /* Sequence number of total flows seen */
-		/*uint32_t*/ .observationDomainId = 0x00010000,      /* Source id */
+		.version = constexpr_be16toh(10),
+		.len = constexpr_be16toh(116),
+		.unix_secs = constexpr_be32toh(1382637021),
+		.flow_sequence = constexpr_be32toh(1080),
+		.observationDomainId = constexpr_be32toh(256),
 	},
 
 	.flowSetHeader = {
-		/*uint16_t*/ .set_id = 0x0200,
-		/*uint16_t*/ .set_len = 0x6400,
+		.set_id = constexpr_be16toh(2),
+		.set_len = constexpr_be16toh(100),
 	},
 
 	.templateHeader = {
-		/*uint16_t*/ .templateId = 0x0d01, /*269*/
-		/*uint16_t*/ .fieldCount = 0x1300,
+		.templateId = constexpr_be16toh(269),
+		/*uint16_t*/ .fieldCount = constexpr_be16toh(19),
 	},
 
 	.templateBuffer = {
@@ -82,16 +82,16 @@ static const struct TestV10Template v10Template = {
 
 static const struct TestV10Flow v10Flow = {
 	.flowHeader = {
-		/*uint16_t*/ .version = 0x0a00,           /* Current version=9*/
-		/*uint16_t*/ .len = 0x6100,           /* The number of records in PDU. */
-		/*uint32_t*/ .sysUptime = 0xdd5d6952,     /* Current time in msecs since router booted */
-		/*uint32_t*/ .flow_sequence = 0x38040000, /* Sequence number of total flows seen */
-		/*uint32_t*/ .observationDomainId = 0x00010000,      /* Source id */
+		.version = constexpr_be16toh(10),
+		.len = constexpr_be16toh(97),
+		.unix_secs = constexpr_be32toh(1382637021),
+		.flow_sequence = constexpr_be32toh(1080),
+		.observationDomainId = constexpr_be32toh(256),
 	},
 
 	.flowSetHeader = {
-		/*uint16_t*/ .set_id = 0x0d01,
-		/*uint16_t*/ .set_len = 0x5100,
+		.set_id = constexpr_be16toh(269),
+		.set_len = constexpr_be16toh(81),
 	},
 
 	.buffer1 = {

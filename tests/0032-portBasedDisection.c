@@ -28,7 +28,7 @@ static const NetFlow5Record record = {
 	.flowHeader = {
 		.version = 0x0500,     /* Current version=5*/
 		.count = 0x0100,       /* The number of records in PDU. */
-		.sysUptime = 12345,    /* Current time in msecs since router booted */
+		.sys_uptime = 12345,    /* Current time in msecs since router booted */
 		.unix_secs = 12345,    /* Current seconds since 0000 UTC 1970 */
 		.unix_nsecs = 12345,   /* Residual nanoseconds since 0000 UTC 1970 */
 		.flow_sequence = 1050, /* Sequence number of total flows seen */

@@ -42,7 +42,7 @@ static const struct TestV10Template v10Template = {
 	.flowHeader = {
 		/*uint16_t*/ .version = 0x0a00,           /* Current version=9*/
 		/*uint16_t*/ .len = 0x7400,           /* The number of records in PDU. */
-		/*uint32_t*/ .sysUptime = 0xdd5d6952,     /* Current time in msecs since router booted */
+		/*uint32_t*/ .unix_secs = 0xdd5d6952,     /* Current time in msecs since router booted */
 		/*uint32_t*/ .flow_sequence = 0x38040000, /* Sequence number of total flows seen */
 		/*uint32_t*/ .observationDomainId = 0x00010000,      /* Source id */
 	},
@@ -85,7 +85,7 @@ static const struct TestV10Flow v10Flow = {
 	.flowHeader = {
 		/*uint16_t*/ .version = 0x0a00,           /* Current version=9*/
 		/*uint16_t*/ .len = 0x4500,           /* The number of records in PDU. */
-		/*uint32_t*/ .sysUptime = 0xdd5d6952,     /* Current time in msecs since router booted */
+		/*uint32_t*/ .unix_secs = 0xdd5d6952,     /* Current time in msecs since router booted */
 		/*uint32_t*/ .flow_sequence = 0x38040000, /* Sequence number of total flows seen */
 		/*uint32_t*/ .observationDomainId = 0x00010000,      /* Source id */
 	},

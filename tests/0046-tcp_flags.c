@@ -53,7 +53,7 @@ static const NetFlow5Record record5 = {
 	.flowHeader = {
 		.version = constexpr_be16toh(5),
 		.count = constexpr_be16toh(30),
-		.sysUptime = constexpr_be16toh(12345),
+		.sys_uptime = constexpr_be16toh(12345),
 		.unix_secs = constexpr_be16toh(12345),
 		.unix_nsecs = constexpr_be16toh(12345),
 		.flow_sequence = constexpr_be16toh(1050),
@@ -118,7 +118,7 @@ static const NetFlow5Record record5 = {
 #define TEST_TEMPLATE_ID 1025
 
 #define TEST_FLOW_HEADER \
-	.sysUptime = constexpr_be32toh(1467220140), \
+	.unix_secs = constexpr_be32toh(1467220140), \
 	.flow_sequence = constexpr_be32toh(12372811), \
 	.observationDomainId = 0
 
@@ -128,8 +128,6 @@ static const NetFlow5Record record5 = {
 	{.key="dst",.value="10.10.10.10"}, \
 	{.key="src_port",.value="443"}, \
 	{.key="dst_port",.value="10101"}, \
-	{.key="first_switched",.value="808321109"}, \
-	{.key="timestamp",.value="808321109"}, \
 	{.key="input_snmp",.value="0"}, \
 	{.key="output_snmp",.value="65280"}, \
 	{.key="tos",.value="0"}, \
@@ -145,7 +143,7 @@ static const NetFlow5Record record5 = {
 	static const struct checkdata_value CHECKS_REF(id)[] = \
 		BASE_CHECKS(mtcp_flags)
 #define CHECKDATA(id) \
-		{.size = 14, .checks=CHECKS_REF(id)}
+		{.size = 12, .checks=CHECKS_REF(id)}
 
 // end of todo
 
@@ -202,8 +200,6 @@ static int prepare_test_ipfix_tcpflags(void **state,
 		{.key="dst",.value="192.168.210.18"},
 		{.key="src_port",.value="53"},
 		{.key="dst_port",.value="53549"},
-		{.key="first_switched",.value="1467220140"},
-		{.key="timestamp",.value="1467220140"},
 		{.key="input_snmp",.value="2"},
 		{.key="output_snmp",.value="7"},
 		{.key="tcp_flags",.value=".EU.PRS."},

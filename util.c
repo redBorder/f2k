@@ -256,10 +256,6 @@ void readCountries(const char *path) {
 
 /* ******************************************** */
 
-#define htonll(x) be64toh(x)
-
-/* ******************************************** */
-
 uint64_t net2number(const void *vbuffer, const uint16_t real_field_len) {
   const uint8_t *buffer = vbuffer;
 
@@ -1945,10 +1941,10 @@ struct string_list * rb_separate_long_time_flow(
     if(current_timestamp_s + dInterval > first_timestamp + dSwitched){
       /* Last interval -> We use the buffer passed and remainder byes */
       node->string = kafka_line_buffer;
-      printNetflowRecordWithTemplate(node->string, TEMPLATE_OF(IN_BYTES),
+      printNetflowRecordWithTemplate(node->string, TEMPLATE_OF(PRINT_IN_BYTES),
         (const char *)&first_interval_bytes_sw,
         sizeof(first_interval_bytes_sw), 0, NULL);
-      printNetflowRecordWithTemplate(node->string, TEMPLATE_OF(IN_PKTS),
+      printNetflowRecordWithTemplate(node->string, TEMPLATE_OF(PRINT_IN_PKTS),
         (const char *)&first_interval_pkts_sw,
         sizeof(first_interval_pkts_sw), 0, NULL);
     }else{
@@ -1964,10 +1960,10 @@ struct string_list * rb_separate_long_time_flow(
       if(NULL==last_sentmsg){
         /* No cached message to copy from -> need to generate the first */
         printbuf_memappend(node->string,kafka_line_buffer->buf,kafka_line_buffer->bpos);
-        printNetflowRecordWithTemplate(node->string, TEMPLATE_OF(IN_BYTES),
+        printNetflowRecordWithTemplate(node->string, TEMPLATE_OF(PRINT_IN_BYTES),
           (const char *)&bytes_per_interval_sw,
           sizeof(bytes_per_interval_sw), 0, NULL);
-        printNetflowRecordWithTemplate(node->string, TEMPLATE_OF(IN_PKTS),
+        printNetflowRecordWithTemplate(node->string, TEMPLATE_OF(PRINT_IN_PKTS),
           (const char *)&packets_per_interval_sw,
           sizeof(packets_per_interval_sw), 0, NULL);
         last_sentmsg = node->string->buf;
@@ -1979,7 +1975,7 @@ struct string_list * rb_separate_long_time_flow(
     }
 
     const uint64_t interval_timestamp_sw = htonll(current_timestamp_s);
-    printNetflowRecordWithTemplate(node->string, TEMPLATE_OF(LAST_SWITCHED),
+    printNetflowRecordWithTemplate(node->string, TEMPLATE_OF(PRINT_LAST_SWITCHED),
       (const char *)&interval_timestamp_sw, sizeof(interval_timestamp_sw),
       0, NULL);
 

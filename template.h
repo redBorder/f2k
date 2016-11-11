@@ -101,8 +101,10 @@ const char* getStandardFieldId(size_t id);
     JSON_NAME, IPFIX_NAME, DESCRIPTION, FUNCTION, CHILDS)
     */
 #define X_TEMPLATE_ENTITIES \
-	X(STANDARD_ENTERPRISE_ID, IN_BYTES, 1, DONT_QUOTE_OUTPUT, "IN_BYTES", "bytes", "octetDeltaCount", "Incoming flow bytes (src->dst)", print_number, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IN_PKTS,2, DONT_QUOTE_OUTPUT, "IN_PKTS", "pkts", "packetDeltaCount", "Incoming flow packets (src->dst)", print_number, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IN_BYTES, 1, DONT_QUOTE_OUTPUT, "IN_BYTES", "bytes", "octetDeltaCount", "Incoming flow bytes (src->dst)", save_flow_bytes, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, PRINT_IN_BYTES, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "IN_BYTES", "bytes", "octetDeltaCount", "Incoming flow bytes (src->dst)", print_number, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IN_PKTS,2, DONT_QUOTE_OUTPUT, "IN_PKTS", "pkts", "packetDeltaCount", "Incoming flow packets (src->dst)", save_flow_pkts, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, PRINT_IN_PKTS, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "IN_PKTS", "pkts", "packetDeltaCount", "Incoming flow packets (src->dst)", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, FLOWS,3, DONT_QUOTE_OUTPUT, "FLOWS", "flows", "<reserved>", "Number of flows", NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, PROTOCOL,4, DONT_QUOTE_OUTPUT, "PROTOCOL", "l4_proto", "protocolIdentifier", "IP protocol byte",print_number , NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, PROTOCOL_MAP,PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "PROTOCOL_MAP", "l4_proto_name", "", "IP protocol name", print_proto_name, NO_CHILDS)\
@@ -140,9 +142,11 @@ const char* getStandardFieldId(size_t id);
 	/*X(STANDARD_ENTERPRISE_ID, BGP_IPV4_NEXT_HOP, 18, DONT_QUOTE_OUTPUT, "BGP_IPV4_NEXT_HOP", "bgp_ipv4_next_hop", "bgpNexthopIPv4Address", "")*/\
 	/*X(STANDARD_ENTERPRISE_ID, MUL_DST_PKTS, 19, DONT_QUOTE_OUTPUT, "MUL_DST_PKTS", "mul_dst_pkts", "postMCastPacketDeltaCount", "")*/\
 	/*X(STANDARD_ENTERPRISE_ID, MUL_DST_BYTES, 20, DONT_QUOTE_OUTPUT, "MUL_DST_BYTES", "mul_dst_bytes", "postMCastOctetDeltaCount", "")*/\
-	X(STANDARD_ENTERPRISE_ID, LAST_SWITCHED, 21, DONT_QUOTE_OUTPUT, "LAST_SWITCHED", "timestamp", "flowEndSysUpTime", "SysUptime (msec) of the last flow pkt", print_number, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, LAST_SWITCHED, 21, DONT_QUOTE_OUTPUT, "LAST_SWITCHED", "timestamp", "flowEndSysUpTime", "SysUptime (msec) of the last flow pkt", save_last_switched, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, PRINT_LAST_SWITCHED, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "LAST_SWITCHED", "timestamp", "flowEndSysUpTime", "SysUptime (msec) of the last flow pkt", print_number, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, FIRST_SWITCHED, 22, DONT_QUOTE_OUTPUT, "FIRST_SWITCHED", "first_switched", "flowStartSysUpTime", "SysUptime (msec) of the first flow pkt", save_first_switched, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, PRINT_FIRST_SWITCHED, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "FIRST_SWITCHED", "first_switched", "flowStartSysUpTime", "SysUptime (msec) of the first flow pkt", print_number, NO_CHILDS)\
 	X_SECONDS_PRECISION \
-	X(STANDARD_ENTERPRISE_ID, FIRST_SWITCHED, 22, DONT_QUOTE_OUTPUT, "FIRST_SWITCHED", "first_switched", "flowStartSysUpTime", "SysUptime (msec) of the first flow pkt", print_number,NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, OUT_BYTES, 23, DONT_QUOTE_OUTPUT, "OUT_BYTES", "out_bytes", "postOctetDeltaCount", "Outgoing flow bytes (dst->src)",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, OUT_PKTS, 24, DONT_QUOTE_OUTPUT, "OUT_PKTS", "out_pkts", "postPacketDeltaCount", "Outgoing flow packets (dst->src)",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_ADDR, 27, QUOTE_OUTPUT, "IPV6_SRC_ADDR", "src", "sourceIPv6Address", "IPv6 source address" ,print_ipv6_src_addr, C(IPV6_SRC_NET,IPV6_SRC_IP_COUNTRY, IPV6_SRC_AS))\
@@ -214,10 +218,10 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, DROPPED_PACKETS_TOTAL, 135, DONT_QUOTE_OUTPUT, "DROPPED_PACKETS_TOTAL", "dropped_pkts_total",  "dropped_pkts_total", "number of packets dropped", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, FLOW_END_REASON, 136, QUOTE_OUTPUT, "FLOW_END_REASON", "flow_end_reason",  "flowEndReason", "Exporter IPv6 Address", print_flow_end_reason, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, FLOW_ID, 148, DONT_QUOTE_OUTPUT, "FLOW_ID", "flow_id", "flowId", "Serial Flow Identifier", NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, FLOW_START_SEC, 150, DONT_QUOTE_OUTPUT, "FLOW_START_SEC", "flow_start_sec", "flowStartSeconds", "Seconds (epoch) of the first flow packet",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, FLOW_END_SEC, 151, DONT_QUOTE_OUTPUT, "FLOW_END_SEC", "flow_end_sec",  "flowEndSeconds",  "Seconds (epoch) of the last flow packet",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, FLOW_START_MILLISECONDS, 152, DONT_QUOTE_OUTPUT, "FLOW_START_MILLISECONDS", "flow_start_milliseconds", "flowStartMilliseconds", "Msec (epoch) of the first flow packet",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, FLOW_END_MILLISECONDS, 153, DONT_QUOTE_OUTPUT, "FLOW_END_MILLISECONDS", "flow_end_milliseconds",  "flowEndMilliseconds",  "Msec (epoch) of the last flow packet",NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, FLOW_START_SEC, 150, DONT_QUOTE_OUTPUT, "FLOW_START_SEC", "flow_start_sec", "flowStartSeconds", "Seconds (epoch) of the first flow packet",save_first_second, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, FLOW_END_SEC, 151, DONT_QUOTE_OUTPUT, "FLOW_END_SEC", "flow_end_sec",  "flowEndSeconds",  "Seconds (epoch) of the last flow packet",save_last_second, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, FLOW_START_MILLISECONDS, 152, DONT_QUOTE_OUTPUT, "FLOW_START_MILLISECONDS", "flow_start_milliseconds", "flowStartMilliseconds", "Msec (epoch) of the first flow packet",save_first_msecond, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, FLOW_END_MILLISECONDS, 153, DONT_QUOTE_OUTPUT, "FLOW_END_MILLISECONDS", "flow_end_milliseconds",  "flowEndMilliseconds",  "Msec (epoch) of the last flow packet",save_last_msecond, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, PADDING_OCTETS, 210, DONT_QUOTE_OUTPUT, "PADDING_OCTETS", "padding", "padding", "Padding", NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, INGRESS_VRFID, 234, DONT_QUOTE_OUTPUT, "INGRESS_VRFID", "input_vrf", "ingressVRFID", "Ingress Virtual Routing&Forwarding Interface ID",print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, EGRESS_VRFID, 235, DONT_QUOTE_OUTPUT, "EGRESS_VRFID", "output_vrf", "egressVRFID", "Egress Virtual Routing&Forwarding Interface ID",print_number, NO_CHILDS)\

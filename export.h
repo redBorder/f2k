@@ -47,6 +47,38 @@ size_t print_number(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
 
+size_t save_first_switched(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache);
+
+size_t save_last_switched(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache);
+
+size_t save_first_second(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache);
+
+size_t save_first_msecond(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache);
+
+size_t save_last_second(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache);
+
+size_t save_last_msecond(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache);
+
+size_t save_flow_bytes(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache);
+
+size_t save_flow_pkts(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache);
+
 size_t print_tcp_flags(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);

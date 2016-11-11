@@ -65,7 +65,7 @@ typedef struct single_flow_ver1_rec {
 struct flow_ver5_hdr {
   uint16_t version;         /* Current version=5*/
   uint16_t count;           /* The number of records in PDU. */
-  uint32_t sysUptime;       /* Current time in msecs since router booted */
+  uint32_t sys_uptime;       /* Current time in msecs since router booted */
   uint32_t unix_secs;       /* Current seconds since 0000 UTC 1970 */
   uint32_t unix_nsecs;      /* Residual nanoseconds since 0000 UTC 1970 */
   uint32_t flow_sequence;   /* Sequence number of total flows seen */
@@ -155,7 +155,7 @@ typedef struct single_flow_ver7_rec {
 typedef struct flow_ver9_hdr {
   uint16_t version;         /* Current version=9*/
   uint16_t count;           /* The number of records in PDU. */
-  uint32_t sysUptime;       /* Current time in msecs since router booted */
+  uint32_t sys_uptime;      /* Current time in msecs since router booted */
   uint32_t unix_secs;       /* Current seconds since 0000 UTC 1970 */
   uint32_t flow_sequence;   /* Sequence number of total flows seen */
   uint32_t sourceId;        /* Source id */
@@ -219,7 +219,7 @@ typedef struct flow_set {
 typedef struct flow_ipfix_hdr {
   uint16_t version;             /* Current version = 10 */
   uint16_t len;                 /* The length of the IPFIX PDU */
-  uint32_t sysUptime;           /* Current time in msecs since router booted */
+  uint32_t unix_secs;           /* Current time in msecs since router booted */
   uint32_t flow_sequence;       /* Sequence number of total flows seen */
   uint32_t observationDomainId; /* Source id */
 } IPFIXFlowHeader;

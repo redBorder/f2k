@@ -47,7 +47,7 @@ static const struct TestV9Template v9Template = {
 	.flowHeader = {
 		/*uint16_t*/ .version = 0x0900,           /* Current version=9*/
 		/*uint16_t*/ .count = 0x0100,           /* The number of records in PDU. */
-		/*uint32_t*/ .sysUptime = 0x00003039,     /* Current time in msecs since router booted */
+		/*uint32_t*/ .sys_uptime = 0x00003039,     /* Current time in msecs since router booted */
 		/*uint32_t*/ .unix_secs = 0xe2336552,     /* Current seconds since 0000 UTC 1970 */
 		/*uint32_t*/ .flow_sequence = 0x38040000, /* Sequence number of total flows seen */
 		/*uint32_t*/ .sourceId = 0x01000000,      /* Source id */
@@ -81,7 +81,7 @@ static const struct TestV9Flow v9Flow = {
 	.flowHeader = {
 		/*uint16_t*/ .version = 0x0900,           /* Current version=9*/
 		/*uint16_t*/ .count = 0x0100,           /* The number of records in PDU. */
-		/*uint32_t*/ .sysUptime = 0x00003039,     /* Current time in msecs since router booted */
+		/*uint32_t*/ .sys_uptime = 0x00003039,     /* Current time in msecs since router booted */
 		/*uint32_t*/ .unix_secs = 0x98346552,     /* Current seconds since 0000 UTC 1970 */
 		/*uint32_t*/ .flow_sequence = 0x76040000, /* Sequence number of total flows seen */
 		/*uint32_t*/ .sourceId = 0x01000000,      /* Source id */

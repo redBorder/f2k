@@ -28,12 +28,12 @@
 
 static const NetFlow5Record record1 = {
 	.flowHeader = {
-		.version = 0x0500,         /* Current version=5*/
-		.count = 0x0100,           /* The number of records in PDU. */
-		.sysUptime = 12345,        /* Current time in msecs since router booted */
-		.unix_secs = 12345,       /* Current seconds since 0000 UTC 1970 */
-		.unix_nsecs = 12345,      /* Residual nanoseconds since 0000 UTC 1970 */
-		.flow_sequence = 1050,   /* Sequence number of total flows seen */
+		.version = constexpr_be16toh(5),          /* Current version=5*/
+		.count = constexpr_be16toh(1),            /* The number of records in PDU. */
+		.sys_uptime = constexpr_be32toh(1048576000),    /* Current time in msecs since router booted */
+		.unix_secs = constexpr_be32toh(1389604720),    /* Current seconds since 0000 UTC 1970 */
+		.unix_nsecs = constexpr_be32toh(7954200),   /* Residual nanoseconds since 0000 UTC 1970 */
+		.flow_sequence = constexpr_be32toh(48), /* Sequence number of total flows seen */
 		.engine_type = 0,     /* Type of flow switching engine (RP,VIP,etc.)*/
 		.engine_id  = 0,       /* Slot number of the flow switching engine */
 		.sampleRate = 0,      /* Packet capture sample rate */
@@ -45,14 +45,12 @@ static const NetFlow5Record record1 = {
 			.nexthop = 0x00000000L,    /* Next hop router's IP Address */
 			.input   = 0,              /* Input interface index */
 			.output  = 255,            /* Output interface index */
-			.dPkts   = 0x0100,              /* Packets sent in Duration (milliseconds between 1st
-			                             & last packet in this flow)*/
-			.dOctets = 0x4600,             /* Octets sent in Duration (milliseconds between 1st
-			                             & last packet in  this flow)*/
-			.first   = 0xa8484205,     /* SysUptime at start of flow */
-			.last    = 0xa8484205,     /* and of last packet of the flow */
-			.srcport = 0xbb01,     /* ntohs(443)  */  /* TCP/UDP source port number (.e.g, FTP, Telnet, etc.,or equivalent) */
-			.dstport = 0x7527,   /* ntohs(10101)*/  /* TCP/UDP destination port number (.e.g, FTP, Telnet, etc.,or equivalent) */
+			.dPkts   = constexpr_be32toh(65536),
+			.dOctets = constexpr_be32toh(4587520),
+			.first   = constexpr_be32toh(1048513918),
+			.last    = constexpr_be32toh(1048513918),
+			.srcport = constexpr_be16toh(443),
+			.dstport = constexpr_be16toh(10101),
 			.pad1    = 0,        /* pad to word boundary */
 			.tcp_flags = 0,   /* Cumulative OR of tcp flags */
 			.proto   = 2,        /* IP protocol, e.g., 6=TCP, 17=UDP, etc... */
@@ -82,8 +80,8 @@ static const struct checkdata_value checkdata_values[] = {
 	{.key="l4_proto",.value="2"},
 	{.key="engine_type",.value="0"},
 	{.key="sensor_ip",.value="4.3.2.1"},
-	{.key="first_switched",.value="958575823"},
-	{.key="timestamp",.value="958575823"},
+	{.key="first_switched",.value="1389604657"},
+	{.key="timestamp",.value="1389604657"},
 };
 
 static int prepare_test_nf_v5(void **state) {

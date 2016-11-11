@@ -205,6 +205,56 @@ static void printNetflowElementRawBuffer(const uint8_t *buffer,size_t real_field
   traceEvent(TRACE_NORMAL,"%s", output);
 }
 
+/// Arguments to sanitize_timestamp
+struct sanitize_timestamp_args {
+  uint64_t timestamp;   ///< Timestamp to sanitize
+  uint64_t now;         ///< Current moment, used as fallback
+  uint64_t low_limit;   ///< Minimum acceptable timestamp
+  uint64_t upper_limit; ///< Max acceptable timestamp
+
+  // fallback-first-switch. If first_timestamp == last_timestamp, it will be
+  // changed by timestamp - fallback_first_switched
+  struct {
+    uint64_t last_timestamp_s;         ///< known last timestamp
+    int64_t fallback_first_switched_s; ///< fallback back step
+  } fallback;
+
+  // Debug
+  const char *past_error; ///< Error if timestamp is too low (debug)
+  const char *future_error; ///< Error if timestamp is too high (debug)
+  const char *netflow_device_ip; ///< IP of probe (debug)
+};
+
+/** Set a timestamp in the present again
+ * @todo review function & childs for time arithmetic
+ */
+static uint64_t sanitize_timestamp(
+                              const struct sanitize_timestamp_args *args) {
+  const bool timestamp_too_future = args->timestamp > args->upper_limit;
+  const bool timestamp_too_past = args->timestamp < args->low_limit;
+
+  if (timestamp_too_future || timestamp_too_past) {
+    if (unlikely(readOnlyGlobals.enable_debug)) {
+      traceEvent(TRACE_ERROR, "%s (timestamp: %ld, src_ip: %s)",
+        timestamp_too_future ? args->future_error : args->past_error,
+        args->timestamp, args->netflow_device_ip);
+    }
+
+    if (!readOnlyGlobals.dontReforgeFarTimestamp) {
+      return args->now;
+    }
+  }
+
+  if (args->fallback.fallback_first_switched_s &&
+        args->timestamp == args->fallback.last_timestamp_s) {
+    /* We are in first_switched AND we have defined a fallback_first_switch
+       AND first_switched == last_switched */
+    return args->timestamp + args->fallback.fallback_first_switched_s;
+  }
+
+  return args->timestamp;
+}
+
 /**
  * Split flow in timestamp slices
  * @param  kafka_line_buffer String buffer with flow shared data
@@ -213,36 +263,93 @@ static void printNetflowElementRawBuffer(const uint8_t *buffer,size_t real_field
  * @param  bytes             Bytes of all flow
  * @param  pkts              Packets of all flow
  * @param  flowCache         Common elements of the flow
+ * @todo review function & childs for time arithmetic
  * @return                   String list with splitted flow
  */
 static struct string_list *time_split_flow(struct printbuf *kafka_line_buffer,
-    const uint64_t first_timestamp,
-    const uint64_t dSwitched, const uint64_t bytes, const uint64_t pkts,
-    struct flowCache *flowCache) {
+                  struct flowCache *flowCache,
+                  const struct sensor *sensor) {
+  const time_t now = time(NULL);
+  if (0 == flowCache->time.export_timestamp_s) {
+    flowCache->time.export_timestamp_s = now;
+  }
+
+  const time_t actual_last_timestamp_s = flowCache->time.last_timestamp_s ?
+                flowCache->time.last_timestamp_s
+        : (flowCache->time.sys_uptime_s &&
+                                      flowCache->time.last_switched_uptime_s) ?
+                flowCache->time.export_timestamp_s
+                - flowCache->time.sys_uptime_s
+                + flowCache->time.last_switched_uptime_s
+        : flowCache->time.export_timestamp_s;
+
+  const struct sanitize_timestamp_args last_timestamp_make_present_args = {
+    .timestamp = actual_last_timestamp_s,
+    .now = now,
+    .low_limit = now - 60*10,
+    .upper_limit = now + 60*10,
+    .past_error = "Received a flow with last timestamp from the past",
+    .future_error = "Received a flow with last timestamp from the future",
+    .netflow_device_ip = sensor_ip_string(sensor),
+  };
+
+  const time_t last_timestamp_s = sanitize_timestamp(
+                                            &last_timestamp_make_present_args);
+
+  // @todo join with first one
+  const time_t actual_first_timestamp_s = flowCache->time.first_timestamp_s ?
+                flowCache->time.first_timestamp_s
+        : (flowCache->time.sys_uptime_s &&
+                                      flowCache->time.first_switched_uptime_s) ?
+                flowCache->time.export_timestamp_s
+                - flowCache->time.sys_uptime_s
+                + flowCache->time.first_switched_uptime_s
+        : flowCache->time.export_timestamp_s
+                - flowCache->time.last_switched_uptime_s
+                + flowCache->time.first_switched_uptime_s;
+
+  const struct sanitize_timestamp_args first_timestamp_make_present_args = {
+    .timestamp = actual_first_timestamp_s,
+    .now = now,
+    .low_limit = now - 60*10,
+    .upper_limit = now + 60*10,
+    .past_error = "Received a flow with first timestamp from the past",
+    .future_error = "Received a flow with first timestamp from the future",
+    .netflow_device_ip = sensor_ip_string(sensor),
+    .fallback = {
+      .last_timestamp_s = last_timestamp_s,
+      .fallback_first_switched_s = sensor_fallback_first_switch(sensor),
+    },
+  };
+
+  const time_t first_timestamp_s = sanitize_timestamp(
+                                            &first_timestamp_make_present_args);
+
+  const uint64_t dSwitched = last_timestamp_s - first_timestamp_s;
+  const uint64_t bytes = flowCache->bytes;
+  const uint64_t pkts = flowCache->packets;
   struct string_list *ret = NULL;
   assert(kafka_line_buffer);
 
   if (readOnlyGlobals.separate_long_flows) {
-      ret = rb_separate_long_time_flow(kafka_line_buffer,first_timestamp,
+      ret = rb_separate_long_time_flow(kafka_line_buffer,first_timestamp_s,
         dSwitched,60 /* segs */,60 /*60 intervals: an hour */,bytes,pkts);
   } else {
-    const uint64_t first_timestamp_sw = ntohll(first_timestamp);
-    const uint64_t last_timestamp_sw = ntohll(first_timestamp + dSwitched);
+    const uint64_t first_timestamp_sw = ntohll(first_timestamp_s);
+    const uint64_t last_timestamp_sw = ntohll(first_timestamp_s + dSwitched);
     const uint64_t bytes_sw = ntohll(bytes);
     const uint64_t pkts_sw = ntohll(pkts);
     printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(FIRST_SWITCHED), &first_timestamp_sw,
+      TEMPLATE_OF(PRINT_FIRST_SWITCHED), &first_timestamp_sw,
       sizeof(first_timestamp_sw), 0, flowCache);
     printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(LAST_SWITCHED), &last_timestamp_sw,
+      TEMPLATE_OF(PRINT_LAST_SWITCHED), &last_timestamp_sw,
       sizeof(last_timestamp_sw), 0, flowCache);
     printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(IN_BYTES), &bytes_sw,
-      sizeof(bytes_sw), 0, flowCache);
+      TEMPLATE_OF(PRINT_IN_BYTES), &bytes_sw, sizeof(bytes_sw), 0, flowCache);
     printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(IN_PKTS), &pkts_sw,
-      sizeof(pkts_sw), 0, flowCache);
-    printbuf_memappend_fast(kafka_line_buffer,"}",strlen("}"));
+      TEMPLATE_OF(PRINT_IN_PKTS), &pkts_sw, sizeof(pkts_sw), 0, flowCache);
+    printbuf_memappend_fast(kafka_line_buffer, "}", strlen("}"));
     /// @TODO make a function that create a list with 1 node
     ret = calloc(1,sizeof(ret[0]));
     if (likely(ret)) {
@@ -262,7 +369,7 @@ static void dissectNetFlowV5Field(const NetFlow5Record *the5Record,
       const size_t flow_idx,const size_t field_idx,struct printbuf *kafka_line_buffer,
       struct flowCache *flowCache) {
   size_t value_ret = 0;
-  const void * buffer = NULL;
+  const void *buffer = NULL;
   size_t real_field_len=0;
 
   switch (v5TemplateFields[field_idx]->templateElementId) {
@@ -278,8 +385,20 @@ static void dissectNetFlowV5Field(const NetFlow5Record *the5Record,
       real_field_len=4;
       break;
   case IN_PKTS:
+      buffer = &the5Record->flowRecord[flow_idx].dPkts;
+      real_field_len=4;
+      break;
   case IN_BYTES:
-      // time_split_flow will print
+      buffer = &the5Record->flowRecord[flow_idx].dOctets;
+      real_field_len=4;
+      break;
+  case FIRST_SWITCHED:
+      buffer = &the5Record->flowRecord[flow_idx].first;
+      real_field_len=4;
+      break;
+  case LAST_SWITCHED:
+      buffer = &the5Record->flowRecord[flow_idx].last;
+      real_field_len=4;
       break;
   case L4_SRC_PORT:
     real_field_len = 2;
@@ -326,14 +445,12 @@ static void dissectNetFlowV5Field(const NetFlow5Record *the5Record,
     break;
   };
 
-  if(unlikely(readOnlyGlobals.enable_debug)){
-    printNetflowElementRawBuffer((const uint8_t *)buffer, real_field_len,
+  if (unlikely(readOnlyGlobals.enable_debug)) {
+    printNetflowElementRawBuffer(buffer, real_field_len,
       v5TemplateFields[field_idx]->jsonElementName);
   }
 
-  if(NULL==buffer){
-    assert(v5TemplateFields[field_idx]->templateElementId == IN_BYTES ||
-            v5TemplateFields[field_idx]->templateElementId == IN_PKTS);
+  if (NULL==buffer) {
     return;
   }
 
@@ -346,43 +463,26 @@ static void dissectNetFlowV5Field(const NetFlow5Record *the5Record,
   }
 }
 
-/** Extract export timestamp from a v9/v10 flow and sanitize it
+/** Extract export timestamp & system uptime from a v9/v10 flow and sanitize it
  * @param  handle_ipfix      We are handling v9 or v10 flow
  * @param  flowHeader        Header of the flow
- * @param  netflow_device_ip Ip of netflow device (debug purposes)
- * @return                   Flow export timestamp
+ * @param  export_timestamp  Where to save export timestamp
+ * @param  sys_uptime        Where to save system uptime
  */
-static uint64_t flow_export_timestamp(const bool handle_ipfix,
-    const struct flow_ver9_hdr *flowHeader, const char *netflow_device_ip) {
-  const time_t now = time(NULL);
-  uint64_t export_timestamp = handle_ipfix ?
-    net2number((const char *)&flowHeader->sysUptime, sizeof(flowHeader->sysUptime)) :
-    net2number((const char *)&flowHeader->unix_secs, sizeof(flowHeader->unix_secs));
+static void flow_export_timestamp_uptime(const bool handle_ipfix,
+    const void *flow_header, uint64_t *export_timestamp_s,
+    uint64_t *sys_uptime_s) {
 
-  if (export_timestamp > (uint64_t)now + 60*10) {
-    if(unlikely(readOnlyGlobals.enable_debug)) {
-      traceEvent(TRACE_ERROR,
-        "Received a flow from the future (timestamp: %ld, src_ip: %s)",
-        export_timestamp, netflow_device_ip);
-    }
-    if(!readOnlyGlobals.dontReforgeFarTimestamp) {
-      export_timestamp = now;
-    }
-  }
+/// Wrapper to make easy call to net2number
+#define SIZED_NET2NUMBER(x) net2number(&x, sizeof(x))
 
-  if(export_timestamp < (uint64_t)now - 3600) {
-    if(unlikely(readOnlyGlobals.enable_debug)) {
-      traceEvent(TRACE_ERROR,
-        "Received a flow from the past (TS: %ld, src_ip: %s)",
-        export_timestamp, netflow_device_ip);
-    }
-    if(!readOnlyGlobals.dontReforgeFarTimestamp) {
-      export_timestamp = now;
-    }
-  }
+  *sys_uptime_s = handle_ipfix ? 0 :
+    SIZED_NET2NUMBER(((const V9FlowHeader *)flow_header)->sys_uptime)/1000;
+  *export_timestamp_s = handle_ipfix ?
+    SIZED_NET2NUMBER(((const IPFIXFlowHeader *)flow_header)->unix_secs) :
+    SIZED_NET2NUMBER(((const V9FlowHeader *)flow_header)->unix_secs);
 
-  return export_timestamp;
-
+#undef SIZED_NET2NUMBER
 }
 
 /** Dissect a single flow of netflow 5
@@ -393,7 +493,7 @@ static uint64_t flow_export_timestamp(const bool handle_ipfix,
  */
 static struct string_list *dissectNetFlowV5Record(const NetFlow5Record *the5Record,
                 const int flow_idx, struct sensor *sensor_object) {
-  struct printbuf * kafka_line_buffer = printbuf_new();
+  struct printbuf *kafka_line_buffer = printbuf_new();
   const uint16_t *flowVersion = &the5Record->flowHeader.version;
   const uint32_t flowSecuence_h = ntohl(the5Record->flowHeader.flow_sequence)
                                                                     + flow_idx;
@@ -413,25 +513,22 @@ static struct string_list *dissectNetFlowV5Record(const NetFlow5Record *the5Reco
   printNetflowRecordWithTemplate(kafka_line_buffer, TEMPLATE_OF(FLOW_SEQUENCE),
     &flowSecuence, sizeof(flowSecuence), 0, &flowCache);
 
+  flow_export_timestamp_uptime(false, the5Record,
+    &flowCache.time.export_timestamp_s, &flowCache.time.sys_uptime_s);
+
   for (field_idx=0; NULL!=v5TemplateFields[field_idx]; ++field_idx) {
     dissectNetFlowV5Field(the5Record, flow_idx, field_idx, kafka_line_buffer,
       &flowCache);
   }
 
-  const uint64_t export_timestamp = flow_export_timestamp(false,
-    (const struct flow_ver9_hdr *)the5Record, sensor_ip_string(sensor_object));
-  uint64_t last_timestamp  = export_timestamp - ntohl(the5Record->flowHeader.sysUptime)/1000 + ntohl(the5Record->flowRecord[flow_idx].last)/1000;
-  uint64_t first_timestamp = export_timestamp - ntohl(the5Record->flowHeader.sysUptime)/1000 + ntohl(the5Record->flowRecord[flow_idx].first)/1000;
-
   guessDirection(&flowCache);
+
   printNetflowRecordWithTemplate(kafka_line_buffer,
     TEMPLATE_OF(PRINT_DIRECTION), NULL, 0, 0, &flowCache);
   print_sensor_enrichment(kafka_line_buffer,&flowCache);
 
   struct string_list *kafka_buffers_list = time_split_flow(kafka_line_buffer,
-    last_timestamp, last_timestamp-first_timestamp,
-    ntohl(the5Record->flowRecord[flow_idx].dOctets),
-    ntohl(the5Record->flowRecord[flow_idx].dPkts),&flowCache);
+                                  &flowCache, sensor_object);
 
   return kafka_buffers_list;
 }
@@ -1029,8 +1126,6 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
     (4*cursor->templateInfo.scopeFieldCount) + cursor->templateInfo.v9ScopeLen;
   int end_flow;
   V9V10TemplateField *fields = cursor->fields;
-  const uint64_t export_timestamp = flow_export_timestamp(handle_ipfix,
-                                flowHeader, sensor_ip_string(_sensor->sensor));
 
   init_displ = displ + scopeOffset;
   displ += sizeof(V9FlowSet) + scopeOffset;
@@ -1042,8 +1137,6 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
     const uint32_t _flowSequence = htonl(*flowSequence);
     (*flowSequence)++;
     size_t accum_len = 0;
-    uint32_t first_switched = 0, last_switched = 0;
-    uint64_t bytes = 0, pkts = 0;
 
     if(end_flow-displ < 4) break;
 
@@ -1063,6 +1156,9 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
       printbuf_free(kafka_line_buffer);
       return kafka_string_list;
     }
+    flow_export_timestamp_uptime(handle_ipfix, flowHeader,
+      &flowCache->time.export_timestamp_s, &flowCache->time.sys_uptime_s);
+
     printbuf_memappend_fast(kafka_line_buffer,"{",strlen("{"));
 
     associateSensor(flowCache, sensor_object);
@@ -1112,48 +1208,16 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
         }
       }
 
-      if(fields[fieldId].v9_template) {
-        switch(fields[fieldId].v9_template->templateElementId) {
-          // @TODO move all this to flowCache structure
-          case IN_BYTES:
-            bytes = net2number((const char *)&buffer[displ], real_field_len);
-            break;
-          case IN_PKTS:
-            pkts = net2number((const char *)&buffer[displ], real_field_len);
-            break;
-          case LAST_SWITCHED:
-            last_switched = net2number((const char *)&buffer[displ],
-                                                          real_field_len)/1000;
-            break;
-          case FIRST_SWITCHED:
-            first_switched = net2number((const char *)&buffer[displ],
-                                                          real_field_len)/1000;
-            break;
-
-          default:
-            /// @TODO delete this cast, move all to uint8_t *
-            printNetflowRecordWithTemplate(kafka_line_buffer,
-              fields[fieldId].v9_template, &buffer[displ],
-              real_field_len, real_field_len_offset, flowCache);
-            break;
-        };
-      }
-      else
-      {
-        if(unlikely(readOnlyGlobals.enable_debug))
-          traceEvent(TRACE_WARNING, "Unknown template id (%d)",fields[fieldId].fieldId);
+      if (fields[fieldId].v9_template) {
+        printNetflowRecordWithTemplate(kafka_line_buffer,
+          fields[fieldId].v9_template, &buffer[displ],
+          real_field_len, real_field_len_offset, flowCache);
+      } else if(unlikely(readOnlyGlobals.enable_debug)) {
+        traceEvent(TRACE_WARNING, "Unknown template id (%d)",fields[fieldId].fieldId);
       }
 
       accum_len += real_field_len+real_field_len_offset, displ += real_field_len+real_field_len_offset;
     } /* for */
-
-    uint64_t dSwitched = last_switched-first_switched;
-    if (dSwitched > 59*60) {
-      dSwitched = 59*60; /* 1 hour max */
-    } else if (dSwitched == 0
-                            && sensor_fallback_first_switch(_sensor->sensor)) {
-      dSwitched = -sensor_fallback_first_switch(_sensor->sensor);
-    }
 
     worker->stats.num_flows_processed++;
 
@@ -1236,8 +1300,7 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
 #endif
 
       struct string_list *current_record_string_list = time_split_flow(
-        kafka_line_buffer, export_timestamp - dSwitched, dSwitched, bytes, pkts,
-        flowCache);
+            kafka_line_buffer, flowCache, sensor_object);
       string_list_concat(&kafka_string_list,current_record_string_list);
 
       free(flowCache);

@@ -40,10 +40,10 @@ struct TestV9Flow{
 
 static const struct TestV9Template v9Template = {
 	.flowHeader = {
-		/*uint16_t*/ .version = 0x0900,           /* Current version=9*/
-		/*uint16_t*/ .count = 0x0100,           /* The number of records in PDU. */
-		/*uint32_t*/ .sysUptime = 0x00003039,     /* Current time in msecs since router booted */
-		/*uint32_t*/ .unix_secs = 0xe2336552,     /* Current seconds since 0000 UTC 1970 */
+		/*uint16_t*/ .version = constexpr_be16toh(9),
+		/*uint16_t*/ .count = constexpr_be16toh(1),
+		/*uint32_t*/ .sys_uptime = constexpr_be32toh(12345),
+		/*uint32_t*/ .unix_secs = constexpr_be32toh(1478780782),
 		/*uint32_t*/ .flow_sequence = 0x38040000, /* Sequence number of total flows seen */
 		/*uint32_t*/ .sourceId = 0x01000000,      /* Source id */
 	},
@@ -82,10 +82,10 @@ static const struct TestV9Template v9Template = {
 
 static const struct TestV9Flow v9Flow = {
 	.flowHeader = {
-		/*uint16_t*/ .version = 0x0900,           /* Current version=9*/
-		/*uint16_t*/ .count = 0x0100,           /* The number of records in PDU. */
-		/*uint32_t*/ .sysUptime = 0x00003039,     /* Current time in msecs since router booted */
-		/*uint32_t*/ .unix_secs = 0x98346552,     /* Current seconds since 0000 UTC 1970 */
+		/*uint16_t*/ .version = constexpr_be16toh(9),
+		/*uint16_t*/ .count = constexpr_be16toh(1),
+		/*uint32_t*/ .sys_uptime = constexpr_be32toh(12345),
+		/*uint32_t*/ .unix_secs = constexpr_be32toh(1478780782),
 		/*uint32_t*/ .flow_sequence = 0x76040000, /* Sequence number of total flows seen */
 		/*uint32_t*/ .sourceId = 0x01000000,      /* Source id */
 	},
@@ -135,8 +135,8 @@ static const struct checkdata_value checkdata_values1[] = {
 	{.key = "dst", .value="3ffe:0501:4819:0000:0000:0000:0000:0042"},
 	{.key = "sensor_ip", .value="4.3.2.1"},
 	{.key = "sensor_name", .value="FlowTest"},
-	{.key = "first_switched", .value="1382364312"},
-	{.key = "timestamp", .value="1382364312"},
+	{.key = "first_switched", .value="1478780782"},
+	{.key = "timestamp", .value="1478780782"},
 	{.key = "bytes", .value="113162"},
 	{.key = "pkts", .value="826"},
 };
