@@ -1091,10 +1091,14 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
   return 1;
 }
 
-static inline const uint32_t *ipv6_ptr_to_ipv4_ptr(const void *vipv6) {
+#ifdef HAVE_UDNS
+
+static const uint32_t *ipv6_ptr_to_ipv4_ptr(const void *vipv6) {
   const uint8_t *ipv6 = vipv6;
   return (const uint32_t *)&ipv6[12];
 }
+
+#endif
 
 /** Dissect a netflow V9/V10 set with a given template
  * @param  worker       Worker that is managing this flow
@@ -1575,7 +1579,7 @@ static struct string_list *dissectNetFlow(worker_t *worker,
 
 /* ********************************************************* */
 
-static inline int isSflow(const uint8_t *buffer){
+static int isSflow(const uint8_t *buffer){
   if((buffer[0] == '\0') && (buffer[1] == '\0') && (buffer[2] == '\0')){
     if((buffer[3] == 2) /* sFlow v2 */ || (buffer[3] == 5) /* sFlow v5 */)
       return 1;

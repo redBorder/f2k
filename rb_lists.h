@@ -120,43 +120,9 @@ do{                                                                 \
 	*list=NULL;                                                       \
 }while(0)
 
-static inline rb_keyval_list_t * parseCharCharFileLine(rb_keyval_list_t **list,char * line)
-{
-	char * tok1,*tok2,*aux;
-	rb_keyval_list_t **iter;
-
-	for(iter=list;*iter;iter = &(*list)->next); // seeking last list position
-
-	*iter = calloc(1,sizeof(rb_keyval_list_t));
-  if(*iter)
-  {
-    tok1 = strtok_r(line," \t",&aux);
-    tok2 = strtok_r(NULL," \t",&aux);
-    if(tok1+1 != '\0')
-    {
-    	(*iter)->key = strdup(tok1);
-    	(*iter)->val = strdup(tok2);
-    }
-    else // bad formatting line || (unlikely) memory error
-    {
-    	free((*iter)->key);
-    	free((*iter)->val);
-    	free(*iter);
-    	*iter = NULL;
-    }
-  }
-
-  return *iter;
-}
-
 int parseCharCharList_File(rb_keyval_list_t ** list,char * filename);
 
 static inline void freeOSList(rb_keyval_list_t **list){
-  RB_FREE_LIST(rb_keyval_list_t,list,freeCharCharNode);
-}
-
-
-static inline void freeDomainAliasList(rb_keyval_list_t **list){
   RB_FREE_LIST(rb_keyval_list_t,list,freeCharCharNode);
 }
 

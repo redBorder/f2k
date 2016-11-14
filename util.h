@@ -322,15 +322,6 @@ static inline const NumNameAssoc * numInList(const uint32_t num,const NumNameAss
   return list;
 }
 
-static inline const NumNameAssoc * nameInList(const char *name, const NumNameAssoc *list)
-{
-  for(;list;list=list->next){
-    if(0==strcmp(name,list->name))
-      break;
-  }
-  return list;
-}
-
 static inline const NumNameAssoc * namenInList(const char *name, const NumNameAssoc *list,const size_t lenname)
 {
   for(;list;list=list->next){
@@ -391,18 +382,6 @@ struct rb_databases{
   char *sensors_info_path;
   struct rb_sensors_db *sensors_info;
 };
-
-static inline void rdlock_to_wrlock(pthread_rwlock_t *lock)
-{
-  pthread_rwlock_unlock(lock);
-  pthread_rwlock_wrlock(lock);
-}
-
-static inline void wrlock_to_rdlock(pthread_rwlock_t *lock)
-{
-  pthread_rwlock_unlock(lock);
-  pthread_rwlock_rdlock(lock);
-}
 
 void load_vlan_mapping();
 void unload_vlan_mapping();
