@@ -19,17 +19,90 @@
 
 #pragma once
 
+#include "config.h"
+
 #include "f2k.h"
 #include "printbuf.h"
 
-struct flowCache;
-struct flowCache;
+struct flowCache {
+  uint64_t client_mac;
+  struct{
+    uint8_t client_mac[6];
+    uint8_t src_mac[6];
+    uint8_t dst_mac[6];
+    uint8_t post_src_mac[6];
+    uint8_t post_dst_mac[6];
+    uint8_t direction;
+  }macs;
+
+  struct{
+    uint8_t proto;
+    uint16_t src,dst;
+  }ports;
+
+  struct{
+    uint8_t src[16],dst[16];
+#ifdef HAVE_UDNS
+    /// @TODO use a memory context. Join both cases!!
+    /// In case that we do not have a cache
+    char *client_name,*target_name;
+    struct dns_cache_elm *client_name_cache,*target_name_cache;
+#endif
+  }address;
+
+  struct sensor *sensor;
+
+  /// Flow time related information
+  struct {
+    uint64_t export_timestamp_s;      ///< Flow export timestamp (seconds)
+    uint64_t sys_uptime_s;            ///< Seconds since probe device boot (s)
+    uint64_t first_switched_uptime_s; ///< First switched uptime in flow
+    uint64_t last_switched_uptime_s;  ///< Last switched uptime in flow
+    uint64_t first_timestamp_s;       ///< First timestamp in flow (s)
+    uint64_t last_timestamp_s;        ///< Last timestamp in flow (s)
+  } time;
+  uint64_t bytes;              ///< Flow bytes
+  uint64_t packets;            ///< Flow packets
+};
+
+#ifdef HAVE_UDNS
+// @todo delete this declaration
+int sensor_want_client_dns(const struct sensor *);
+int sensor_want_target_dns(const struct sensor *);
+
+static inline int flowCache_want_client_dns(const struct flowCache *c) {
+  return sensor_want_client_dns(c->sensor);
+}
+
+static inline int flowCache_want_target_dns(const struct flowCache *c) {
+  return sensor_want_target_dns(c->sensor);
+}
+#endif
+
 struct flowCache *new_flowCache();
 uint64_t flowCache_packets(const struct flowCache *);
 uint64_t flowCache_octets(const struct flowCache *);
 void associateSensor(struct flowCache *flowCache, struct sensor *sensor);
 int guessDirection(struct flowCache *cache);
 void free_flowCache(struct flowCache *cache);
+
+/** Prints a netflow entity value with a given template
+ * @param  kafka_line_buffer     Buffer to print entity.
+ * @param  templateElement       Expected element in buffer
+ * @param  buffer                Flow element
+ * @param  real_field_len        Length of element
+ * @param  real_field_len_offset Offset of element
+ * @param  flowCache             Flow cache
+ * @return                       Number of bytes written
+ */
+size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
+  const V9V10TemplateElementId *templateElement, const void* buffer,
+  const size_t real_field_len, const size_t real_field_len_offset,
+  struct flowCache *flowCache);
+struct string_list *rb_separate_long_time_flow(
+  struct printbuf *kafka_line_buffer,
+  uint64_t export_timestamp, uint64_t dSwitched, uint64_t dInterval,
+  uint64_t max_intervals, uint64_t bytes, uint64_t pkts);
 
 /** Print string (i.e., kafka_line_buffer += buffer+real_field_len_offset)
  * @param  kafka_line_buffer     Buffer to print string into
