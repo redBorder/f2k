@@ -96,8 +96,9 @@ static int write_in_file(int fd,const char *buffer,size_t bufsiz) {
 }
 
 static int temp_file(char *path, size_t pathsz) {
-	(void)pathsz; assert(pathsz >= "/tmp/f2k_test31_XXXXXX");
-	strcpy(path,"/tmp/f2k_test31_XXXXXX");
+	static const char tmp_path_template[] = "/tmp/f2k_test31_XXXXXX";
+	(void)pathsz; assert(pathsz >= sizeof(tmp_path_template));
+	strcpy(path, tmp_path_template);
 	int fd = mkstemp(path);
 	if(fd < 0){
 		perror("Can't create temp file");
