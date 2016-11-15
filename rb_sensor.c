@@ -125,7 +125,7 @@ struct sensor {
   rd_avl_t home_networks;
   rd_memctx_t memctx;
   char *enrichment;
-  enum sensor_span_mode span_mode;
+  bool span_mode;
   int64_t fallback_first_switch;
 
 #ifdef HAVE_UDNS
@@ -273,11 +273,11 @@ const char *network_name(struct sensor *sensor, const uint8_t ip[16]) {
 }
 
 #ifdef HAVE_UDNS
-int sensor_want_client_dns(const struct sensor *s) {
+bool sensor_want_client_dns(const struct sensor *s) {
   return s->dns_flags & ENABLE_PTR_DNS_CLIENT;
 }
 
-int sensor_want_target_dns(const struct sensor *s) {
+bool sensor_want_target_dns(const struct sensor *s) {
   return s->dns_flags & ENABLE_PTR_DNS_TARGET;
 }
 #endif
@@ -571,7 +571,7 @@ static bool parse_sensor_dns0(struct sensor *sensor,const json_t *dns_ptr_value,
   return true;
 }
 
-static true parse_sensor_dns(struct sensor *sensor,const json_t *dns_ptr_client,
+static bool parse_sensor_dns(struct sensor *sensor,const json_t *dns_ptr_client,
                                                 const json_t *dns_ptr_target) {
   return parse_sensor_dns0(sensor,dns_ptr_client,dns_ptr_client_key,
                                                        ENABLE_PTR_DNS_CLIENT)

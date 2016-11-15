@@ -1407,7 +1407,7 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
 #ifdef HAVE_UDNS
   if(new_dns_servers) {
     /* Have to create a new DNS context */
-    size_t i=0;
+
     readOnlyGlobals.udns.csv_dns_servers = strdup(new_dns_servers);
     if(NULL == readOnlyGlobals.udns.csv_dns_servers) {
       traceEvent(TRACE_ERROR,"Memory error, can't strdup");
@@ -1431,12 +1431,13 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
       free(readOnlyGlobals.udns.csv_dns_servers);
       readOnlyGlobals.udns.csv_dns_servers = NULL;
     }
-    for(i=0;NULL!=readOnlyGlobals.udns.dns_poll_threads && readOnlyGlobals.udns.dns_info_array
-            && i<readOnlyGlobals.numProcessThreads;++i) {
+    size_t dns_idx=0;
+    for(dns_idx=0; NULL!=readOnlyGlobals.udns.dns_poll_threads && readOnlyGlobals.udns.dns_info_array
+            && dns_idx<readOnlyGlobals.numProcessThreads;++dns_idx) {
       static const char *thread_name=NULL;
       static const pthread_attr_t *attr=NULL;
 
-      struct rb_dns_info *info = &readOnlyGlobals.udns.dns_info_array[i];
+      struct rb_dns_info *info = &readOnlyGlobals.udns.dns_info_array[dns_idx];
 
 #ifdef RB_DNS_MAGIC
       info->magic = RB_DNS_MAGIC;
@@ -1444,17 +1445,18 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
 
       info->dns_ctx = dns_new(&dns_defctx);
       if(NULL == info->dns_ctx) {
-        traceEvent(TRACE_ERROR,"Can't allocate DNS context %d info", i);
+        traceEvent(TRACE_ERROR,"Can't allocate DNS context %zu info", dns_idx);
 
       }
 
-      const int thread_create_rc = rd_thread_create(&readOnlyGlobals.udns.dns_poll_threads[i],
+      const int thread_create_rc = rd_thread_create(&readOnlyGlobals.udns.dns_poll_threads[dns_idx],
         thread_name,attr,udns_pool_routine,info);
 
       if(thread_create_rc < 0) {
         char errstr[BUFSIZ];
         strerror_r(errno,errstr,sizeof(errstr));
-        traceEvent(TRACE_ERROR,"Can't allocate DNS polling thread %d: %s", i, errstr);
+        traceEvent(TRACE_ERROR,"Can't allocate DNS polling thread %zu: %s",
+          dns_idx, errstr);
       }
     }
   }
@@ -1653,6 +1655,7 @@ static void term_pcap(pcap_t **p) {
 static void shutdown_f2k(void) {
   static bool once = false;
   int i;
+  size_t ui;
 
   if(once) return; else once = true;
 
@@ -1713,8 +1716,9 @@ static void shutdown_f2k(void) {
 #endif
 
 #ifdef HAVE_UDNS
-  for(i=0;NULL!=readOnlyGlobals.udns.dns_info_array && i<readOnlyGlobals.numProcessThreads;++i) {
-    dns_free(readOnlyGlobals.udns.dns_info_array[i].dns_ctx);
+  for(ui=0;NULL!=readOnlyGlobals.udns.dns_info_array
+      && ui<readOnlyGlobals.numProcessThreads; ++ui) {
+    dns_free(readOnlyGlobals.udns.dns_info_array[ui].dns_ctx);
   }
   free(readOnlyGlobals.udns.dns_info_array);
 #endif

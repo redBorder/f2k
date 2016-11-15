@@ -67,14 +67,14 @@ struct flowCache {
 
 #ifdef HAVE_UDNS
 // @todo delete this declaration
-int sensor_want_client_dns(const struct sensor *);
-int sensor_want_target_dns(const struct sensor *);
+bool sensor_want_client_dns(const struct sensor *);
+bool sensor_want_target_dns(const struct sensor *);
 
-static inline int flowCache_want_client_dns(const struct flowCache *c) {
+static inline bool flowCache_want_client_dns(const struct flowCache *c) {
   return sensor_want_client_dns(c->sensor);
 }
 
-static inline int flowCache_want_target_dns(const struct flowCache *c) {
+static inline bool flowCache_want_target_dns(const struct flowCache *c) {
   return sensor_want_target_dns(c->sensor);
 }
 #endif
@@ -331,8 +331,8 @@ size_t print_https_common_name(struct printbuf *kafka_line_buffer,
 
 #ifdef HAVE_UDNS
 
-const uint8_t *get_direction_based_client_ip(struct flowCache *flowCache);
-const uint8_t *get_direction_based_target_ip(struct flowCache *flowCache);
+const uint8_t *get_direction_based_client_ip(const struct flowCache *flowCache);
+const uint8_t *get_direction_based_target_ip(const struct flowCache *flowCache);
 
 size_t print_client_name(struct printbuf *kafka_line_buffer,
   const void *buffer, const size_t real_field_len,

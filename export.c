@@ -1588,15 +1588,15 @@ static const char *get_direction_based_target_hostname(struct flowCache *flowCac
     flowCache->address.target_name_cache ? flowCache->address.target_name_cache->name : NULL;
 }
 
-static const uint8_t *get_src_ip(struct flowCache *flowCache) {
-  return (uint8_t *)flowCache->address.src;
+static const uint8_t *get_src_ip(const struct flowCache *flowCache) {
+  return (const uint8_t *)flowCache->address.src;
 }
 
-static const uint8_t *get_dst_ip(struct flowCache *flowCache) {
-  return (uint8_t *)flowCache->address.dst;
+static const uint8_t *get_dst_ip(const struct flowCache *flowCache) {
+  return (const uint8_t *)flowCache->address.dst;
 }
 
-const uint8_t *get_direction_based_client_ip(struct flowCache *flowCache) {
+const uint8_t *get_direction_based_client_ip(const struct flowCache *flowCache) {
   assert(flowCache);
 
   const uint8_t *ret = NULL;
@@ -1625,7 +1625,8 @@ const uint8_t *get_direction_based_client_ip(struct flowCache *flowCache) {
   return ret;
 }
 
-const uint8_t *get_direction_based_target_ip(struct flowCache *flowCache) {
+const uint8_t *get_direction_based_target_ip(
+    const struct flowCache *flowCache) {
   const uint8_t *src_ip = get_src_ip(flowCache);
   const uint8_t *dst_ip = get_dst_ip(flowCache);
 
@@ -1637,16 +1638,18 @@ const uint8_t *get_direction_based_target_ip(struct flowCache *flowCache) {
 
 /// @TODO difference client/target src/dst
 size_t print_client_name(struct printbuf *kafka_line_buffer,
-  const void *buffer,const size_t real_field_len,
-  const size_t real_field_offset,struct flowCache *flowCache) {
+    const void *buffer,const size_t real_field_len,
+    const size_t real_field_offset,struct flowCache *flowCache) {
+  unused_params(buffer, real_field_len, real_field_offset);
 
   return print_dns_obtained_hostname(kafka_line_buffer,
     get_direction_based_client_hostname(flowCache));
 }
 
 size_t print_target_name(struct printbuf *kafka_line_buffer,
-  const void *buffer,const size_t real_field_len,
-  const size_t real_field_offset,struct flowCache *flowCache) {
+    const void *buffer,const size_t real_field_len,
+    const size_t real_field_offset,struct flowCache *flowCache) {
+  unused_params(buffer, real_field_len, real_field_offset);
 
   return print_dns_obtained_hostname(kafka_line_buffer,
     get_direction_based_target_hostname(flowCache));

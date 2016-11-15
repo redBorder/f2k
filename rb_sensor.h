@@ -23,6 +23,8 @@
 
 #include "config.h"
 
+#include <stdbool.h>
+
 /* FW declarations */
 struct sensor;
 struct worker_s;
@@ -39,8 +41,8 @@ int sensor_has_router_mac(struct sensor *sensor,const uint64_t mac);
 int64_t sensor_fallback_first_switch(const struct sensor *sensor);
 
 #ifdef HAVE_UDNS
-int sensor_want_client_dns(const struct sensor *);
-int sensor_want_target_dns(const struct sensor *);
+bool sensor_want_client_dns(const struct sensor *);
+bool sensor_want_target_dns(const struct sensor *);
 #endif
 
 struct rb_sensors_db;

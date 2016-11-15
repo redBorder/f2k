@@ -709,17 +709,16 @@ static void saveGoodTemplateInZooKeeper(zhandle_t *zh,const FlowSetV9Ipfix *new_
 
 #ifdef HAVE_UDNS
 
-static void split_after_dns_query_completed(struct dns_ctx *ctx,struct udns_opaque *opaque) {
-  assert(readOnlyGlobals.rb_cached_templates.dns_client_name_template);
-  assert(readOnlyGlobals.rb_cached_templates.dns_target_name_template);
-
+static void split_after_dns_query_completed(struct dns_ctx *ctx,
+    struct udns_opaque *opaque) {
+  (void)ctx;
   printNetflowRecordWithTemplate(opaque->curr_printbuf,
-    readOnlyGlobals.rb_cached_templates.dns_client_name_template,NULL,0,0,opaque->flowCache);
+    TEMPLATE_OF(DNS_CLIENT_NAME),NULL,0,0,opaque->flowCache);
   printNetflowRecordWithTemplate(opaque->curr_printbuf,
-    readOnlyGlobals.rb_cached_templates.dns_target_name_template,NULL,0,0,opaque->flowCache);
+    TEMPLATE_OF(DNS_TARGET_NAME),NULL,0,0,opaque->flowCache);
 
   struct string_list *string_list = time_split_flow(opaque->curr_printbuf,
-    opaque->export_timestamp,opaque->dSwitched,opaque->bytes,opaque->pkts,opaque->flowCache);
+    opaque->flowCache, opaque->flowCache->sensor);
 
   send_string_list_to_kafka(string_list);
 
@@ -743,7 +742,7 @@ static void split_after_dns_query_completed(struct dns_ctx *ctx,struct udns_opaq
 static void dns_query_completed0(struct dns_ctx *ctx,
           struct dns_rr_ptr *result, struct udns_opaque *opaque,
           char **hostname_dst,struct dns_cache_elm ** cache_elm_dst,
-          const uint8_t * (*addr_fn)(struct flowCache *)) {
+          const uint8_t * (*addr_fn)(const struct flowCache *)) {
 #ifdef UDNS_OPAQUE_MAGIC
   assert(UDNS_OPAQUE_MAGIC == opaque->magic);
 #endif
@@ -785,8 +784,10 @@ static void dns_query_completed_client(struct dns_ctx *ctx, struct dns_rr_ptr *r
   assert(UDNS_OPAQUE_MAGIC == opaque->magic);
 #endif
 
-  dns_query_completed0(ctx,result,opaque,&opaque->flowCache->address.client_name,
-    &opaque->flowCache->address.client_name_cache, get_direction_based_client_ip);
+  dns_query_completed0(ctx,result, opaque,
+    &opaque->flowCache->address.client_name,
+    &opaque->flowCache->address.client_name_cache,
+    get_direction_based_client_ip);
 }
 
 static void dns_query_completed_target(struct dns_ctx *ctx, struct dns_rr_ptr *result,
@@ -1233,8 +1234,8 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
     print_sensor_enrichment(kafka_line_buffer,flowCache);
 
 #ifdef HAVE_UDNS
-    const int solve_client=flowCache_want_client_dns(flowCache),
-              solve_target=flowCache_want_target_dns(flowCache);
+    const bool solve_client=flowCache_want_client_dns(flowCache),
+               solve_target=flowCache_want_target_dns(flowCache);
 
     if((solve_client || solve_target) && readOnlyGlobals.udns.csv_dns_servers) {
       static __thread size_t dns_worker_i = 0; /// @TODO use another way, please.
@@ -1251,10 +1252,6 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
 #endif
       opaque->flowCache = flowCache;
       opaque->curr_printbuf = kafka_line_buffer;
-      opaque->export_timestamp = export_timestamp;
-      opaque->dSwitched = dSwitched;
-      opaque->bytes = bytes;
-      opaque->pkts = pkts;
       const uint8_t *client_addr = get_direction_based_client_ip(flowCache);
       const uint8_t *target_addr = get_direction_based_target_ip(flowCache);
       opaque->refcnt = (solve_client && client_addr ? 1 : 0)
@@ -1287,17 +1284,17 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
           readOnlyGlobals.udns.dns_info_array[dns_worker_i].dns_ctx,opaque);
       } else {
         if(solve_client && NULL == flowCache->address.client_name_cache) {
-          uint32_t *pclient = ipv6_ptr_to_ipv4_ptr(client_addr);
-          rd_thread_func_call4(curr_worker,dns_submit_a4ptr,
+          void *client = not_const_cast(ipv6_ptr_to_ipv4_ptr(client_addr));
+          rd_thread_func_call4(curr_worker, dns_submit_a4ptr,
             readOnlyGlobals.udns.dns_info_array[dns_worker_i].dns_ctx,
-            pclient,dns_query_completed_client,opaque);
+            client, dns_query_completed_client, opaque);
         }
 
         if(solve_target && NULL == opaque->flowCache->address.target_name_cache) {
-          uint32_t *ptarget = ipv6_ptr_to_ipv4_ptr(target_addr);
-          rd_thread_func_call4(curr_worker,dns_submit_a4ptr,
+          void *target = not_const_cast(ipv6_ptr_to_ipv4_ptr(target_addr));
+          rd_thread_func_call4(curr_worker, dns_submit_a4ptr,
             readOnlyGlobals.udns.dns_info_array[dns_worker_i].dns_ctx,
-            ptarget,dns_query_completed_target,opaque);
+            target, dns_query_completed_target, opaque);
         }
       }
     } else {

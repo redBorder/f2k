@@ -24,6 +24,8 @@
 
 #include <librd/rdio.h>
 #include <librd/rdthread.h>
+
+#include <stddef.h>
 #include <assert.h>
 
 static const int MAX_DNS_TIMEOUT_MS = 500;
@@ -90,7 +92,7 @@ static size_t real_entry_size(struct dns_cache_entry *entry) {
 	return sizeof(*entry) + entry->elm.name_len + 1;
 }
 
-static void dns_cache_memctx_free(struct dns_cache *cache,struct dns_cache_entry *entry) {
+static void dns_cache_memctx_free(struct dns_cache_entry *entry) {
 	rd_memctx_freesz(&entry->cache->memctx,entry,real_entry_size(entry));
 }
 
@@ -135,7 +137,7 @@ static void dns_cache_decref_elm0(struct dns_cache_elm *elm,int do_lock) {
 	int freed = 0;
 	rd_memctx_stats_t stats = {0};
 	uint8_t *ptr_elm = (uint8_t *)elm;
-	uint8_t *ptr_entry = ptr_elm - offsetof(struct dns_cache_entry,elm);
+	uint8_t *ptr_entry = ptr_elm - offsetof(struct dns_cache_entry, elm);
 	struct dns_cache_entry *entry = (struct dns_cache_entry *)ptr_entry;
 	struct dns_cache *cache = entry->cache;
 
@@ -148,7 +150,7 @@ static void dns_cache_decref_elm0(struct dns_cache_elm *elm,int do_lock) {
 	}
 
 	if(0 == --entry->refcnt) {
-		dns_cache_memctx_free(cache,entry);
+		dns_cache_memctx_free(entry);
 		if(unlikely(readOnlyGlobals.enable_debug)) {
 			freed = 1;
 			rd_memctx_stats(&cache->memctx,&stats);
@@ -161,8 +163,9 @@ static void dns_cache_decref_elm0(struct dns_cache_elm *elm,int do_lock) {
 
 	if(unlikely(readOnlyGlobals.enable_debug) && freed) {
 		traceEvent(TRACE_NORMAL,
-			"DNS cache node %p freed. Current stats: %d allocations, %llu bytes",
-			entry,stats.out,stats.bytes_out);
+			"DNS cache node %p freed. Current stats: "
+			"%d allocations, %zu bytes",
+			entry,stats.out, stats.bytes_out);
 	}
 }
 
@@ -175,7 +178,9 @@ void dns_cache_decref_elm(struct dns_cache_elm *elm) {
 	dns_cache_decref_elm0(elm,1 /* lock */);
 }
 
-struct dns_cache_elm * dns_cache_save_elm(struct dns_cache *cache,const uint8_t *addr,const char *name,size_t name_len,time_t now) {
+struct dns_cache_elm * dns_cache_save_elm(struct dns_cache *cache,
+		const uint8_t *addr, const char *name, size_t name_len,
+		time_t now) {
 	struct dns_cache_entry *entry = NULL;
 	rd_memctx_stats_t stats;
 	const size_t needed_size = sizeof(*entry) + name_len + 1;
@@ -193,16 +198,16 @@ struct dns_cache_elm * dns_cache_save_elm(struct dns_cache *cache,const uint8_t 
 			return NULL;
 		}
 
-		struct dns_cache_entry *entry = lru_pop_nl(&cache->lru);
-		freed_size += real_entry_size(entry);
+		struct dns_cache_entry *old_entry = lru_pop_nl(&cache->lru);
+		freed_size += real_entry_size(old_entry);
 
 		if(unlikely(readOnlyGlobals.enable_debug)) {
-			traceEvent(TRACE_NORMAL,"Freeing entry %p, of size %zu",entry,
-				real_entry_size(entry));
+			traceEvent(TRACE_NORMAL,"Freeing entry %p, of size %zu",
+				old_entry, real_entry_size(old_entry));
 		}
 
-		RD_AVL_REMOVE_ELM(&cache->avl,entry);
-		dns_cache_decref_elm_nl(&entry->elm);
+		RD_AVL_REMOVE_ELM(&cache->avl,old_entry);
+		dns_cache_decref_elm_nl(&old_entry->elm);
 	}
 
 	entry = rd_memctx_calloc(&cache->memctx, 1, needed_size);
