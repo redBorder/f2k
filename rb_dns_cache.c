@@ -19,6 +19,8 @@
 
 #include "rb_dns_cache.h"
 
+#ifdef HAVE_UDNS
+
 #include "f2k.h"
 #include "util.h"
 
@@ -32,7 +34,6 @@ static const int MAX_DNS_TIMEOUT_MS = 500;
 static const int MAX_DNS_TIMEOUT_S  = 0;
 static const int UDNS_GUESS_TIME    = 0;
 
-#ifdef HAVE_UDNS
 
 #ifndef NDEBUG
 #define DNS_CACHE_ENTRY_MAGIC 0xDCACEEA1CL
