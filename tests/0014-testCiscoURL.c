@@ -143,7 +143,8 @@ static const struct checkdata_value checkdata_values1[] = {
 	{.key = "type", .value="netflowv10"},
 	{.key = "http_url", .value="/profiles/profile_12345677_75sq_1123456782.jpg"},
 	{.key = "http_host", .value="images.ak.instagram.com"},
-
+	{.key = "http_host_l1", .value="com"},
+	{.key = "http_host_l2", .value="instagram.com"},
 };
 
 static int prepare_test_nf10_cisco_url(void **state) {
