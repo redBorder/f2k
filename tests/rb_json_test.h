@@ -28,11 +28,3 @@ struct checkdata{
 
 void rb_assert_json(const char *str, const size_t size, const struct checkdata *checkdata);
 
-struct test_data {
-	uint32_t netflow_device_ip;
-	uint16_t netflow_dst_port;
-	const uint8_t *template,*flow;
-	size_t template_size,flow_size;
-	const struct checkdata *checkdata;
-	size_t checkdata_size;
-};
