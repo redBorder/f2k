@@ -120,7 +120,7 @@ static const NetFlow5Record record5 = {
 #define TEST_FLOW_HEADER \
 	.unix_secs = constexpr_be32toh(1467220140), \
 	.flow_sequence = constexpr_be32toh(12372811), \
-	.observationDomainId = 0
+	.observation_id = 0
 
 #define BASE_CHECKS(mtcp_flags) { \
 	{.key="type",.value="netflowv5"}, \
@@ -177,7 +177,6 @@ static int prepare_test_nf5_tcpflags(void **state) {
 			.config_json_path = "./tests/0000-testFlowV5.json",
 			.host_list_path = NULL,
 			.netflow_src_ip = 0x04030201,
-			.netflow_dst_port = 2055,
 			.record = &record5,
 			.record_size = sizeof(record5),
 			.checkdata = checkdata,
@@ -218,7 +217,6 @@ static int prepare_test_ipfix_tcpflags(void **state,
 			.config_json_path = "./tests/0000-testFlowV5.json",
 			.host_list_path = NULL,
 			.netflow_src_ip = 0x04030201,
-			.netflow_dst_port = 2055,
 			.record = v10_template,
 			.record_size = v10_template_len,
 			.checkdata = NULL,
@@ -228,7 +226,6 @@ static int prepare_test_ipfix_tcpflags(void **state,
 			.config_json_path = NULL,
 			.host_list_path = NULL,
 			.netflow_src_ip = 0x04030201,
-			.netflow_dst_port = 2055,
 			.record = v10_flow,
 			.record_size = v10_flow_len,
 			.checkdata = &checkdata,

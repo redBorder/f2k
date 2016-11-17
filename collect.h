@@ -22,6 +22,8 @@
 #include <stdint.h>
 #include <time.h>
 
+#include "rb_sensor.h"
+
 struct worker_stats {
   time_t first_flow_processed_timestamp, last_flow_processed_timestamp;
   uint64_t num_packets_received, num_dissected_flow_packets,
@@ -53,10 +55,11 @@ void add_packet_to_worker(struct queued_packet_s *qpacket, worker_t *worker);
 
 /** Add a template to worker sensor
  * @param template Template to add
+ * @param observation_id Template observation domain id
  * @param worker   Worker to add template to
  */
 void add_template_to_worker(struct flowSetV9Ipfix *template,
-  struct sensor *sensor, worker_t *worker);
+  observation_id_t *observation_id, worker_t *worker);
 
 /** Get workers stats
   @param worker Worker to get stats

@@ -56,7 +56,6 @@
 /* ********* Packets queue ************ */
 typedef struct queued_packet_s {
   uint32_t netflow_device_ip;
-  uint16_t dst_port;
   uint8_t *buffer;
   ssize_t buffer_len;
   struct sensor *sensor;
@@ -252,10 +251,6 @@ typedef struct {
 
 int bindthread2core(pthread_t thread_id, int core_id);
 
-/* ****************************************************** */
-/*                   ENEO STUFFS                          */
-/*        Some of this was in util.c before               */
-/* ****************************************************** */
 typedef struct {
   uint8_t network[16];
   uint8_t networkMask[16];

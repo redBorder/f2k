@@ -19,9 +19,13 @@
 
 #pragma once
 
+#include "config.h"
+
+#include <stdbool.h>
+
+#include "netflow.h"
 #include "rb_listener.h"
 
-#include "config.h"
 
 #include <stdbool.h>
 
@@ -30,35 +34,26 @@ struct sensor;
 struct worker_s;
 const char *sensor_ip_string(const struct sensor *sensor);
 struct worker_s *sensor_worker(const struct sensor *sensor);
-const char *network_ip(struct sensor *sensor,const uint8_t ip[16]);
-const char *network_name(struct sensor *sensor,const uint8_t ip[16]);
-const char *sensor_ip_enrichment(const struct sensor *sensor);
-enum sensor_span_mode{NO_SPAN_MODE,SPAN_MODE};
-enum sensor_span_mode is_span_sensor(const struct sensor *sensor);
-int sensor_has_mac_db(const struct sensor *sensor);
-int sensor_has_router_mac(struct sensor *sensor,const uint64_t mac);
-
-int64_t sensor_fallback_first_switch(const struct sensor *sensor);
-
-#ifdef HAVE_UDNS
-bool sensor_want_client_dns(const struct sensor *);
-bool sensor_want_target_dns(const struct sensor *);
-#endif
 
 struct rb_sensors_db;
+
+/** Creates a sensor database with a json config file
+ * @param  json_path        Path to JSON config file
+ * @param  worker_list      Worker list to assign to each sensor:observation
+ *                          domain id
+ * @param  worker_list_size Size of worker list
+ * @return                  New sensors db, or NULL if error
+ */
 struct rb_sensors_db *read_rb_config(const char *json_path,
-          		listener_list *list, struct worker_s **worker_list,
-          		size_t worker_list_size);
+              struct worker_s **worker_list, size_t worker_list_size);
 
 /** Obtains a sensor from a database.
  * @param  database Database to obtain sensor from
  * @param  ip       Sensor ip
- * @param  port     Sensor port
  * @return          Obtained sensor.
  * @warning         Need to release obtained sensor with rb_sensor_decref
  */
-struct sensor *get_sensor(struct rb_sensors_db *database, uint64_t ip,
-								uint16_t port);
+struct sensor *get_sensor(struct rb_sensors_db *database, uint64_t ip);
 
 /** Signal end of sensor usage
  * @param sensor Sensor that we are not going to use.
@@ -66,14 +61,34 @@ struct sensor *get_sensor(struct rb_sensors_db *database, uint64_t ip,
 void rb_sensor_decref(struct sensor *sensor);
 
 int addBadSensor(struct rb_sensors_db *database,const uint64_t sensor_ip);
-struct flowSetV9Ipfix; /* FW declaration */
+
+/// Sensor observation id
+typedef struct observation_id_s observation_id_t;
+uint32_t observation_id_num(const observation_id_t *observation_id);
+void observation_id_decref(observation_id_t *observation_id);
+const char *network_ip(observation_id_t *observation_id,const uint8_t ip[16]);
+const char *network_name(observation_id_t *observation_id,const uint8_t ip[16]);
+const char *observation_id_enrichment(const observation_id_t *obs_id);
+bool is_span_observation_id(const observation_id_t *obs_id);
+bool observation_id_has_mac_db(const observation_id_t *obs_id);
+bool observation_id_has_router_mac(observation_id_t *obs_id,const uint64_t mac);
+#ifdef HAVE_UDNS
+bool observation_id_want_client_dns(const observation_id_t *observation_id);
+bool observation_id_want_target_dns(const observation_id_t *observation_id);
+#endif
+
+int64_t observation_id_fallback_first_switch(const observation_id_t *obs_id);
+
+observation_id_t *get_sensor_observation_id(struct sensor *, uint32_t obs_id);
+
+struct flowSetV9Ipfix;
 /** Save template in sensor
- * @param sensor   Sensor to add template
+ * @param observation_id Observation id to add template
  * @param template Template to save
  * @note This function is not thread safe! If you want to add a template to
  * sensor, for example via file or zookeeper, please use save_template_async
  */
-void saveTemplate(struct sensor *sensor, struct flowSetV9Ipfix *template);
+void save_template(observation_id_t *observation_id, struct flowSetV9Ipfix *template);
 
 /** Save template in sensor
  * @param template Template to add
@@ -81,6 +96,7 @@ void saveTemplate(struct sensor *sensor, struct flowSetV9Ipfix *template);
  */
 void save_template_async(struct sensor *sensor,
 	struct flowSetV9Ipfix *template);
-const struct flowSetV9Ipfix *find_sensor_template(const struct sensor *sensor,const int templateId);
+const struct flowSetV9Ipfix *find_observation_id_template(
+  const observation_id_t *observation_id, const uint16_t template_id);
 
 void delete_rb_sensors_db(struct rb_sensors_db *db);

@@ -37,7 +37,7 @@ static const struct {
 		.len = constexpr_be16toh(148),
 		.unix_secs = constexpr_be32toh(1382637021),
 		.flow_sequence = 0x38040000,
-		.observationDomainId = constexpr_be32toh(256),
+		.observation_id = constexpr_be32toh(256),
 	},
 
 	.flowset_header = {
@@ -89,7 +89,7 @@ static const struct {
 		/*uint16_t*/ .len = constexpr_be16toh(574),
 		/*uint32_t*/ .unix_secs = 0xdd5d6952ul,
 		/*uint32_t*/ .flow_sequence = constexpr_be32toh(1080),
-		/*uint32_t*/ .observationDomainId = constexpr_be32toh(256),
+		/*uint32_t*/ .observation_id = constexpr_be32toh(256),
 	},
 
 	.flowset_header = {
@@ -226,7 +226,7 @@ static int prepare_test_nf10_cisco_url(void **state) {
 								checks_size) { \
 		.config_json_path = config_path,                               \
 		.host_list_path = mhosts_db_path,                              \
-		.netflow_src_ip = 0x04030201, .netflow_dst_port = 2055,        \
+		.netflow_src_ip = 0x04030201,                                  \
 		.record = mrecord, .record_size = mrecord_size,                \
 		.checkdata = checks, .checkdata_size = checks_size             \
 	}

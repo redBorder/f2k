@@ -84,10 +84,8 @@ static void* netFlowCollectLoop0(struct port_collector *collector) {
           qpacket->buffer_len);
 #endif
       qpacket->netflow_device_ip = ntohl(fromHostV4.sin_addr.s_addr);
-      qpacket->dst_port = collector->port;
       qpacket->sensor = get_sensor(
-        readOnlyGlobals.rb_databases.sensors_info, qpacket->netflow_device_ip,
-                                                            qpacket->dst_port);
+        readOnlyGlobals.rb_databases.sensors_info, qpacket->netflow_device_ip);
       if(NULL==qpacket->sensor) {
         const size_t bufsize = 1024;
         char buf[bufsize];
@@ -97,7 +95,7 @@ static void* netFlowCollectLoop0(struct port_collector *collector) {
           traceEvent(TRACE_WARNING,
             "Received a packet from the unknow sensor %s on port %u.",
                       _intoaV4(qpacket->netflow_device_ip,buf,bufsize),
-                      qpacket->dst_port);
+                      collector->port);
         }
       } else {
         worker_t *worker = sensor_worker(qpacket->sensor);

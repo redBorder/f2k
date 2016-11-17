@@ -507,8 +507,7 @@ static void deepPacketDecode(u_short thread_id __attribute__((unused)),
         //dissectSflow((char*)&p[payload_shift], payloadLen, &fromHostV4); /* sFlow */
       } else{
         struct sensor *sensor_object = get_sensor(
-                  readOnlyGlobals.rb_databases.sensors_info, src.ipType.ipv4,
-                  dport);
+                  readOnlyGlobals.rb_databases.sensors_info, src.ipType.ipv4);
         if(NULL==sensor_object) {
           const size_t bufsize = 1024;
           char buf[bufsize];
@@ -520,7 +519,6 @@ static void deepPacketDecode(u_short thread_id __attribute__((unused)),
           freeQueuedPacket(qpacket);
         } else {
           qpacket->netflow_device_ip = src.ipType.ipv4;
-          qpacket->dst_port = dport;
           qpacket->buffer += payload_shift;
           qpacket->buffer_len = payloadLen - sizeof(struct udphdr);
           qpacket->sensor = sensor_object;
@@ -669,7 +667,7 @@ static void usage() {
   printf("[--flow-version|-V] <version>       | NetFlow Version: 5=v5, 9=v9, 10=IPFIX\n");
   printf("[--count|-2] <number>               | Capture a specified number of packets\n"
          "                                    | and quit (debug only)\n");
-  printf("[--collector-port|-3] <port>        | NetFlow/sFlow collector port for incoming flows\n");
+  printf("[--collector-port|-3] <port>        | NetFlow/sFlow comma separated collector ports for incoming flows\n");
 #ifdef linux
   printf("[--cpu-affinity|-4] <CPU/Core Id>   | Binds this process to the specified CPU/Core\n"
          "                                    | Note: the first available CPU corresponds to 0.\n");
@@ -849,6 +847,29 @@ static void readPcapFileList(const char * filename) {
 
 /* ****************************************************** */
 
+/**
+ * Parse a port list 2055,2056,...
+ */
+static void parse_port_list(char *port_list, listener_list *list) {
+  char *strtok_aux = NULL;
+  const char *sport = NULL;
+
+  assert(port_list);
+  assert(list);
+
+  for (sport = strtok_r(port_list, ",", &strtok_aux); sport;
+       sport = strtok_r(NULL, ",", &strtok_aux)) {
+    char *strtol_end = NULL;
+    unsigned long lport = strtol(sport, &strtol_end, 10);
+    if (*strtol_end != '\0' || lport > 0xffff) {
+      traceEvent(TRACE_ERROR, "Invalid port %s, can't listen there", sport);
+      continue;
+    }
+    struct port_collector *collector = createNetFlowListener(UDP, lport);
+    listener_list_append(list, collector);
+  }
+}
+
 static void initDefaults(void) {
   /* Set defaults */
 #ifdef HAVE_GEOIP
@@ -876,7 +897,7 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
   char line[2048];
   FILE *fd;
   int opt, i, option_index;
-  char *strtok_aux = NULL;
+  char *strtok_aux = NULL, *collector_ports = NULL;
 #ifdef HAVE_ZOOKEEPER
   char *new_zk_host = NULL;
 #endif
@@ -1048,6 +1069,7 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
       case 258: /* rb-config file */
       case 'z': /* zk-host */
       case 262: /* zk-timeout */
+      case '3': /* collector port */
         discard_option = false;
         break;
 
@@ -1065,6 +1087,9 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
     switch(opt) {
     case '2':
       readOnlyGlobals.capture_num_packet_and_quit = atoi(optarg);
+      break;
+    case '3':
+      collector_ports = strdup(optarg);
       break;
 #ifdef linux
     case '4':
@@ -1328,6 +1353,16 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
     }
   }
 
+  if (collector_ports) {
+    listener_list new_listeners_list;
+    listener_list_init(&new_listeners_list);
+
+    parse_port_list(collector_ports, &new_listeners_list);
+
+    mergeNetFlowListenerList(&readOnlyGlobals.listeners,&new_listeners_list);
+    wakeUpListenerList(&readOnlyGlobals.listeners);
+  }
+
 #ifdef HAVE_LIBRDKAFKA
   if(kafka_brokers && kafka_topic) {
     rd_kafka_t *rk = NULL,*rk_old=NULL;
@@ -1489,9 +1524,6 @@ udns_config_err:
   }
 
   if(reload_sensors_info == 1) {
-    listener_list new_listeners_list;
-    listener_list_init(&new_listeners_list);
-
     if(unlikely(readOnlyGlobals.enable_debug))
       traceEvent(TRACE_NORMAL,"reloading sensors info");
     pthread_rwlock_wrlock(&readOnlyGlobals.rb_databases.mutex);
@@ -1499,13 +1531,10 @@ udns_config_err:
       delete_rb_sensors_db(readOnlyGlobals.rb_databases.sensors_info);
     readOnlyGlobals.rb_databases.sensors_info = read_rb_config(
            readOnlyGlobals.rb_databases.sensors_info_path,
-           &new_listeners_list, readOnlyGlobals.packetProcessThread,
+           readOnlyGlobals.packetProcessThread,
            readOnlyGlobals.numProcessThreads);
     reload_sensors_info = 0;
     pthread_rwlock_unlock(&readOnlyGlobals.rb_databases.mutex);
-
-    mergeNetFlowListenerList(&readOnlyGlobals.listeners,&new_listeners_list);
-    wakeUpListenerList(&readOnlyGlobals.listeners);
   }
 
 #ifdef HAVE_ZOOKEEPER

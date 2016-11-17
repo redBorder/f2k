@@ -21,6 +21,7 @@
 
 #include "config.h"
 
+#include "rb_sensor.h"
 #include "f2k.h"
 #include "printbuf.h"
 
@@ -50,7 +51,9 @@ struct flowCache {
 #endif
   }address;
 
-  struct sensor *sensor;
+  /// Sensor associated
+  const struct sensor *sensor;
+  observation_id_t *observation_id;
 
   /// Flow time related information
   struct {
@@ -65,25 +68,11 @@ struct flowCache {
   uint64_t packets;            ///< Flow packets
 };
 
-#ifdef HAVE_UDNS
-// @todo delete this declaration
-bool sensor_want_client_dns(const struct sensor *);
-bool sensor_want_target_dns(const struct sensor *);
-
-static inline bool flowCache_want_client_dns(const struct flowCache *c) {
-  return sensor_want_client_dns(c->sensor);
-}
-
-static inline bool flowCache_want_target_dns(const struct flowCache *c) {
-  return sensor_want_target_dns(c->sensor);
-}
-#endif
-
 struct flowCache *new_flowCache();
 uint64_t flowCache_packets(const struct flowCache *);
 uint64_t flowCache_octets(const struct flowCache *);
 void associateSensor(struct flowCache *flowCache, struct sensor *sensor);
-int guessDirection(struct flowCache *cache);
+bool guessDirection(struct flowCache *cache);
 void free_flowCache(struct flowCache *cache);
 
 /** Prints a netflow entity value with a given template

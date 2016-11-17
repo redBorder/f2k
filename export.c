@@ -90,37 +90,32 @@ static int mac_direction(int known_src,int known_dst) {
 
 /*
   Try to guess direction based on source and destination address
-  return: 1 if guessed/already setted. 0 if couldn't set
+  return: true if guessed/already setted. false if couldn't set
 */
-int guessDirection(struct flowCache *cache){
+bool guessDirection(struct flowCache *cache) {
   assert(cache);
   static const char zeros[sizeof(cache->address.src)] = {0};
-  // Don't trust in flow direction unless there is no choice
-  // if(cache->macs.direction != DIRECTION_UNSET){
-  //  return 1; /* no need to guess */
-  //}
 
-  if(NULL == cache) {
-    traceEvent(TRACE_ERROR,"Invalid address");
-    return 0;
-  }
-
-  if(sensor_has_mac_db(cache->sensor)) {
+  if (observation_id_has_mac_db(cache->observation_id)) {
     const uint64_t src_mac_as_num = net2number(cache->macs.src_mac, 6);
-    const uint64_t dst_mac_as_num = is_span_sensor(cache->sensor) ?
-      net2number(cache->macs.dst_mac, 6) :
-      net2number(cache->macs.post_dst_mac, 6);
+    const uint64_t dst_mac_as_num =
+      is_span_observation_id(cache->observation_id) ?
+        net2number(cache->macs.dst_mac, 6) :
+        net2number(cache->macs.post_dst_mac, 6);
 
-    const int src_mac_is_router = sensor_has_router_mac(cache->sensor,src_mac_as_num);
-    const int dst_mac_is_router = sensor_has_router_mac(cache->sensor,dst_mac_as_num);
+    const bool src_mac_is_router = observation_id_has_router_mac(
+                              cache->observation_id, src_mac_as_num);
+    const bool dst_mac_is_router = observation_id_has_router_mac(
+                              cache->observation_id, dst_mac_as_num);
 
-    if(0!=src_mac_as_num && valid_mac(src_mac_as_num)
+    if (0!=src_mac_as_num && valid_mac(src_mac_as_num)
        && 0!=dst_mac_as_num && valid_mac(dst_mac_as_num)) {
 
-      const int mac_guessed_direction = mac_direction(src_mac_is_router,dst_mac_is_router);
+      const int mac_guessed_direction = mac_direction(src_mac_is_router,
+                                                            dst_mac_is_router);
       if(mac_guessed_direction != DIRECTION_UNSET) {
         cache->macs.direction = mac_guessed_direction;
-        return 1;
+        return true;
       }
     }
   }
@@ -128,19 +123,21 @@ int guessDirection(struct flowCache *cache){
   if (0 == memcmp(cache->address.src, zeros, sizeof(cache->address.src)) ||
       0 == memcmp(cache->address.dst, zeros, sizeof(cache->address.dst))) {
     /* Can't guess direction */
-    return -1;
+    return false;
   }
 
-  const int src_ip_in_home_net = NULL!=network_ip(cache->sensor,cache->address.src);
-  const int dst_ip_in_home_net = NULL!=network_ip(cache->sensor,cache->address.dst);
+  const int src_ip_in_home_net = NULL!=network_ip(cache->observation_id,
+                                                            cache->address.src);
+  const int dst_ip_in_home_net = NULL!=network_ip(cache->observation_id,
+                                                            cache->address.dst);
 
   const int ip_guessed_direction = ip_direction(src_ip_in_home_net,dst_ip_in_home_net);
   if(ip_guessed_direction != DIRECTION_UNSET) {
     cache->macs.direction = ip_guessed_direction;
-    return 1;
+    return true;
   }
 
-  return 1;
+  return true;
 }
 
 #if 0
@@ -620,7 +617,7 @@ static void ipv4buf_to_6(uint8_t ipv6[16],const void *vbuffer){
 static size_t print_net0(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flowCache,
-    const char *(*sensor_list_search_cb)(struct sensor *,const uint8_t[16]),
+    const char *(*sensor_list_search_cb)(observation_id_t *,const uint8_t[16]),
     const char *(*global_net_list_cb)(const IPNameAssoc *)) {
   const uint8_t *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer, flowCache);
@@ -630,8 +627,8 @@ static size_t print_net0(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  /* First try: Has the sensor a home net that contains this ip? */
-  const char *sensor_home_net = sensor_list_search_cb(flowCache->sensor,
+  /* First try: Has the observation id a home net that contains this ip? */
+  const char *sensor_home_net = sensor_list_search_cb(flowCache->observation_id,
                                                     buffer + real_field_offset);
   if(sensor_home_net){
     return printbuf_memappend_fast_string(kafka_line_buffer, sensor_home_net);
@@ -814,18 +811,8 @@ static const uint8_t *get_direction_based_client_mac(struct flowCache *flowCache
   assert(flowCache);
 
   const uint8_t *mac = NULL;
-  const uint8_t *dst_mac = NULL;
-
-  switch(is_span_sensor(flowCache->sensor)){
-  default:
-    traceEvent(TRACE_ERROR,"Unknown sensor span mode %d. Assuming no span.",is_span_sensor(flowCache->sensor));
-  case NO_SPAN_MODE:
-    dst_mac = flowCache->macs.post_dst_mac;
-    break;
-  case SPAN_MODE:
-    dst_mac = flowCache->macs.dst_mac;
-    break;
-  }
+  const uint8_t *dst_mac = is_span_observation_id(flowCache->observation_id) ?
+    flowCache->macs.dst_mac : flowCache->macs.post_dst_mac;
 
   /*
     Netflow probe point of view
@@ -1483,7 +1470,7 @@ size_t print_sensor_enrichment(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  const char *enrichment = sensor_ip_enrichment(flowCache->sensor);
+  const char *enrichment = observation_id_enrichment(flowCache->observation_id);
   if(enrichment && enrichment[0] != '\0') {
     size_t added = 0;
     added += printbuf_memappend_fast_string(kafka_line_buffer,",");
@@ -1978,7 +1965,7 @@ size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
  * @todo This should be in collect.c
  */
 struct string_list *rb_separate_long_time_flow(
-  struct printbuf * kafka_line_buffer,
+  struct printbuf *kafka_line_buffer,
   uint64_t first_timestamp, uint64_t dSwitched, const uint64_t dInterval,
   const uint64_t max_intervals, uint64_t bytes, uint64_t pkts) {
 

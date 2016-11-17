@@ -51,7 +51,7 @@ static const struct TestV9Template v9Template = {
 		/*uint32_t*/ .sys_uptime = 0x00003039,     /* Current time in msecs since router booted */
 		/*uint32_t*/ .unix_secs = 0xe2336552,     /* Current seconds since 0000 UTC 1970 */
 		/*uint32_t*/ .flow_sequence = 0x38040000, /* Sequence number of total flows seen */
-		/*uint32_t*/ .sourceId = 0x01000000,      /* Source id */
+		/*uint32_t*/ .source_id = 0x01000000,      /* Source id */
 	},
 
 	.flowSetHeader = {
@@ -85,7 +85,7 @@ static const struct TestV9Flow v9Flow = {
 		/*uint32_t*/ .sys_uptime = 0x00003039,     /* Current time in msecs since router booted */
 		/*uint32_t*/ .unix_secs = 0x98346552,     /* Current seconds since 0000 UTC 1970 */
 		/*uint32_t*/ .flow_sequence = 0x76040000, /* Sequence number of total flows seen */
-		/*uint32_t*/ .sourceId = 0x01000000,      /* Source id */
+		/*uint32_t*/ .source_id = 0x01000000,      /* Source id */
 	},
 
 	.flowSetHeader = {
@@ -132,7 +132,6 @@ static int prepare_test_nf9(void **state) {
 		.config_json_path = config_path,                               \
 		.host_list_path = NULL,                                        \
 		.netflow_src_ip = 0x04030201,                                  \
-		.netflow_dst_port = 2055,                                      \
 		.record = mrecord,                                             \
 		.record_size = mrecord_size,                                   \
 		.checkdata = mcheckdata,                                       \

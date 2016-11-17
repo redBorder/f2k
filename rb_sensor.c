@@ -40,9 +40,6 @@ static const char *dns_ptr_client_key = "dns_ptr_client";
 static const char *dns_ptr_target_key = "dns_ptr_target";
 #endif
 
-#define SENSOR_NETWORK_MAGIC 0x741258963
-#define NETWORK_TREE_NODE_MAGIC 0x5683ABDEF
-
 struct network_tree_node {
 #ifdef NETWORK_TREE_NODE_MAGIC
   uint64_t magic;
@@ -106,20 +103,13 @@ static int compare_mac_address_node(const void *_mac1,const void *_mac2) {
 
 /* ******** */
 
-/// Sensor defined by a network, that have it own templates
-struct sensor {
+/// Define an observation id
+struct observation_id_s {
 #ifndef NDEBUG
-	/// Magic constant to assert coherency
-#define SENSOR_MAGIC 0xABC123DEF098
-	uint64_t magic; //< Magic to assert coherency
+#define OBSERVATION_ID_MAGIC 0xB53A101A1CB53A10LL
+  uint64_t magic; ///< Magic constant to assert coherency
 #endif
-
-  /// network the sensor belongs to
-  const struct sensors_network *network;
-
-  /** Associated worker, so the same src sensor + dst port always goes to the
-  same worker, avoiding reordering and data races */
-  worker_t *worker;
+  uint32_t observation_id;
 
   rd_avl_t routers_macs;
   rd_avl_t home_networks;
@@ -139,250 +129,78 @@ struct sensor {
   FlowSetV9Ipfix *up_to_512_templates[512]; /* Array: direct element access */
   LIST_HEAD(, flowSetV9Ipfix) over_512_templates;       /* Linked List */
 
+  rd_avl_node_t avl_node;
+  SLIST_ENTRY(observation_id_s) list_node;
+
   atomic_uint64_t refcnt;
 };
 
-worker_t *sensor_worker(const struct sensor *sensor) {
-  return sensor->worker;
+#ifdef OBSERVATION_ID_MAGIC
+#define assert_observation_id(X) assert(OBSERVATION_ID_MAGIC == (X)->magic)
+#else
+#define assert_observation_id(X)
+#endif
+
+uint32_t observation_id_num(const observation_id_t *observation_id) {
+  return observation_id->observation_id;
 }
 
-int sensor_has_mac_db(const struct sensor *sensor) {
-  return !RD_AVL_EMPTY(&sensor->routers_macs);
+static void free_v9_ipfix_template(struct flowSetV9Ipfix *template) {
+	free(template->fields);
+	free(template);
 }
 
-int sensor_has_router_mac(struct sensor *sensor,const uint64_t mac) {
+static void observation_id_done(observation_id_t *observation_id) {
+	size_t i;
+	struct flowSetV9Ipfix *node;
+
+	for (i=0; i<RD_ARRAYSIZE(observation_id->up_to_512_templates); ++i) {
+		node = observation_id->up_to_512_templates[i];
+		if (node) {
+			free_v9_ipfix_template(node);
+		}
+	}
+
+	while(!LIST_EMPTY(&observation_id->over_512_templates)) {
+		node = LIST_FIRST(&observation_id->over_512_templates);
+		LIST_REMOVE(node, entry);
+		free_v9_ipfix_template(node);
+	}
+
+	rd_memctx_freeall(&observation_id->memctx);
+	rd_memctx_destroy(&observation_id->memctx);
+	free(observation_id);
+}
+
+void observation_id_decref(observation_id_t *observation_id) {
+	if (ATOMIC_OP(sub, fetch, &observation_id->refcnt.value, 1) == 0) {
+		observation_id_done(observation_id);
+	}
+}
+
+static int observation_id_cmp(const void *vobs_id1, const void *vobs_id2) {
+  const observation_id_t *observation_id1 = vobs_id1;
+  const observation_id_t *observation_id2 = vobs_id2;
+
+  assert_observation_id(observation_id1);
+  assert_observation_id(observation_id2);
+
+  return observation_id1->observation_id - observation_id2->observation_id;
+}
+
+static bool observation_id_add_home_net(observation_id_t *observation_id,
+                          json_t *json_home_net, const struct sensor *sensor) {
   assert(sensor);
-
-  struct mac_address_tree_node dummy_mac;
-  memset(&dummy_mac,0,sizeof(dummy_mac));
-  dummy_mac.mac = mac;
-#ifdef MAC_ADDRESS_TREE_NODE_MAGIC
-  dummy_mac.magic = MAC_ADDRESS_TREE_NODE_MAGIC;
-#endif
-
-  return NULL != RD_AVL_FIND(&sensor->routers_macs,&dummy_mac);
-}
-
-#define SENSOR_PORT_TREE_NODE_MAGIC 0xE0011EE0DE
-
-struct sensor_port_tree_node {
-#ifdef SENSOR_PORT_TREE_NODE_MAGIC
-  uint64_t magic;
-#endif
-  struct sensor *sensor;
-  uint16_t port;
-  SLIST_ENTRY(sensor_port_tree_node) list_node;
-  rd_avl_node_t avl_node;
-};
-
-static int sensor_port_tree_node_cmp(const void *n1,const void *n2) {
-  const struct sensor_port_tree_node *node1 = n1;
-  const struct sensor_port_tree_node *node2 = n2;
-
-#ifdef SENSOR_PORT_TREE_NODE_MAGIC
-  assert(node1->magic == SENSOR_PORT_TREE_NODE_MAGIC);
-  assert(node2->magic == SENSOR_PORT_TREE_NODE_MAGIC);
-#endif
-
-  return node1->port - node2->port;
-}
-
-static struct sensor_port_tree_node dummy_sensor_port(const uint16_t port_to_search) {
-  const struct sensor_port_tree_node dummy_sensor_port_tree_node = {
-#ifdef SENSOR_PORT_TREE_NODE_MAGIC
-    .magic=SENSOR_PORT_TREE_NODE_MAGIC,
-#endif
-    .port = port_to_search,
-    .avl_node = {{0}}
-  };
-  return dummy_sensor_port_tree_node;
-}
-
-struct sensors_network {
-  #ifdef SENSOR_NETWORK_MAGIC
-  uint64_t magic;
-  #endif
-
-  /* TODO use ipv6 too */
-  netAddress_t ip;
-  const char *ip_str;
-
-  rd_avl_node_t avl_node;
-
-  rd_avl_t sensors_by_port;
-};
-
-const char *sensor_ip_string(const struct sensor *sensor){
-  return sensor->network->ip_str;
-}
-
-const char *sensor_ip_enrichment(const struct sensor *sensor){
-  return sensor->enrichment;
-}
-
-enum sensor_span_mode is_span_sensor(const struct sensor *sensor){
-  return sensor->span_mode;
-}
-
-int64_t sensor_fallback_first_switch(const struct sensor *sensor){
-  return sensor->fallback_first_switch;
-}
-
-static const struct network_tree_node *network_node(struct sensor *sensor,
-    const uint8_t ip[16]){
-  assert(sensor);
-  int i;
-
-  struct network_tree_node dummy_network_tree_node = {
-#ifdef NETWORK_TREE_NODE_MAGIC
-    .magic = NETWORK_TREE_NODE_MAGIC,
-#endif
-    .avl_node = {{0}},
-    .netAddress = {
-    //  .network,
-    //  .networkMask,
-    //  .broadcast,
-    },
-    .name = NULL,
-    .addres_as_str = NULL,
-  };
-
-  /* @TODO
-  memcpy(dummy_network_tree_node.netAddress.network,ip,sizeof(ip));
-  memset(dummy_network_tree_node.netAddress.networkMask,0xFF,sizeof(ip));
-  memcpy(dummy_network_tree_node.netAddress.broadcast,ip,sizeof(ip));
-  */
-
-  for(i=0;i<16;++i){
-    dummy_network_tree_node.netAddress.network[i] =
-      dummy_network_tree_node.netAddress.broadcast[i] = ip[i];
-    dummy_network_tree_node.netAddress.networkMask[i] = 0xff;
-  }
-
-  return RD_AVL_FIND(&sensor->home_networks,&dummy_network_tree_node);
-}
-
-const char *network_ip(struct sensor *sensor, const uint8_t ip[16]) {
-  const struct network_tree_node *node = network_node(sensor, ip);
-  return node?node->addres_as_str:NULL;
-}
-
-const char *network_name(struct sensor *sensor, const uint8_t ip[16]) {
-  const struct network_tree_node *node = network_node(sensor, ip);
-  return node?node->name:NULL;
-}
-
-#ifdef HAVE_UDNS
-bool sensor_want_client_dns(const struct sensor *s) {
-  return s->dns_flags & ENABLE_PTR_DNS_CLIENT;
-}
-
-bool sensor_want_target_dns(const struct sensor *s) {
-  return s->dns_flags & ENABLE_PTR_DNS_TARGET;
-}
-#endif
-
-struct bad_sensor {
-  #ifdef SENSOR_NETWORK_MAGIC
-  uint64_t magic;
-  #endif
-
-  uint32_t ip;
-
-  rd_avl_node_t avl_node;
-};
-
-typedef SLIST_HEAD(, sensor_port_tree_node) sensors_list_t;
-
-/// Sensors database
-struct rb_sensors_db {
-#ifndef NDEBUG
-	/// Magic constant to assert coherence
-#define RB_DATABASE_MAGIC 0xBDAABAEA1C
-	uint64_t magic; //< Magic to assert coherence
-#endif
-	sensors_list_t sensors_list; //< List of sensors
-	/// sensors (networks) and bad sensors db
-	struct {
-		rd_avl_t avl;
-		rd_memctx_t memctx;
-	} sensors, bad_sensors;
-	listener_list new_listeners; //< Listeners that have to open
-	json_t *root; //< Json data
-};
-
-static int compare_bad_sensors(const void *_s1,const void *_s2)
-{
-  const struct bad_sensor *s1 = _s1;
-  const struct bad_sensor *s2 = _s2;
-
-  assert(s1->magic == SENSOR_NETWORK_MAGIC);
-  assert(s2->magic == SENSOR_NETWORK_MAGIC);
-
-  return s1->ip > s2->ip ? 1 : (s2->ip==s1->ip ? 0 : -1);
-}
-
-static int compare_sensors_networks(const void *_s1,const void *_s2)
-{
-  const struct sensors_network *s1 = _s1;
-  const struct sensors_network *s2 = _s2;
-
-  assert(s1->magic == SENSOR_NETWORK_MAGIC);
-  assert(s2->magic == SENSOR_NETWORK_MAGIC);
-
-  uint8_t ipv6[16];
-  apply_netmask(ipv6, s1->ip.network, s2->ip.networkMask);
-
-  return memcmp(ipv6,s2->ip.network,sizeof(ipv6));
-}
-
-static struct bad_sensor *find_bad_sensor(uint64_t ip,struct rb_sensors_db *db)
-{
-  const struct bad_sensor proposed_sensor = {
-#ifdef SENSOR_NETWORK_MAGIC
-    .magic = SENSOR_NETWORK_MAGIC,
-#endif
-
-    .ip = ip,
-
-    .avl_node = {{0}}
-  };
-
-  return RD_AVL_FIND(&db->bad_sensors.avl,&proposed_sensor);
-}
-
-int addBadSensor(struct rb_sensors_db *database,const uint64_t sensor_ip) {
-  struct bad_sensor *old_sensor = find_bad_sensor(sensor_ip,database);
-  if(NULL==old_sensor) {
-    if(unlikely(readOnlyGlobals.enable_debug)) {
-      char buf[BUFSIZ];
-      traceEvent(TRACE_INFO,"%s marked as bad sensor",
-                                        _intoaV4(sensor_ip, buf, sizeof(buf)));
-    }
-
-    struct bad_sensor *sensor = rd_memctx_calloc(&database->bad_sensors.memctx,
-						1, sizeof(struct bad_sensor));
-    #ifdef SENSOR_NETWORK_MAGIC
-    sensor->magic = SENSOR_NETWORK_MAGIC;
-    #endif
-    sensor->ip              = sensor_ip;
-
-    rd_avl_insert(&database->bad_sensors.avl, sensor, &sensor->avl_node);
-    return 1;
-  } else {
-    return 0;
-  }
-}
-
-/// @TODO use memctx struct calls
-static bool addHomeNetToDatabase(struct sensor *sensor, json_t *json_home_net) {
-  assert(sensor);
+  assert(observation_id);
   assert(json_home_net);
   json_error_t jerr;
-  const char *network=NULL,*network_name_str=NULL;
+  const char *network=NULL, *network_name_str=NULL;
 
   if(!json_is_object(json_home_net)){
-    traceEvent(TRACE_ERROR,"Could not get one network of sensor %s.",sensor_ip_string(sensor));
+    traceEvent(TRACE_ERROR,
+      "Could not get one network of sensor %s, observation_id%"PRIu32
+      ": is not an object", sensor_ip_string(sensor),
+      observation_id_num(observation_id));
     return false;
   }
 
@@ -394,10 +212,12 @@ static bool addHomeNetToDatabase(struct sensor *sensor, json_t *json_home_net) {
     return false;
   }
 
-  struct network_tree_node *home_net = rd_memctx_calloc(&sensor->memctx, 1,
-							sizeof(*home_net));
+  struct network_tree_node *home_net = rd_memctx_calloc(&observation_id->memctx,
+    1, sizeof(*home_net));
   if(NULL==home_net){
-    traceEvent(TRACE_ERROR,"Could not allocate home net of sensor %s.",sensor_ip_string(sensor));
+    traceEvent(TRACE_ERROR,
+      "Could not allocate home net of sensor %s observation id %"PRIu32,
+      sensor_ip_string(sensor), observation_id_num(observation_id));
     return false;
   }
 
@@ -406,11 +226,12 @@ static bool addHomeNetToDatabase(struct sensor *sensor, json_t *json_home_net) {
 #endif
 
   if(!network_name_str){
-    traceEvent(TRACE_ERROR,"Sensor %s has a network defined with no name.",
-                                                                     sensor_ip_string(sensor));
+    traceEvent(TRACE_ERROR,
+      "Sensor %s observation id %"PRIu32" has a network defined with no name.",
+      sensor_ip_string(sensor), observation_id_num(observation_id));
     return false;
   }
-  home_net->name = rd_memctx_strdup(&sensor->memctx, network_name_str);
+  home_net->name = rd_memctx_strdup(&observation_id->memctx, network_name_str);
   if(NULL == home_net->name){
     traceEvent(TRACE_ERROR,"Could not allocate sensor %s network name %s.",
                                     sensor_ip_string(sensor), network_name_str);
@@ -428,32 +249,14 @@ static bool addHomeNetToDatabase(struct sensor *sensor, json_t *json_home_net) {
                                                              sensor_ip_string(sensor),network);
     return false;
   }
-  home_net->addres_as_str = rd_memctx_strdup(&sensor->memctx, network);
+  home_net->addres_as_str = rd_memctx_strdup(&observation_id->memctx, network);
 
-  rd_avl_insert(&sensor->home_networks,home_net,&home_net->avl_node);
+  rd_avl_insert(&observation_id->home_networks, home_net, &home_net->avl_node);
   return true;
 }
 
-struct add_json_sensors_network_opaque {
-#ifndef NDEBUG
-#define ADD_JSON_NETWORK_OPAQUE_MAGIC 0x2468ace13579bdf
-  uint64_t magic;
-#endif
-
-  struct rb_sensors_db *database;
-  struct {
-    worker_t **workers;
-    size_t workers_size, workers_idx;
-  } workers;
-};
-
-struct rb_network_port_opaque {
-  struct add_json_sensors_network_opaque *add_json_opaque;
-  struct sensors_network *sensors_network;
-};
-
-static bool parse_sensor_home_nets(struct sensor *sensor,
-						const json_t *home_nets) {
+static bool parse_observation_id_home_nets(observation_id_t *observation_id,
+    const json_t *home_nets, const struct sensor *sensor) {
   bool rc = true;
   if(!json_is_array(home_nets)){
       traceEvent(TRACE_ERROR,"home_nets in not an array in sensor %s.",
@@ -466,15 +269,15 @@ static bool parse_sensor_home_nets(struct sensor *sensor,
       if (!rc) {
         break;
       }
-      rc = addHomeNetToDatabase(sensor, value);
+      rc = observation_id_add_home_net(observation_id, value, sensor);
     }
   }
 
   return rc;
 }
 
-static bool parse_sensor_routers_macs(struct sensor *sensor,
-					const json_t *router_mac_address) {
+static bool parse_observation_id_routers_macs(observation_id_t *observation_id,
+          const json_t *router_mac_address, const struct sensor *sensor) {
   if(!json_is_array(router_mac_address)) {
     traceEvent(TRACE_ERROR,"Router mac addresses is not an array in sensor %s.",
                                                       sensor_ip_string(sensor));
@@ -485,11 +288,14 @@ static bool parse_sensor_routers_macs(struct sensor *sensor,
   size_t i=0;
 
   struct mac_address_tree_node *mac_address_node = rd_memctx_calloc(
-	&sensor->memctx, router_mac_address_size,sizeof(mac_address_node[0]));
+    &observation_id->memctx, router_mac_address_size,
+    sizeof(mac_address_node[0]));
 
-  if(NULL == mac_address_node) {
-    traceEvent(TRACE_ERROR,"Can't allocate mac address nodes for sensor %s "
-                               "(out of memory?)",sensor_ip_string(sensor));
+  if (NULL == mac_address_node) {
+    traceEvent(TRACE_ERROR,
+      "Can't allocate mac address nodes for sensor %s observation id %"PRIu32
+      " (out of memory?)", sensor_ip_string(sensor),
+      observation_id_num(observation_id));
     return false;
   }
 
@@ -520,33 +326,36 @@ static bool parse_sensor_routers_macs(struct sensor *sensor,
     mac_address_node[i].magic = MAC_ADDRESS_TREE_NODE_MAGIC;
 #endif
 
-    RD_AVL_INSERT(&sensor->routers_macs,&mac_address_node[i],avl_node);
+    RD_AVL_INSERT(&observation_id->routers_macs, &mac_address_node[i],
+      avl_node);
   }
 
   return true;
 }
 
-static bool parse_sensor_enrichment(struct sensor *sensor,
-						const json_t *enrichment) {
+static bool parse_observation_id_enrichment(observation_id_t *observation_id,
+    const json_t *enrichment, const struct sensor *sensor) {
   if(!json_is_object(enrichment)) {
-    traceEvent(TRACE_ERROR,"Enrichment field is not an object in sensor %s.",sensor_ip_string(sensor));
+    traceEvent(TRACE_ERROR,
+      "Enrichment field is not an object in sensor %s osbervation id %"PRIu32,
+      sensor_ip_string(sensor), observation_id_num(observation_id));
     return false;
   } else {
     char *tmp_enrichment = json_dumps(enrichment,
-						JSON_COMPACT|JSON_ENSURE_ASCII);
+            JSON_COMPACT|JSON_ENSURE_ASCII);
     if(tmp_enrichment){
       // tmp_enrichment == "{\"hello\":\"world\"}". We want delete brackets.
-      sensor->enrichment = rd_memctx_strdup(&sensor->memctx,
-						&tmp_enrichment[1]);
-      char *last_bracket = strrchr(sensor->enrichment,'}');
+      observation_id->enrichment = rd_memctx_strdup(&observation_id->memctx,
+            &tmp_enrichment[1]);
+      char *last_bracket = strrchr(observation_id->enrichment,'}');
       if(last_bracket)
         *last_bracket = '\0';
       free(tmp_enrichment);
 
-      if(!(strlen(sensor->enrichment)>0)) {
+      if(!(strlen(observation_id->enrichment)>0)) {
         /* We don't need to mantain a null buffer if enrichment == {} */
-        rd_memctx_free(&sensor->memctx, sensor->enrichment);
-        sensor->enrichment = NULL;
+        rd_memctx_free(&observation_id->memctx, observation_id->enrichment);
+        observation_id->enrichment = NULL;
       }
     }
 
@@ -555,359 +364,520 @@ static bool parse_sensor_enrichment(struct sensor *sensor,
 }
 
 #ifdef HAVE_UDNS
-static bool parse_sensor_dns0(struct sensor *sensor,const json_t *dns_ptr_value,
-                                                    const char *key,int flag) {
+
+static bool parse_observation_id_dns0(observation_id_t *observation_id,
+    const json_t *dns_ptr_value, const char *key, const char *sensor_name,
+    int flag) {
   if(NULL != dns_ptr_value) {
     if(!json_is_boolean(dns_ptr_value)) {
-      const char *sensor_name = sensor_ip_string(sensor);
-      traceEvent(TRACE_ERROR,"%s is not a boolean in sensor %s, can't parse it",key,
-        sensor_name);
+      traceEvent(TRACE_ERROR, "%s is not a boolean in sensor %s observation id"
+        " %"PRIu32", can't parse it", key, sensor_name,
+        observation_id_num(observation_id));
       return false;
     } else if (json_is_true(dns_ptr_value)) {
-      sensor->dns_flags |= flag;
+      observation_id->dns_flags |= flag;
     }
   }
 
   return true;
 }
 
-static bool parse_sensor_dns(struct sensor *sensor,const json_t *dns_ptr_client,
-                                                const json_t *dns_ptr_target) {
-  return parse_sensor_dns0(sensor,dns_ptr_client,dns_ptr_client_key,
-                                                       ENABLE_PTR_DNS_CLIENT)
-    && parse_sensor_dns0(sensor,dns_ptr_target,dns_ptr_target_key,
-                                                       ENABLE_PTR_DNS_TARGET);
+static void parse_observation_id_dns(observation_id_t *observation_id,
+    const char *sensor_name, const json_t *dns_ptr_client,
+    const json_t *dns_ptr_target) {
+  parse_observation_id_dns0(observation_id, dns_ptr_client, dns_ptr_client_key,
+    sensor_name, ENABLE_PTR_DNS_CLIENT);
+  parse_observation_id_dns0(observation_id, dns_ptr_target, dns_ptr_target_key,
+    sensor_name, ENABLE_PTR_DNS_TARGET);
 
 }
-#endif
 
-static bool parse_sensor(struct sensor *sensor, json_t *jsensor) {
+#endif /* HAVE_UDNS */
+
+static bool parse_observation_id(observation_id_t *observation_id,
+    json_t *jobservation_id, uint32_t observation_id_n,
+    const struct sensor *sensor) {
   json_error_t jerr;
-  bool rc = true;
-  const json_t *home_nets=NULL, *enrichment=NULL, *span_port=NULL,
-    *routers_macs=NULL;
+  int span_mode = false;
+  const json_t *home_nets=NULL, *enrichment=NULL, *routers_macs=NULL;
   json_int_t fallback_first_switch = 0;
 #ifdef HAVE_UDNS
   const json_t *dns_ptr_client=NULL,*dns_ptr_target=NULL;
 #endif
 
-  const int unpack_rc = json_unpack_ex(jsensor, &jerr, 0,
-    "{s?o,s?o,s?o,s?o,s?I}","home_nets",&home_nets,"enrichment",&enrichment,
-    "span_port",&span_port,"routers_macs",&routers_macs,
-    "fallback_first_switch",&fallback_first_switch);
+  const int unpack_rc = json_unpack_ex(jobservation_id, &jerr, 0,
+    "{s?o,s?o,s?b,s?o,s?I}", "home_nets", &home_nets, "enrichment", &enrichment,
+    "span_port", &span_mode, "routers_macs", &routers_macs,
+    "fallback_first_switch", &fallback_first_switch);
 
-  if(unpack_rc != 0) {
-    traceEvent(TRACE_ERROR, "Can't parse sensors network %s: %s",jerr.text,
-                                                  sensor_ip_string(sensor));
+  if (unpack_rc != 0) {
+    traceEvent(TRACE_ERROR,
+      "Can't parse sensor %s observation id %"PRIu32" network: %s",
+      sensor_ip_string(sensor), observation_id_n, jerr.text);
     return false;
   }
 
   if(home_nets) {
-    rc = parse_sensor_home_nets(sensor,home_nets);
+    parse_observation_id_home_nets(observation_id, home_nets, sensor);
   }
 
-  if(rc && enrichment) {
-    rc = parse_sensor_enrichment(sensor,enrichment);
+  if(enrichment) {
+    parse_observation_id_enrichment(observation_id, enrichment, sensor);
   }
 
-  if(rc && routers_macs) {
-    rc = parse_sensor_routers_macs(sensor,routers_macs);
+  if(routers_macs) {
+    parse_observation_id_routers_macs(observation_id, routers_macs, sensor);
   }
 
-  sensor->fallback_first_switch = fallback_first_switch;
+  observation_id->fallback_first_switch = fallback_first_switch;
 
 #ifdef HAVE_UDNS
-  if(rc) {
-    const int unpack_dns_rc = json_unpack_ex(jsensor, &jerr, 0,
-      "{s?o,s?o}",dns_ptr_client_key,&dns_ptr_client,dns_ptr_target_key,&dns_ptr_target);
+  const int unpack_dns_rc = json_unpack_ex(jobservation_id, &jerr, 0,
+    "{s?o,s?o}", dns_ptr_client_key, &dns_ptr_client,
+    dns_ptr_target_key, &dns_ptr_target);
 
-    if(unpack_dns_rc != 0) {
-      traceEvent(TRACE_ERROR, "Can't unpack DNS attributes %s: %s",jerr.text,
-                                              sensor_ip_string(sensor));
-    } else {
-      rc = parse_sensor_dns(sensor,dns_ptr_client,dns_ptr_target);
-    }
+  if (unpack_dns_rc != 0) {
+    traceEvent(TRACE_ERROR, "Can't unpack sensor %s observation id %"PRIu32
+      "DNS attributes: %s", sensor_ip_string(sensor), observation_id_n,
+      jerr.text);
+  } else {
+    parse_observation_id_dns(observation_id, sensor_ip_string(sensor),
+      dns_ptr_client, dns_ptr_target);
   }
 #endif
 
-  if(NULL!=span_port){
-    if(!json_is_boolean(span_port)){
-      traceEvent(TRACE_ERROR,"span_port field is not a boolean in sensor %s.",
-                                                    sensor_ip_string(sensor));
-      return false;
-    }else{
-      sensor->span_mode = json_is_true(span_port);
-    }
-  }
+  observation_id->span_mode = span_mode;
 
-  return rc;
+  return observation_id;
 }
 
-static size_t tokenize_ports(char *ports_str, const char **ports,
-    size_t ports_size, bool *ok){
-  size_t ports_number = 0;
-  char *aux=NULL,*tok=NULL;
-
-  assert(ports_str);
-  assert(ports);
-  assert(ok);
-
-  ports[ports_number++] = strtok_r(ports_str,",",&aux);
-  while((ports_number < ports_size) && (tok = strtok_r(NULL,",",&aux))) {
-    ports[ports_number++] = tok;
+static observation_id_t *observation_id_new(uint32_t observation_id,
+    json_t *jobservation_id, const struct sensor *sensor) {
+  observation_id_t *ret = calloc(1, sizeof(*ret));
+  if (unlikely(NULL == ret)) {
+    traceEvent(TRACE_ERROR,
+      "Couldn't allocate observation id (out of memory?)");
+    return NULL;
   }
 
-  if(ports_number == ports_size) {
-    traceEvent(TRACE_ERROR,"You've reached the maximum ports allowed in a string.");
+#ifdef OBSERVATION_ID_MAGIC
+  ret->magic = OBSERVATION_ID_MAGIC;
+#endif
+  ret->observation_id = observation_id;
+
+  rd_avl_init(&ret->home_networks, compare_networks, 0);
+  rd_avl_init(&ret->routers_macs, compare_mac_address_node, 0);
+  rd_memctx_init(&ret->memctx, NULL, RD_MEMCTX_F_TRACK);
+  ret->refcnt.value = 1;
+
+  LIST_INIT(&ret->over_512_templates);
+
+  const bool parse_oid_rc = parse_observation_id(ret,
+      jobservation_id, observation_id, sensor);
+  if (!parse_oid_rc) {
+    observation_id_decref(ret);
+    ret = NULL;
+  }
+  return ret;
+}
+
+/// Sensor defined by a network, that have observations ids
+struct sensor {
+#ifndef NDEBUG
+	/// Magic constant to assert coherency
+#define SENSOR_MAGIC 0xABC123DEF098
+	uint64_t magic; //< Magic to assert coherency
+#endif
+
+  /// network the sensor belongs to
+  struct {
+    netAddress_t ip;
+    const char *ip_str;
+  } network;
+
+  /** Associated worker, so the same sensor always goes to the
+  same worker, avoiding reordering and data races
+  @todo worker by observation id? */
+  worker_t *worker;
+
+  rd_avl_t observations_id_db; ///< Observation id database
+  observation_id_t *default_observation_id; ///< default observation id
+  SLIST_HEAD(,observation_id_s) observations_id_list;
+
+  rd_avl_node_t avl_node;
+  SLIST_ENTRY(sensor) list_node;
+
+  atomic_uint64_t refcnt; ///< Reference counter
+};
+
+worker_t *sensor_worker(const struct sensor *sensor) {
+  return sensor->worker;
+}
+
+bool observation_id_has_mac_db(const observation_id_t *sensor) {
+  return !RD_AVL_EMPTY(&sensor->routers_macs);
+}
+
+bool observation_id_has_router_mac(observation_id_t *observation_id,
+                                                          const uint64_t mac) {
+  assert(observation_id);
+
+  struct mac_address_tree_node dummy_mac;
+  memset(&dummy_mac,0,sizeof(dummy_mac));
+  dummy_mac.mac = mac;
+#ifdef MAC_ADDRESS_TREE_NODE_MAGIC
+  dummy_mac.magic = MAC_ADDRESS_TREE_NODE_MAGIC;
+#endif
+
+  return NULL != RD_AVL_FIND(&observation_id->routers_macs, &dummy_mac);
+}
+
+static observation_id_t dummy_observation_id(uint32_t observation_id) {
+  const observation_id_t ret = {
+#ifdef OBSERVATION_ID_MAGIC
+    .magic=OBSERVATION_ID_MAGIC,
+#endif
+    .observation_id = observation_id,
+  };
+
+  return ret;
+}
+
+const char *sensor_ip_string(const struct sensor *sensor){
+  return sensor->network.ip_str;
+}
+
+const char *observation_id_enrichment(const observation_id_t *obs_id){
+  return obs_id->enrichment;
+}
+
+bool is_span_observation_id(const observation_id_t *obs_id) {
+  return obs_id->span_mode;
+}
+
+int64_t observation_id_fallback_first_switch(const observation_id_t *obs_id) {
+  return obs_id->fallback_first_switch;
+}
+
+static const struct network_tree_node *network_node(
+    observation_id_t *observation_id,
+    const uint8_t ip[16]){
+  assert(observation_id);
+  int i;
+
+  struct network_tree_node dummy_network_tree_node = {
+#ifdef NETWORK_TREE_NODE_MAGIC
+    .magic = NETWORK_TREE_NODE_MAGIC,
+#endif
+  };
+
+  /* @TODO
+  memcpy(dummy_network_tree_node.netAddress.network,ip,sizeof(ip));
+  memset(dummy_network_tree_node.netAddress.networkMask,0xFF,sizeof(ip));
+  memcpy(dummy_network_tree_node.netAddress.broadcast,ip,sizeof(ip));
+  */
+
+  for(i=0;i<16;++i){
+    dummy_network_tree_node.netAddress.network[i] =
+      dummy_network_tree_node.netAddress.broadcast[i] = ip[i];
+    dummy_network_tree_node.netAddress.networkMask[i] = 0xff;
+  }
+
+  return RD_AVL_FIND(&observation_id->home_networks, &dummy_network_tree_node);
+}
+
+const char *network_ip(observation_id_t *obs_id, const uint8_t ip[16]) {
+  const struct network_tree_node *node = network_node(obs_id, ip);
+  return node?node->addres_as_str:NULL;
+}
+
+const char *network_name(observation_id_t *obs_id, const uint8_t ip[16]) {
+  const struct network_tree_node *node = network_node(obs_id, ip);
+  return node?node->name:NULL;
+}
+
+#ifdef HAVE_UDNS
+bool observation_id_want_client_dns(const observation_id_t *oid) {
+  return oid->dns_flags & ENABLE_PTR_DNS_CLIENT;
+}
+
+bool observation_id_want_target_dns(const observation_id_t *oid) {
+  return oid->dns_flags & ENABLE_PTR_DNS_TARGET;
+}
+#endif
+
+struct bad_sensor {
+#ifndef NDEBUG
+#define BAD_SENSOR_MAGIC 0xBAD5350A1CBAD535
+  uint64_t magic;
+#endif
+
+  uint32_t ip;
+
+  rd_avl_node_t avl_node;
+};
+
+typedef SLIST_HEAD(, sensor) sensors_list_t;
+
+/// Sensors database
+struct rb_sensors_db {
+#ifndef NDEBUG
+	/// Magic constant to assert coherence
+#define RB_DATABASE_MAGIC 0xBDAABAEA1C
+	uint64_t magic; //< Magic to assert coherence
+#endif
+	sensors_list_t sensors_list; //< List of sensors
+	/// sensors (networks) db
+	struct {
+		rd_avl_t avl;
+	} sensors;
+  /// bad sensors db
+  struct {
+    rd_avl_t avl;
+    rd_memctx_t memctx;
+  } bad_sensors;
+	listener_list new_listeners; //< Listeners that have to open
+	json_t *root; //< Json data
+};
+
+static int compare_bad_sensors(const void *_s1,const void *_s2)
+{
+  const struct bad_sensor *s1 = _s1;
+  const struct bad_sensor *s2 = _s2;
+
+  assert(s1->magic == BAD_SENSOR_MAGIC);
+  assert(s2->magic == BAD_SENSOR_MAGIC);
+
+  return s1->ip > s2->ip ? 1 : (s2->ip==s1->ip ? 0 : -1);
+}
+
+static int compare_sensors(const void *_s1,const void *_s2)
+{
+  const struct sensor *s1 = _s1;
+  const struct sensor *s2 = _s2;
+
+  assert(s1->magic == SENSOR_MAGIC);
+  assert(s2->magic == SENSOR_MAGIC);
+
+  uint8_t ipv6[16];
+  apply_netmask(ipv6, s1->network.ip.network, s2->network.ip.networkMask);
+
+  return memcmp(ipv6,&s2->network.ip,sizeof(ipv6));
+}
+
+static struct bad_sensor *find_bad_sensor(uint64_t ip,struct rb_sensors_db *db)
+{
+  const struct bad_sensor proposed_sensor = {
+#ifdef SENSOR_NETWORK_MAGIC
+    .magic = SENSOR_NETWORK_MAGIC,
+#endif
+
+    .ip = ip,
+
+  };
+
+  return RD_AVL_FIND(&db->bad_sensors.avl,&proposed_sensor);
+}
+
+int addBadSensor(struct rb_sensors_db *database,const uint64_t sensor_ip) {
+  struct bad_sensor *old_sensor = find_bad_sensor(sensor_ip,database);
+  if(NULL==old_sensor) {
+    if(unlikely(readOnlyGlobals.enable_debug)) {
+      char buf[BUFSIZ];
+      traceEvent(TRACE_INFO,"%s marked as bad sensor",
+                                        _intoaV4(sensor_ip, buf, sizeof(buf)));
+    }
+
+    struct bad_sensor *sensor = rd_memctx_calloc(&database->bad_sensors.memctx,
+						1, sizeof(struct bad_sensor));
+    #ifdef SENSOR_NETWORK_MAGIC
+    sensor->magic = SENSOR_NETWORK_MAGIC;
+    #endif
+    sensor->ip              = sensor_ip;
+
+    rd_avl_insert(&database->bad_sensors.avl, sensor, &sensor->avl_node);
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+static uint32_t parse_observation_id_number(const char *debug_ip_str,
+    const char *num, bool *ok) {
+  static const uint32_t max_observation_id = 0xffffffff;
+  assert(num);
+  assert(ok);
+
+  char *endptr = NULL;
+  const unsigned long oid = strtoul(num, &endptr, 10);
+  if ('\0' != *endptr) {
+    traceEvent(TRACE_ERROR, "Couldn't parse sensor %s observation id %s"
+      " number, skipping", debug_ip_str, num);
+    *ok = false;
+    return 0;
+  }
+
+  if (oid > max_observation_id) {
+    traceEvent(TRACE_ERROR,
+      "Couldn't parse sensor %s observation_id %s: Number too high %"PRIu32,
+        debug_ip_str, num, max_observation_id);
     *ok = false;
   }
 
-  return ports_number;
+  *ok = true;
+
+  return oid;
 }
 
-static bool addJsonSensorsNetworkPort0(
-                                struct add_json_sensors_network_opaque *opaque,
-                                struct sensors_network *sensors_network,
-                                const char *ports_range, json_t *ports_value) {
-  listener_list *listeners = &opaque->database->new_listeners;
-  const size_t ports_range_len = strlen(ports_range);
-  const char *ports[ports_range_len];
-  char ports_aux[ports_range_len];
-  char errbuf[BUFSIZ];
+static struct sensor *parse_sensor(json_t *jsensor, const char *ip_str) {
+  static const char observations_id_key[] = "observations_id";
+  const char *observation_id_key = NULL;
+  json_t *observation_id = NULL;
 
-  size_t i=0;
-  bool tokens_ok = true;
-  bool rc = true;
+  if(!json_is_object(jsensor)) {
+    traceEvent(TRACE_ERROR, "%s in not an object in config file.\n", ip_str);
+    return NULL;
+  }
 
-  strcpy(ports_aux,ports_range);
+  json_t *observations_id = json_object_get(jsensor, observations_id_key);
+  if (!observations_id) {
+    traceEvent(TRACE_ERROR, "Sensor %s has not \"%s\" property in config file",
+      ip_str, observations_id_key);
+    return NULL;
+  }
 
-  const size_t ports_number = tokenize_ports(ports_aux, ports,
-                                              RD_ARRAYSIZE(ports), &tokens_ok);
-  if(!tokens_ok){
-    return false;
+  if (!json_is_object(observations_id)) {
+    traceEvent(TRACE_ERROR, "\"%s\" property is not an object in sensor %s",
+      observations_id_key, ip_str);
+    return NULL;
+  }
+
+  if (0 == json_object_size(observations_id)) {
+    traceEvent(TRACE_ERROR, "No \"%s\" defined in sensor %s",
+      observations_id_key, ip_str);
+    return NULL;
   }
 
   struct sensor *sensor = calloc(1, sizeof(*sensor));
-  if(NULL == sensor) {
+  if (unlikely(NULL == sensor)) {
     traceEvent(TRACE_ERROR,
                   "Can't allocate sensor of network %s memory (out of memory?)",
-                  sensors_network->ip_str);
-    return false;
+                  ip_str);
+    return NULL;
   }
 
 #ifdef SENSOR_MAGIC
   sensor->magic = SENSOR_MAGIC;
 #endif
-
-  sensor->network = sensors_network;
-  sensor->worker = opaque->workers.workers[opaque->workers.workers_idx];
-  if (opaque->workers.workers_idx >= opaque->workers.workers_size) {
-    opaque->workers.workers_idx = 0;
-  }
-  rd_avl_init(&sensor->home_networks, compare_networks, 0);
-  rd_avl_init(&sensor->routers_macs, compare_mac_address_node, 0);
-  rd_memctx_init(&sensor->memctx, NULL, RD_MEMCTX_F_TRACK);
   sensor->refcnt.value = 1;
 
-  const bool parse_rc = parse_sensor(sensor,ports_value);
-  if (!parse_rc) {
-    return false;
+  const bool parse_address_rc = safe_parse_address(ip_str, &sensor->network.ip);
+  if (!parse_address_rc) {
+    traceEvent(TRACE_ERROR, "Couldn't parse %s sensor address", ip_str);
+    free(sensor);
+    return NULL;
   }
 
-  struct sensor_port_tree_node *port_nodes = rd_memctx_calloc(&sensor->memctx,
-					ports_number, sizeof(port_nodes[0]));
+  rd_avl_init(&sensor->observations_id_db, observation_id_cmp, 0);
 
-  for(i=0;rc && i<ports_number;++i) {
-    errno = 0;
-    char *endptr = NULL;
-    const uint16_t port = strtoul(ports[i],&endptr,0);
-    const int strtoul_errno = errno;
+  json_object_foreach(observations_id, observation_id_key, observation_id) {
+    const bool parsing_default_oid = 0 == strcmp("default", observation_id_key);
+    bool observation_id_ok = true;
+    observation_id_t *cur_observation_id = NULL;
 
-    if(port == 0 || endptr == NULL) {
-      if(strtoul_errno != 0) {
-        strerror_r(strtoul_errno,errbuf,sizeof(errbuf));
-        traceEvent(TRACE_ERROR,"Can't parse port %s: %s",ports[i],errbuf);
-      } else {
-        traceEvent(TRACE_ERROR, "Can't listen on port %s",ports[i]);
-      }
-      rc = false;
-    } else if(NULL != endptr && (!(*endptr == '\0') || isspace(*endptr))) {
-      traceEvent(TRACE_ERROR,
-              "Can't parse port %s: Non space extra tokens at the end of port",
-              ports[i]);
-      rc = false;
+    const uint32_t observation_id_n = parsing_default_oid ? 0 :
+      parse_observation_id_number(ip_str, observation_id_key,
+        &observation_id_ok);
+
+    if (!observation_id_ok) {
+      continue;
     }
 
-#ifdef SENSOR_PORT_TREE_NODE_MAGIC
-    port_nodes[i].magic = SENSOR_PORT_TREE_NODE_MAGIC;
-#endif
+    cur_observation_id = observation_id_new(observation_id_n, observation_id,
+      sensor);
 
-    port_nodes[i].sensor = sensor;
-    port_nodes[i].port = port;
-    const void *old_node = rd_avl_insert(&sensors_network->sensors_by_port,
-                                      &port_nodes[i], &port_nodes[i].avl_node);
-    if(NULL != old_node) {
-      traceEvent(TRACE_ERROR,
-        "Can't parse config file: collision in port %d", port);
-      return false;
-    }
-
-    SLIST_INSERT_HEAD(&opaque->database->sensors_list, &port_nodes[i],
-                                                                    list_node);
-    struct port_collector *collector = createNetFlowListener(UDP, port);
-    listener_list_append(listeners,collector);
-  }
-
-  return rc;
-}
-
-static bool addJsonSensorsNetworkPort(const char *ports_range,
-                                          json_t *ports_value, void *_opaque) {
-  struct rb_network_port_opaque *opaque = _opaque;
-#ifdef SENSOR_NETWORK_MAGIC
-  assert(opaque->sensors_network->magic == SENSOR_NETWORK_MAGIC);
-#endif
-  return addJsonSensorsNetworkPort0(opaque->add_json_opaque,
-                            opaque->sensors_network, ports_range, ports_value);
-}
-
-static bool json_assert_object_foreach_object_child(json_t *parent,const char *parent_name,
-      bool (*child_cb)(const char *key,json_t *value, void *opaque),void *opaque){
-  bool rc = true;
-  const char *key = NULL;
-  json_t *value = NULL;
-
-  if(!json_is_object(parent)) {
-    traceEvent(TRACE_ERROR,"%s in not an object in config file.\n",parent_name);
-    rc = false;
-  }
-
-  json_object_foreach(parent,key,value) {
-    if(!rc)
-      break; /* Array not valid anymore */
-
-    if(value && json_is_object(value)){
-      rc = child_cb(key,value,opaque);
+    if (parsing_default_oid) {
+      sensor->default_observation_id = cur_observation_id;
     } else {
-      traceEvent(TRACE_ERROR,"%s is not an object in config file.\n",key);
-      rc = false;
+      rd_avl_insert(&sensor->observations_id_db, cur_observation_id,
+        &cur_observation_id->avl_node);
+
+      SLIST_INSERT_HEAD(&sensor->observations_id_list, cur_observation_id,
+        list_node);
     }
   }
 
-  return rc;
+  return sensor;
 }
-
-static bool read_rb_config_sensor_networks_ports(
-                  struct add_json_sensors_network_opaque *add_json_opaque,
-                  struct sensors_network *sensors_network, const char *network,
-                  json_t *jsensors_network) {
-  struct rb_network_port_opaque opaque = {
-    .add_json_opaque = add_json_opaque,
-    .sensors_network = sensors_network
-  };
-
-  char buf[BUFSIZ];
-  snprintf(buf,sizeof(buf),"Network %s",network);
-  return json_assert_object_foreach_object_child(jsensors_network,buf,addJsonSensorsNetworkPort,
-                                                                                      &opaque);
-}
-
-static bool addJsonSensorsNetwork0(struct add_json_sensors_network_opaque *opaque,
-                            const char *network, json_t *sensors_network_json) {
-  struct rb_sensors_db *database = opaque->database;
-  struct sensors_network *sensors_network = NULL;
-
-  sensors_network = rd_memctx_calloc(&database->sensors.memctx, 1,
-						sizeof(*sensors_network));
-  if (sensors_network==NULL) {
-    traceEvent(TRACE_ERROR,"Can't allocate sensor network.");
-    return false;
-  }
-
-#ifdef SENSOR_NETWORK_MAGIC
-  sensors_network->magic = SENSOR_NETWORK_MAGIC;
-#endif
-
-  rd_avl_init(&sensors_network->sensors_by_port,sensor_port_tree_node_cmp,0);
-
-  const bool parse_address_rc = safe_parse_address(network, &sensors_network->ip);
-  if(!parse_address_rc) {
-    traceEvent(TRACE_ERROR,"Can't parse network range %s",network);
-    return false;
-  }
-  sensors_network->ip_str = rd_memctx_strdup(&database->sensors.memctx,
-								network);
-
-  struct sensors_network *old_sensor_networks = rd_avl_insert(
-            &database->sensors.avl, sensors_network,&sensors_network->avl_node);
-  if(old_sensor_networks) {
-    traceEvent(TRACE_ERROR,
-                "Error: Network %s match with network %s. Discarding old one.",
-                sensors_network->ip_str,old_sensor_networks->ip_str);
-  }
-
-  read_rb_config_sensor_networks_ports(opaque, sensors_network, network,
-                                                          sensors_network_json);
-
-  return true;
-}
-
-static bool addJsonSensorsNetwork(const char *network, json_t *network_json,
-                                                                void *vopaque) {
-  struct add_json_sensors_network_opaque *opaque = vopaque;
-#ifdef ADD_JSON_NETWORK_OPAQUE_MAGIC
-  assert(ADD_JSON_NETWORK_OPAQUE_MAGIC == opaque->magic);
-#endif
-
-  return addJsonSensorsNetwork0(opaque,network,network_json);
-}
-
 
 static struct rb_sensors_db *allocate_rb_sensors_db() {
-  struct rb_sensors_db *database = calloc(1,sizeof(*database));
-  if(NULL==database) {
-    traceEvent(TRACE_ERROR, "Memory error");
-  } else {
-#ifdef RB_DATABASE_MAGIC
-    database->magic = RB_DATABASE_MAGIC;
-#endif
-		listener_list_init(&database->new_listeners);
-		rd_avl_init(&database->sensors.avl,compare_sensors_networks,
-								RD_AVL_F_LOCKS);
-		rd_memctx_init(&database->sensors.memctx, NULL,
-					RD_MEMCTX_F_TRACK | RD_MEMCTX_F_LOCK);
-		rd_avl_init(&database->bad_sensors.avl,compare_bad_sensors,
-								RD_AVL_F_LOCKS);
-		rd_memctx_init(&database->bad_sensors.memctx, NULL,
-					RD_MEMCTX_F_TRACK | RD_MEMCTX_F_LOCK);
-  }
+	struct rb_sensors_db *database = calloc(1, sizeof(*database));
+	if (NULL==database) {
+		traceEvent(TRACE_ERROR, "Memory error");
+		return NULL;
+	}
 
-  return database;
+#ifdef RB_DATABASE_MAGIC
+	database->magic = RB_DATABASE_MAGIC;
+#endif
+	listener_list_init(&database->new_listeners);
+	rd_avl_init(&database->sensors.avl, compare_sensors,
+								RD_AVL_F_LOCKS);
+	rd_avl_init(&database->bad_sensors.avl, compare_bad_sensors,
+								RD_AVL_F_LOCKS);
+	rd_memctx_init(&database->bad_sensors.memctx, NULL,
+					RD_MEMCTX_F_TRACK | RD_MEMCTX_F_LOCK);
+
+	return database;
 }
 
 static bool read_rb_config_sensors_networks(struct rb_sensors_db *database,
                               json_t *sensors_networks, worker_t **worker_list,
                               size_t worker_list_size) {
 
-  struct add_json_sensors_network_opaque opaque = {
-#ifdef ADD_JSON_NETWORK_OPAQUE_MAGIC
-    .magic = ADD_JSON_NETWORK_OPAQUE_MAGIC,
-#endif
+	const char *network = NULL;
+	json_t *network_config = NULL;
+	size_t worker_idx = 0;
 
-    .database = database,
-    .workers = {
-      .workers = worker_list,
-      .workers_size = worker_list_size,
-      .workers_idx = 0,
-    }
-  };
+	json_object_foreach(sensors_networks, network, network_config) {
+		if (!json_is_object(network_config)) {
+			traceEvent(TRACE_ERROR,
+				"%s sensor network is not an object in config"
+				" file.", network);
+      			continue;
+      		}
 
-  return json_assert_object_foreach_object_child(sensors_networks,
-    "sensors networks", addJsonSensorsNetwork,&opaque);
+		struct sensor *sensor = parse_sensor(network_config, network);
+		if (NULL == sensor) {
+			continue;
+		}
+
+		sensor->worker = worker_list[worker_idx++];
+		if (worker_idx >= worker_list_size) {
+			worker_idx = 0;
+		}
+
+		struct sensor *old_sensor = rd_avl_insert(
+			&database->sensors.avl, sensor, &sensor->avl_node);
+
+		if (old_sensor) {
+			traceEvent(TRACE_ERROR,
+				"Error: Network %s match with network %s"
+				". Discarding old one.",
+				sensor->network.ip_str,
+				old_sensor->network.ip_str);
+
+			rb_sensor_decref(old_sensor);
+		}
+
+    SLIST_INSERT_HEAD(&database->sensors_list, sensor, list_node);
+	}
+
+	return true;
 }
 
 /* *** sensors database *** */
-struct rb_sensors_db *read_rb_config(const char *json_path, listener_list *list,
+struct rb_sensors_db *read_rb_config(const char *json_path,
                               worker_t **worker_list, size_t worker_list_size) {
   if(unlikely(readOnlyGlobals.enable_debug))
     traceEvent(TRACE_INFO,"Reading json config");
@@ -940,44 +910,40 @@ struct rb_sensors_db *read_rb_config(const char *json_path, listener_list *list,
     }
   }
 
-  if(list)
-    mergeNetFlowListenerList(list,&database->new_listeners);
-  else
-    listener_list_done(&database->new_listeners);
-
   return database;
 }
 
-static struct sensors_network dummy_sensors_network(const uint64_t ip) {
-  struct sensors_network _dummy_sensor;
-  memset(&_dummy_sensor,0,sizeof(_dummy_sensor));
-#ifdef SENSOR_NETWORK_MAGIC
-  _dummy_sensor.magic = SENSOR_NETWORK_MAGIC;
+static struct sensor dummy_sensor(const uint64_t ip) {
+  struct sensor ret = {
+#ifdef SENSOR_MAGIC
+    .magic = SENSOR_MAGIC,
 #endif
 
-  _dummy_sensor.ip.network[10] = 0xFF;
-  _dummy_sensor.ip.network[11] = 0xFF;
-  _dummy_sensor.ip.network[12] = ((ip & 0xFF000000) >> 24);
-  _dummy_sensor.ip.network[13] = ((ip & 0x00FF0000) >> 16);
-  _dummy_sensor.ip.network[14] = ((ip & 0x0000FF00) >> 8);
-  _dummy_sensor.ip.network[15] = ((ip & 0x000000FF));
+    .network.ip.network[10] = 0xFF,
+    .network.ip.network[11] = 0xFF,
+    .network.ip.network[12] = ((ip & 0xFF000000) >> 24),
+    .network.ip.network[13] = ((ip & 0x00FF0000) >> 16),
+    .network.ip.network[14] = ((ip & 0x0000FF00) >> 8),
+    .network.ip.network[15] = ((ip & 0x000000FF)),
+  };
 
-  memset(_dummy_sensor.ip.networkMask,0xFF,sizeof(_dummy_sensor.ip.networkMask));
-  memcpy(_dummy_sensor.ip.broadcast,_dummy_sensor.ip.networkMask,sizeof(_dummy_sensor.ip.broadcast));
+  memset(ret.network.ip.networkMask, 0xFF, sizeof(ret.network.ip.networkMask));
+  memset(ret.network.ip.broadcast, 0xFF, sizeof(ret.network.ip.broadcast));
 
-  return _dummy_sensor;
+  return ret;
 }
 
-static struct flowSetV9Ipfix *find_sensor_template0(const struct sensor *sensor,
-                                                       const int templateId) {
-  assert(sensor);
+static FlowSetV9Ipfix *find_observation_id_template0(
+		const observation_id_t *observation_id,
+		const uint16_t template_id) {
+  assert(observation_id);
 
-  if(templateId < 512){
-    return sensor->up_to_512_templates[templateId];
+  if(template_id < 512){
+    return observation_id->up_to_512_templates[template_id];
   } else {
     FlowSetV9Ipfix *template = NULL;
-    LIST_FOREACH(template, &sensor->over_512_templates, entry) {
-      if(template->templateInfo.templateId) {
+    LIST_FOREACH(template, &observation_id->over_512_templates, entry) {
+      if (template->templateInfo.templateId == template_id) {
         return template;
       }
     }
@@ -986,46 +952,48 @@ static struct flowSetV9Ipfix *find_sensor_template0(const struct sensor *sensor,
   return NULL;
 }
 
-const struct flowSetV9Ipfix *find_sensor_template(const struct sensor *sensor,
-                                                       const int templateId) {
-  return find_sensor_template0(sensor,templateId);
+const struct flowSetV9Ipfix *find_observation_id_template(
+		const observation_id_t *observation_id,
+		const uint16_t template_id) {
+  return find_observation_id_template0(observation_id, template_id);
 }
 
-static void free_v9_ipfix_template(struct flowSetV9Ipfix *template) {
-	free(template->fields);
-	free(template);
-}
+void save_template(observation_id_t *observation_id,
+		struct flowSetV9Ipfix *template) {
+	const V9IpfixSimpleTemplate *templateInfo = &template->templateInfo;
+	const uint16_t template_id = templateInfo->templateId;
 
-void saveTemplate(struct sensor *sensor,struct flowSetV9Ipfix *template)
-{
-  const V9IpfixSimpleTemplate * templateInfo = &template->templateInfo;
-  const uint32_t netflow_device_ip = templateInfo->netflow_device_ip;
-  const int template_id = templateInfo->templateId;
+	struct flowSetV9Ipfix *prev_template = find_observation_id_template0(
+  		observation_id, template_id);
 
-  struct flowSetV9Ipfix *prev_template = find_sensor_template0(sensor,
-  								template_id);
+	if (unlikely(readOnlyGlobals.enable_debug)) {
+		char buf[BUFSIZ];
+		const uint32_t netflow_device_ip =
+				templateInfo->netflow_device_ip;
 
-  if (unlikely(readOnlyGlobals.enable_debug)) {
-    char buf[BUFSIZ];
-    traceEvent(TRACE_INFO, "%s [sensor=%s][id=%d]",
-                        prev_template ? ">>>>> Redefined existing template " :
-                                    ">>>>> Found new flow template definition",
-                      _intoaV4(netflow_device_ip,buf,sizeof(buf)),template_id);
-  }
+		traceEvent(TRACE_INFO, "%s [sensor=%s][observation_id=%"PRIu32
+			"][id=%d]",
+			prev_template ? ">>>>> Redefined existing template " :
+		    		">>>>> Found new flow template definition",
+			_intoaV4(netflow_device_ip, buf, sizeof(buf)),
+			observation_id_num(observation_id), template_id);
+	}
 
-  if(prev_template) {
-    if(templateInfo->templateId >= 512) {
-      LIST_REMOVE(prev_template, entry);
-    }
+	if(prev_template) {
+		if(templateInfo->templateId >= 512) {
+			LIST_REMOVE(prev_template, entry);
+		}
 
-    free_v9_ipfix_template(prev_template);
-  }
+		free_v9_ipfix_template(prev_template);
+	}
 
-  if(templateInfo->templateId < 512) {
-    sensor->up_to_512_templates[templateInfo->templateId] = template;
-  } else {
-    LIST_INSERT_HEAD(&sensor->over_512_templates, template, entry);
-  }
+	if(templateInfo->templateId < 512) {
+		observation_id->up_to_512_templates[templateInfo->templateId]
+			= template;
+	} else {
+		LIST_INSERT_HEAD(&observation_id->over_512_templates, template,
+			entry);
+	}
 
   if(unlikely(readOnlyGlobals.enable_debug))
   traceEvent(TRACE_INFO, ">>>>> Defined flow template [id=%d][flowLen=%d][fieldCount=%d]",
@@ -1035,64 +1003,78 @@ void saveTemplate(struct sensor *sensor,struct flowSetV9Ipfix *template)
 
 void save_template_async(struct sensor *sensor,
                                               struct flowSetV9Ipfix *template) {
-  add_template_to_worker(template, sensor, sensor->worker);
+  observation_id_t *observation_id = get_sensor_observation_id(sensor,
+    template->templateInfo.observation_domain_id);
+
+  if (observation_id) {
+    add_template_to_worker(template, observation_id, sensor->worker);
+  } else {
+    char buf[BUFSIZ];
+    traceEvent(TRACE_ERROR, "Couldn't async save template %"PRIu16" of sensor "
+                    "%s observation domain %"PRIu32": Observation id not found",
+      template->templateInfo.templateId,
+      _intoaV4(template->templateInfo.netflow_device_ip, buf, sizeof(buf)),
+      template->templateInfo.observation_domain_id);
+
+    // @todo memory management!!
+  }
+
+  rb_sensor_decref(sensor);
 }
 
 /// @TODO const?
-struct sensor *get_sensor(struct rb_sensors_db *database, uint64_t ip,
-							uint16_t dst_port) {
+struct sensor *get_sensor(struct rb_sensors_db *database, uint64_t ip) {
   assert(database);
 
-  struct sensors_network proposed_sensors_network = dummy_sensors_network(ip);
+  struct sensor dummy = dummy_sensor(ip);
 
-  struct sensors_network *found_sensor_network = RD_AVL_FIND(
-			&database->sensors.avl, &proposed_sensors_network);
+  rd_avl_rdlock(&database->sensors.avl);
 
-  if (NULL == found_sensor_network)
-    return NULL;
-
-#ifdef SENSOR_NETWORK_MAGIC
-  assert(SENSOR_NETWORK_MAGIC == found_sensor_network->magic);
-#endif
-
-  const struct sensor_port_tree_node _dummy_sensor_port = dummy_sensor_port(dst_port);
-  struct sensor_port_tree_node *found_sensor_node
-            = RD_AVL_FIND(&found_sensor_network->sensors_by_port,&_dummy_sensor_port);
-
-  if(NULL == found_sensor_node)
-    return NULL;
-
-#ifdef SENSOR_PORT_TREE_NODE_MAGIC
-  assert(SENSOR_PORT_TREE_NODE_MAGIC == found_sensor_node->magic);
-#endif
-  assert(found_sensor_node->sensor);
+  struct sensor *found_sensor = RD_AVL_FIND_NODE_NL(&database->sensors.avl,
+    &dummy);
+  if (found_sensor) {
 #ifdef SENSOR_MAGIC
-  assert(SENSOR_MAGIC == found_sensor_node->sensor->magic);
+    assert(SENSOR_MAGIC == found_sensor->magic);
 #endif
+    ATOMIC_OP(add, fetch, &found_sensor->refcnt.value, 1);
+  }
 
-  ATOMIC_OP(add, fetch, &found_sensor_node->sensor->refcnt.value, 1);
-  return found_sensor_node->sensor;
+  rd_avl_unlock(&database->sensors.avl);
+
+  return found_sensor;
+}
+
+/// @todo data race between end of RD_AVL_FIND and ATOMIC++, other thread could
+/// decref sensor
+observation_id_t *get_sensor_observation_id(struct sensor *sensor,
+    uint32_t obs_id) {
+  assert(sensor);
+
+  observation_id_t dummy = dummy_observation_id(obs_id);
+  observation_id_t *ret = RD_AVL_FIND_NODE_NL(&sensor->observations_id_db,
+    &dummy);
+  if (NULL == ret && sensor->default_observation_id) {
+    ret = sensor->default_observation_id;
+  }
+
+  if (NULL == ret) {
+    return NULL;
+  }
+
+  assert_observation_id(ret);
+  ATOMIC_OP(add, fetch, &ret->refcnt.value, 1);
+  return ret;
 }
 
 static void rb_sensor_delete(struct sensor *sensor) {
-	size_t i;
-	struct flowSetV9Ipfix *node;
+  while (!SLIST_EMPTY(&sensor->observations_id_list)) {
+    observation_id_t *node = SLIST_FIRST(&sensor->observations_id_list);
+    SLIST_REMOVE_HEAD(&sensor->observations_id_list, list_node);
 
-	for (i=0; i<RD_ARRAYSIZE(sensor->up_to_512_templates); ++i) {
-		node = sensor->up_to_512_templates[i];
-		if (node) {
-			free_v9_ipfix_template(node);
-		}
+    observation_id_decref(node);
 	}
 
-	while(!LIST_EMPTY(&sensor->over_512_templates)) {
-		node = LIST_FIRST(&sensor->over_512_templates);
-		LIST_REMOVE(node, entry);
-		free_v9_ipfix_template(node);
-	}
-
-	rd_memctx_freeall(&sensor->memctx);
-	rd_memctx_destroy(&sensor->memctx);
+  observation_id_decref(sensor->default_observation_id);
 	free(sensor);
 }
 
@@ -1106,16 +1088,14 @@ void delete_rb_sensors_db(struct rb_sensors_db *database) {
 	assert(database);
 	json_decref(database->root);
 
-	while (!SLIST_EMPTY(&database->sensors_list)) {
-		struct sensor_port_tree_node *elm =
-						SLIST_FIRST(&database->sensors_list);
+  rd_avl_destroy(&database->sensors.avl);
+
+  while (!SLIST_EMPTY(&database->sensors_list)) {
+		struct sensor *node = SLIST_FIRST(&database->sensors_list);
 		SLIST_REMOVE_HEAD(&database->sensors_list, list_node);
-		rb_sensor_decref(elm->sensor);
+		rb_sensor_decref(node);
 	}
 
-	rd_avl_destroy(&database->sensors.avl);
-	rd_memctx_freeall(&database->sensors.memctx);
-	rd_memctx_destroy(&database->sensors.memctx);
 	rd_avl_destroy(&database->bad_sensors.avl);
 	rd_memctx_freeall(&database->bad_sensors.memctx);
 	rd_memctx_destroy(&database->bad_sensors.memctx);

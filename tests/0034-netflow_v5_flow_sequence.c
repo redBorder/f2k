@@ -143,7 +143,7 @@ static int prepare_test_nf5_flow_seq(void **state) {
 	struct test_params test_params = {
 		.config_json_path =
 			"./tests/0033-routerMacBasedDisection.json",
-		.netflow_src_ip = 0x04030201, .netflow_dst_port = 2055,
+		.netflow_src_ip = 0x04030201,                          
 		.record = &record, .record_size = sizeof(record),
 		.checkdata = checkdata_v5_flow_seq,
 		.checkdata_size = RD_ARRAYSIZE(checkdata_v5_flow_seq)

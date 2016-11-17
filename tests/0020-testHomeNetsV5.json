@@ -1,7 +1,7 @@
 {
 	"sensors_networks": {
-		"4.3.2.0/24":{
-			"2055":{
+		"4.3.2.0/24":{"observations_id":{
+			"default":{
 				"enrichment":{
 					"sensor_name":"test1",
 					"sensor_ip":"4.3.2.0/24"
@@ -10,15 +10,15 @@
 					{ "network":"10.0.30.0/24", "network_name":"users" },
 					{ "network":"10.0.150.0/24", "network_name":"lab" }
 				]
-			}
+			}}
 		},
-		"4.3.3.0/24":{
-			"2055":{
+		"4.3.3.0/24":{"observations_id":{
+			"default":{
 				"enrichment":{
 					"sensor_name":"test2",
 					"sensor_ip":"4.3.3.0/24"
 				}
 			}
-		}
+		}}
 	}
 }

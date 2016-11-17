@@ -44,7 +44,7 @@ static const struct TestV10Template v10Template = {
 		.len = constexpr_be16toh(116),
 		.unix_secs = constexpr_be32toh(1382637021),
 		.flow_sequence = constexpr_be32toh(1080),
-		.observationDomainId = constexpr_be32toh(256),
+		.observation_id = constexpr_be32toh(256),
 	},
 
 	.flowSetHeader = {
@@ -86,7 +86,7 @@ static const struct TestV10Flow v10Flow = {
 		.len = constexpr_be16toh(97),
 		.unix_secs = constexpr_be32toh(1382637021),
 		.flow_sequence = constexpr_be32toh(1080),
-		.observationDomainId = constexpr_be32toh(256),
+		.observation_id = constexpr_be32toh(256),
 	},
 
 	.flowSetHeader = {
@@ -147,7 +147,7 @@ static int prepare_test_nf10(void **state) {
 								checks_size) { \
 		.config_json_path = config_path,                               \
 		.host_list_path = mhosts_db_path,                              \
-		.netflow_src_ip = 0x04030201, .netflow_dst_port = 2055,        \
+		.netflow_src_ip = 0x04030201,                                  \
 		.record = mrecord, .record_size = mrecord_size,                \
 		.checkdata = checks, .checkdata_size = checks_size             \
 	}

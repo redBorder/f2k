@@ -77,19 +77,20 @@ static void zk_template_get_completed(int rc, const char *value, int value_len,
     ATOMIC_OP(add, fetch,
       &readWriteGlobals->collectionStats.num_zk_templates_received.value, 1);
     struct sensor *s = get_sensor(readOnlyGlobals.rb_databases.sensors_info,
-      new_template->templateInfo.netflow_device_ip,
-      new_template->templateInfo.dst_port);
+      new_template->templateInfo.netflow_device_ip);
     if(NULL == s) {
-      traceEvent(TRACE_NORMAL,"Received template from ZK of unknown sensor [device %s][port %u][Id %d]",
+      traceEvent(TRACE_NORMAL,"Received template from ZK of unknown sensor "
+        "[device %s][Observation domain id %"PRIu32"][Template id %"PRIu16"]",
         _intoaV4(new_template->templateInfo.netflow_device_ip, buf, sizeof(buf)),
-        new_template->templateInfo.dst_port,
+        new_template->templateInfo.observation_domain_id,
         new_template->templateInfo.templateId);
       return;
     }
     save_template_async(s,new_template);
-    traceEvent(TRACE_NORMAL,"Added template from ZK [device %s][port %u][Id %d]",
+    traceEvent(TRACE_NORMAL,"Added template from ZK [device "
+      "%s][observation domain id %"PRIu32"][template id %"PRIu16"]",
       _intoaV4(new_template->templateInfo.netflow_device_ip, buf, sizeof(buf)),
-      new_template->templateInfo.dst_port,
+      new_template->templateInfo.observation_domain_id,
       new_template->templateInfo.templateId);
   }
 

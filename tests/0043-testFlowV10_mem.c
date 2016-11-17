@@ -50,7 +50,7 @@ static const struct TestV10Template v10Template = {
                 0xdd5d6952, /* Current time in msecs since router booted */
             /*uint32_t*/.flow_sequence =
                 0x38040000, /* Sequence number of total flows seen */
-            /*uint32_t*/.observationDomainId = 0x00010000, /* Source id */
+            /*uint32_t*/.observation_id = 0x00010000, /* Source id */
         },
 
     .flowSetHeader =
@@ -100,7 +100,7 @@ static const struct TestV10Flow v10Flow = {
                 0xdd5d6952, /* Current time in msecs since router booted */
             /*uint32_t*/.flow_sequence =
                 0x38040000, /* Sequence number of total flows seen */
-            /*uint32_t*/.observationDomainId = 0x00010000, /* Source id */
+            /*uint32_t*/.observation_id = 0x00010000, /* Source id */
         },
 
     .flowSetHeader =
@@ -161,7 +161,7 @@ static int prepare_test_nf10(void **state) {
              checks_size)                                                      \
   {                                                                            \
     .config_json_path = config_path, .host_list_path = mhosts_db_path,         \
-    .netflow_src_ip = 0x04030201, .netflow_dst_port = 2055, .record = mrecord, \
+    .netflow_src_ip = 0x04030201, .record = mrecord,                           \
     .record_size = mrecord_size, .checkdata = checks,                          \
     .checkdata_size = checks_size                                              \
   }

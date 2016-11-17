@@ -95,7 +95,6 @@ static int prepare_test_nf_v5(void **state) {
 			.config_json_path = "./tests/0000-testFlowV5.json",
 			.host_list_path = NULL,
 			.netflow_src_ip = 0x04030201,
-			.netflow_dst_port = 2055,
 			.record = &record1,
 			.record_size = sizeof(record1),
 			.checkdata = &checkdata,

@@ -93,7 +93,7 @@ static const NetFlow5Record record5 = {
 	.sys_uptime = constexpr_be32toh(12345), /* CISCO WLC sent this ! */ \
 	.unix_secs = constexpr_be32toh(1000), \
 	.flow_sequence = constexpr_be32toh(1050), \
-	.sourceId = constexpr_be32toh(1),
+	.source_id = constexpr_be32toh(1),
 
 #define NF9_ENTITIES_BASE(X) \
 	X(IPV4_SRC_ADDR, 4, 0, 208, 67, 222, 222) \
@@ -117,7 +117,7 @@ static const NF9_FLOW(nf9_notime_flow, NF9_HEADER,
 #define IPFIX_HEADER \
 	.unix_secs = constexpr_be32toh(1000), \
 	.flow_sequence = constexpr_be32toh(12372811), \
-	.observationDomainId = 0
+	.observation_id = 0
 
 #define IPFIX_ENTITIES_BASE(X) NF9_ENTITIES_BASE(X)
 
@@ -376,7 +376,7 @@ static int prepare_test_timestamp_split(void **state,
 		[0] = {
 			.config_json_path = "./tests/0000-testFlowV5.json",
 			.host_list_path = NULL,
-			.netflow_src_ip = 0x04030201, .netflow_dst_port = 2055,
+			.netflow_src_ip = 0x04030201,
 			.record = flow1, .record_size = flow1_size,
 			.checkdata = checkdata1,
 			.checkdata_size = checkdata1_size,
@@ -384,7 +384,7 @@ static int prepare_test_timestamp_split(void **state,
 		[1] = {
 			.config_json_path = NULL,
 			.host_list_path = NULL,
-			.netflow_src_ip = 0x04030201, .netflow_dst_port = 2055,
+			.netflow_src_ip = 0x04030201,
 			.record = flow2, .record_size = flow2_size,
 			.checkdata = checkdata2,
 			.checkdata_size = checkdata2_size,

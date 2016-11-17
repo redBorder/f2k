@@ -364,7 +364,7 @@ static int prepare_test_nf5_home_nets(void **state) {
 							checks, checks_size) { \
 		.config_json_path = config_path,                               \
 		.host_list_path = mhosts_db_path,                              \
-		.netflow_src_ip = nf_dev_ip, .netflow_dst_port = 2055,         \
+		.netflow_src_ip = nf_dev_ip,                                   \
 		.record = mrecord, .record_size = mrecord_size,                \
 		.checkdata = checks, .checkdata_size = checks_size             \
 	}

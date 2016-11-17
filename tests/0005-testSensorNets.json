@@ -1,25 +1,22 @@
 {
-    "sensors_networks": {
-		"4.3.2.0/24":{
-			"2055":{
+	"sensors_networks": {
+		"4.3.2.0/24":{"observations_id":{"default":{
 				"enrichment":{
 					"sensor_name": "test1"
 				}
 			}
-		},
-		"4.3.3.1/32":{
-			"2055":{
+		}},
+		"4.3.3.1/32":{"observations_id":{"default":{
 				"enrichment":{
 					"sensor_name": "test2"
 				}
 			}
-		},
-		"4.3.4.1":{
-			"2055":{
+		}},
+		"4.3.4.1":{"observations_id":{"default":{
 				"enrichment":{
 					"sensor_name": "test2"
 				}
 			}
-		}
-    }
+		}}
+	}
 }

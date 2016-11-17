@@ -46,7 +46,6 @@ struct nf_test_state {
 			const char *templates_zk_node;
 
 			uint32_t netflow_src_ip;
-			uint16_t netflow_dst_port;
 
 			const void *record;
 			size_t record_size;

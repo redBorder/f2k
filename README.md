@@ -27,10 +27,13 @@ You need to specify each sensor you want to read netflow from in a JSON file:
 {
 	"sensors_networks": {
 		"4.3.2.1":{
-			"2055":{
-				"enrichment":{
-					"sensor_ip":"4.3.2.1",
-					"sensor_name":"flow_test"
+			"observations_id": {
+				"1":{
+					"enrichment":{
+						"sensor_ip":"4.3.2.1",
+						"sensor_name":"flow_test",
+						"observation_id":1
+					}
 				}
 			}
 		}
@@ -38,9 +41,9 @@ You need to specify each sensor you want to read netflow from in a JSON file:
 }
 ```
 
-With this file, you will be listening on port `2055` for netflow coming from
+With this file, you will be listening for netflow coming from
 `4.3.2.1` (this could be a network too, `4.3.2.0/24`), and the JSON output
-will be sent with that `sensor_ip` and `sensor_name` keys
+will be sent with that `sensor_ip`, `sensor_name` and `observation_id` keys.
 
 ## Others configuration parameters
 ### Multi-thread

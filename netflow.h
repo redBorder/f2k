@@ -158,7 +158,7 @@ typedef struct flow_ver9_hdr {
   uint32_t sys_uptime;      /* Current time in msecs since router booted */
   uint32_t unix_secs;       /* Current seconds since 0000 UTC 1970 */
   uint32_t flow_sequence;   /* Sequence number of total flows seen */
-  uint32_t sourceId;        /* Source id */
+  uint32_t source_id;       /* Source id */
 } V9FlowHeader;
 
 typedef struct flow_ver9_template_header {
@@ -172,13 +172,12 @@ typedef struct flow_ver9_template_def {
 } V9TemplateDef;
 
 typedef struct flow_ver9_ipfix_simple_template {
+  uint32_t netflow_device_ip, observation_domain_id;
   /* V9TemplateHeader */
   uint16_t flowsetLen;
   /* V9TemplateDef */
   uint16_t templateId;
   uint16_t fieldCount, scopeFieldCount, v9ScopeLen;
-  uint32_t netflow_device_ip, observation_domain_id;
-  uint16_t dst_port;
   uint8_t isOptionTemplate;
 } V9IpfixSimpleTemplate;
 
@@ -217,11 +216,11 @@ typedef struct flow_set {
 */
 
 typedef struct flow_ipfix_hdr {
-  uint16_t version;             /* Current version = 10 */
-  uint16_t len;                 /* The length of the IPFIX PDU */
-  uint32_t unix_secs;           /* Current time in msecs since router booted */
-  uint32_t flow_sequence;       /* Sequence number of total flows seen */
-  uint32_t observationDomainId; /* Source id */
+  uint16_t version;        /* Current version = 10 */
+  uint16_t len;            /* The length of the IPFIX PDU */
+  uint32_t unix_secs;      /* Current time in msecs since router booted */
+  uint32_t flow_sequence;  /* Sequence number of total flows seen */
+  uint32_t observation_id; /* Source id */
 } IPFIXFlowHeader;
 
 typedef struct flow_ipfix_set {

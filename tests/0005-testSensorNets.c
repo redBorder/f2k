@@ -72,7 +72,6 @@ static int prepare_test_sensor_net(void **state) {
 #define TEST(config_path, mnetflow_src_ip) {                                   \
 		.config_json_path = config_path,                               \
 		.netflow_src_ip = mnetflow_src_ip,                             \
-		.netflow_dst_port = 2055,                                      \
 		.record = &record1,                                            \
 		.record_size = sizeof(record1),                                \
 	}

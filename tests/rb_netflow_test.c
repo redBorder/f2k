@@ -220,7 +220,7 @@ static int load_geoip_databases(const char *geoip_path) {
 }
 
 static struct string_list *test_flow_i(const struct test_params *params,
-                                       worker_t *worker) {
+                                      worker_t *worker) {
   const size_t mem_stash = mem_wraps_get_fail_in();
   mem_wraps_set_fail_in(0); // no fail in initialization
 
@@ -242,7 +242,7 @@ static struct string_list *test_flow_i(const struct test_params *params,
       delete_rb_sensors_db(readOnlyGlobals.rb_databases.sensors_info);
     }
     readOnlyGlobals.rb_databases.sensors_info =
-        read_rb_config(params->config_json_path, NULL, &worker, 1);
+        read_rb_config(params->config_json_path, &worker, 1);
   }
 
   if (params->mac_vendor_database_path) {
@@ -344,11 +344,12 @@ static struct string_list *test_flow_i(const struct test_params *params,
   check_if_reload(&readOnlyGlobals.rb_databases);
 
   const uint32_t netflow_device_ip = params->netflow_src_ip;
-  const uint16_t dst_port = params->netflow_dst_port;
   const uint8_t *record = params->record;
   const size_t record_len = params->record_size;
+
   struct sensor *sensor_object = get_sensor(
-      readOnlyGlobals.rb_databases.sensors_info, netflow_device_ip, dst_port);
+    readOnlyGlobals.rb_databases.sensors_info, netflow_device_ip);
+
   if (sensor_object) {
     // wait until worker end to process all templates
     while (true) {
@@ -368,8 +369,8 @@ static struct string_list *test_flow_i(const struct test_params *params,
     pthread_mutex_lock(&worker->packetsQueue.rfq_lock);
 
     mem_wraps_set_fail_in(mem_stash); // fail beyond this point
-    struct string_list *ret = dissectNetFlow(
-        worker, sensor_object, netflow_device_ip, dst_port, record, record_len);
+    struct string_list *ret = dissectNetFlow(worker, sensor_object,
+      netflow_device_ip, record, record_len);
     rb_sensor_decref(sensor_object);
 
     pthread_mutex_unlock(&worker->packetsQueue.rfq_lock);

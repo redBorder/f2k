@@ -45,7 +45,7 @@ static const struct TestV9Template v9Template = {
 		/*uint32_t*/ .sys_uptime = constexpr_be32toh(12345),
 		/*uint32_t*/ .unix_secs = constexpr_be32toh(1478780782),
 		/*uint32_t*/ .flow_sequence = 0x38040000, /* Sequence number of total flows seen */
-		/*uint32_t*/ .sourceId = 0x01000000,      /* Source id */
+		/*uint32_t*/ .source_id = 0x01000000,      /* Source id */
 	},
 
 	.flowSetHeader = {
@@ -87,7 +87,7 @@ static const struct TestV9Flow v9Flow = {
 		/*uint32_t*/ .sys_uptime = constexpr_be32toh(12345),
 		/*uint32_t*/ .unix_secs = constexpr_be32toh(1478780782),
 		/*uint32_t*/ .flow_sequence = 0x76040000, /* Sequence number of total flows seen */
-		/*uint32_t*/ .sourceId = 0x01000000,      /* Source id */
+		/*uint32_t*/ .source_id = 0x01000000,      /* Source id */
 	},
 
 	.flowSetHeader = {
@@ -151,7 +151,7 @@ static int prepare_test_nf9_ipv6(void **state) {
 								checks_size) { \
 		.config_json_path = config_path,                               \
 		.host_list_path = mhosts_db_path,                              \
-		.netflow_src_ip = 0x04030201, .netflow_dst_port = 2055,        \
+		.netflow_src_ip = 0x04030201,                                  \
 		.record = mrecord, .record_size = mrecord_size,                \
 		.checkdata = checks, .checkdata_size = checks_size             \
 	}
