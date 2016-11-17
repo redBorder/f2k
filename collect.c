@@ -556,16 +556,27 @@ static struct string_list *dissectNetFlowV5(worker_t *worker,
     return string_list;
 }
 
-static void saveGoodTemplateInFile(const FlowSetV9Ipfix *new_template){
-  char filename[BUFSIZ];
+static int create_template_filename(char *buf, size_t bufsize,
+    const char *database_path, const FlowSetV9Ipfix *template) {
   char buffer_ipv4[BUFSIZ];
-  snprintf(filename,sizeof(filename),"%s/%s_%u_%d.dat",
+  return snprintf(buf, bufsize, "%s/%s_%"PRIu16"_%"PRIu16".dat",
+    database_path,
+    _intoaV4(template->templateInfo.netflow_device_ip, buffer_ipv4,
+                                                          sizeof(buffer_ipv4)),
+    template->templateInfo.dst_port,
+    template->templateInfo.templateId);
+}
+
+static void saveGoodTemplateInFile(const FlowSetV9Ipfix *new_template) {
+  char filename[BUFSIZ];
+
+  create_template_filename(filename, sizeof(filename),
     readOnlyGlobals.templates_database_path,
-    _intoaV4(new_template->templateInfo.netflow_device_ip,buffer_ipv4,sizeof(buffer_ipv4)),
-    new_template->templateInfo.dst_port,
-    new_template->templateInfo.templateId);
-  if(unlikely(readOnlyGlobals.enable_debug))
+    new_template);
+
+  if (unlikely(readOnlyGlobals.enable_debug)) {
     traceEvent(TRACE_NORMAL, ">>>>> Saving template in %s",filename);
+  }
   saveTemplateInFile(new_template,filename);
 }
 
@@ -663,9 +674,9 @@ static void create_template_complete(int rc,
   zoo_template_complete(rc, not_const_cast(data));
 }
 
-static void saveGoodTemplateInZooKeeper(zhandle_t *zh,const FlowSetV9Ipfix *new_template) {
+static void saveGoodTemplateInZooKeeper(zhandle_t *zh,
+    const FlowSetV9Ipfix *new_template) {
 
-  char ip_buffer[BUFSIZ];
   struct aset_template_data *data = calloc(1,sizeof(*data));
   if(!data){
     traceEvent(TRACE_ERROR,"Can't allocate data struct to save template in zookeeper");
@@ -674,11 +685,8 @@ static void saveGoodTemplateInZooKeeper(zhandle_t *zh,const FlowSetV9Ipfix *new_
 
   data->zh = zh;
   memcpy(&data->acl,&ZOO_OPEN_ACL_UNSAFE,sizeof(data->acl));
-  const size_t print_rc = snprintf(data->path,sizeof(data->path),"%s/%s_%u_%d",
-    ZOOKEEPER_PATH,
-    _intoaV4(new_template->templateInfo.netflow_device_ip,ip_buffer,sizeof(ip_buffer)),
-    new_template->templateInfo.dst_port,
-    new_template->templateInfo.templateId);
+  const size_t print_rc = create_template_filename(data->path,
+    sizeof(data->path), ZOOKEEPER_PATH, new_template);
 
   if(!(print_rc > 0 && print_rc < sizeof(data->path))) {
     traceEvent(TRACE_ERROR,"Can't print zookeeper path: snprintf returned %zu, it should be 0<rc<%zu",
