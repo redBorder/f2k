@@ -26,7 +26,7 @@ struct checkdata{
 	const struct checkdata_value *checks;
 };
 
-void rb_assert_json(const char *str, const struct checkdata *checkdata);
+void rb_assert_json(const char *str, const size_t size, const struct checkdata *checkdata);
 
 struct test_data {
 	uint32_t netflow_device_ip;

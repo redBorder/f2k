@@ -214,7 +214,7 @@ static void check_string_list(struct string_list *sl,
 	const struct string_list *iter = NULL;
 
 	for(i=0, iter=sl; i<checkdata_size && iter; ++i, iter = iter->next) {
-		rb_assert_json(iter->string->buf,&checkdata[i]);
+		rb_assert_json(iter->string->buf,iter->string->bpos,&checkdata[i]);
 	}
 
 	// Have we consumed all string list messages?

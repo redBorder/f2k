@@ -84,10 +84,10 @@ static void rb_assert_json_value(const struct checkdata_value *chk_value,const j
 	}
 }
 
-void rb_assert_json(const char *str,const struct checkdata *checkdata){
+void rb_assert_json(const char *str, const size_t size, const struct checkdata *checkdata){
 	size_t i=0;
 	json_error_t error;
-	json_t *root = json_loads(str, 0, &error);
+	json_t *root = json_loadb(str, size, 0, &error);
 	if(root==NULL){
 		fail_msg("[EROR PARSING JSON][%s][%s]\n", error.text,
 			error.source);
