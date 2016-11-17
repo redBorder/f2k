@@ -37,7 +37,7 @@
 
 #define ARGS(...) __VA_ARGS__
 
-#define NF5_IP(a, b, c, d) (((a)<<24)|((b)<<16)|((c)<<8)|(d))
+#define NF5_IP(a, b, c, d) constexpr_be32toh((((a)<<24)|((b)<<16)|((c)<<8)|(d)))
 
 // Convert an uint16_t to BIG ENDIAN uint8_t[2] array initializer
 #define UINT16_TO_UINT8_ARR(x) ((x)>>8), ((x)&0xff)
