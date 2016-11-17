@@ -1831,18 +1831,24 @@ static FlowSetV9Ipfix *loadTemplate(const char *file)
   return NULL;
 }
 
-void saveTemplateInDatabase(FlowSetV9Ipfix *template) {
+/**
+ * Save template in templates database
+ * @param template Template to save
+ */
+static void save_template_in_database(FlowSetV9Ipfix *template) {
   assert(template);
   struct rb_sensors_db *db = readOnlyGlobals.rb_databases.sensors_info;
   const uint32_t netflow_device_ip = template->templateInfo.netflow_device_ip;
   const uint16_t dst_port = template->templateInfo.dst_port;
   struct sensor *sensor = get_sensor(db,netflow_device_ip,dst_port);
 
-  if(sensor) {
-    saveTemplate(sensor,template);
-    rb_sensor_decref(sensor);
+  if (!sensor) {
+    char buf[BUFSIZ];
+    traceEvent(TRACE_ERROR, "Trying to save template in a unknown sensor %s",
+      _intoaV4(netflow_device_ip, buf, sizeof(buf)));
+    /// @todo template memory management!
   } else {
-    traceEvent(TRACE_ERROR,"Trying to save template in a unknown sensor");
+    save_template_async(sensor, template);
   }
 }
 
@@ -1900,7 +1906,7 @@ int loadTemplates(const char * path)
 			FlowSetV9Ipfix *template=loadTemplate(buf);
 			if(template)
 			{
-				saveTemplateInDatabase(template);
+				save_template_in_database(template);
 				templates_readed++;
 			}
 		}

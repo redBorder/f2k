@@ -415,8 +415,6 @@ static inline uint64_t mac_atoi(const char *number_a)
 FlowSetV9Ipfix * getNewTemplateNumber(const unsigned int templateId);
 int saveTemplateInFile(const FlowSetV9Ipfix *template,const char * file);
 int loadTemplates(const char * where);
-/// @TODO use it when receive a template
-void saveTemplateInDatabase(FlowSetV9Ipfix *template);
 
 struct counted_string extract_tw_user(const struct counted_string *url,const struct counted_string *host);
 struct counted_string extract_yt_user(const struct counted_string *url,const struct counted_string *host);
