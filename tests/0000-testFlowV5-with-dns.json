@@ -1,0 +1,14 @@
+{
+    "sensors_networks": {
+        "4.3.2.1": {
+            "2055": {
+                "enrichment": {
+                    "sensor_ip": "4.3.2.1",
+                    "sensor_name": "FlowTest"
+                },
+                "dns_ptr_client": true,
+                "dns_ptr_target": true
+            }
+        }
+    }
+}
