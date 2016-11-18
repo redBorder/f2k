@@ -122,15 +122,21 @@ struct eth_header {
 #define OPTION_TEMPLATE     1
 
 typedef struct flow_ver9_template_field {
+  const V9V10TemplateElementId *v9_template;
   uint16_t fieldId;
   uint16_t fieldLen;
-  uint8_t  isPenField;
-  const V9V10TemplateElementId *v9_template;
 } V9V10TemplateField;
+
+typedef struct flow_ver9_ipfix_simple_template {
+  uint32_t netflow_device_ip, observation_domain_id;
+  /* V9TemplateDef */
+  uint16_t templateId;
+  uint16_t fieldCount, scopeFieldCount, v9ScopeLen;
+  uint8_t isOptionTemplate;
+} V9IpfixSimpleTemplate;
 
 typedef struct flowSetV9Ipfix {
   V9IpfixSimpleTemplate templateInfo;
-  uint16_t flowLen; /* Real flow length */
   V9V10TemplateField *fields;
   LIST_ENTRY(flowSetV9Ipfix) entry;
 } FlowSetV9Ipfix;

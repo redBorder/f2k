@@ -1595,8 +1595,6 @@ static int saveTemplateInFilef(const FlowSetV9Ipfix *template,FILE *f)
     if(unlikely(readOnlyGlobals.enable_debug))
     {
       char buf[1024];
-      /* V9TemplateHeader */
-      traceEvent(TRACE_NORMAL,"saveTemplate(): [flowsetLen=%d]",templateInfo->flowsetLen);
       /* V9TemplateDef */
       traceEvent(TRACE_NORMAL,"saveTemplate(): [templateId=%d]",templateInfo->templateId);
       traceEvent(TRACE_NORMAL,"saveTemplate(): [fieldCount=%d][scopeFieldCount=%d][v9ScopeLen=%d]",
@@ -1605,18 +1603,6 @@ static int saveTemplateInFilef(const FlowSetV9Ipfix *template,FILE *f)
         _intoaV4(templateInfo->netflow_device_ip,buf,sizeof(buf)), templateInfo->observation_domain_id);
       traceEvent(TRACE_NORMAL,"saveTemplate(): [isOptionTemplate=%d]",templateInfo->isOptionTemplate);
     }
-  }
-
-  data_writed = fwrite(&template->flowLen,sizeof(template->flowLen),1,f);
-  if(data_writed!= 1)
-  {
-    traceEvent(TRACE_ERROR,"Error writing flow length.");
-    return 0;
-  }
-  else
-  {
-    if(unlikely(readOnlyGlobals.enable_debug))
-      traceEvent(TRACE_NORMAL,"saveTemplate(): [flowLen=%d]",template->flowLen);
   }
 
   unsigned int i;
@@ -1636,17 +1622,13 @@ static int saveTemplateInFilef(const FlowSetV9Ipfix *template,FILE *f)
       return 0;
     }
 
-    data_writed = fwrite(&template->fields[i].isPenField,sizeof(template->fields[i].isPenField),1,f);
-    if(data_writed != 1)
-    {
-      traceEvent(TRACE_ERROR,"saveTemplate(): Error writing isPenField");
-      return 0;
-    }
 
     if(unlikely(readOnlyGlobals.enable_debug))
     {
-      traceEvent(TRACE_NORMAL,"saveTemplate(): [field %d/%d][fieldId=%d][fieldLen=%d][isPenField=%d]",
-        i,templateInfo->fieldCount,template->fields[i].fieldId,template->fields[i].fieldLen,template->fields[i].isPenField);
+      traceEvent(TRACE_NORMAL,
+        "saveTemplate(): [field %d/%d][fieldId=%d][fieldLen=%d]",
+        i, templateInfo->fieldCount, template->fields[i].fieldId,
+        template->fields[i].fieldLen);
     }
   }
 
@@ -1688,18 +1670,6 @@ static V9V10TemplateField *loadTemplateFieldsFromFile(size_t fieldCount,FILE *f)
 
     if(fields)
     {
-      data_readed = fread(&fields[i].isPenField,sizeof(fields[i].isPenField),1,f);
-      if(data_readed != 1)
-      {
-        traceEvent(TRACE_ERROR,
-          "loadTemplate(): [field %d/%zu] Error reading isPenField",
-          i, fieldCount);
-        free(fields); fields=NULL;
-      }
-    }
-
-    if(fields)
-    {
       fields[i].v9_template = find_template(fields[i].fieldId);
       if(NULL == fields[i].v9_template) {
         traceEvent(TRACE_ERROR,
@@ -1711,9 +1681,8 @@ static V9V10TemplateField *loadTemplateFieldsFromFile(size_t fieldCount,FILE *f)
     if (unlikely(fields && readOnlyGlobals.enable_debug))
     {
       traceEvent(TRACE_NORMAL,
-        "loadTemplate(): [field %d/%zu][fieldId=%d][fieldLen=%d]"
-        "[isPenField=%d]",
-        i,fieldCount,fields[i].fieldId,fields[i].fieldLen,fields[i].isPenField);
+        "loadTemplate(): [field %d/%zu][fieldId=%d][fieldLen=%d]",
+        i,fieldCount,fields[i].fieldId,fields[i].fieldLen);
     }
   }
 
@@ -1749,8 +1718,6 @@ static FlowSetV9Ipfix *loadTemplateFromFile(FILE *f)
     if(unlikely(readOnlyGlobals.enable_debug))
     {
       char buf[1024];
-      /* V9TemplateHeader */
-      traceEvent(TRACE_NORMAL,"loadTemplate(): [flowsetLen=%d]",templateInfo->flowsetLen);
       /* V9TemplateDef */
       traceEvent(TRACE_NORMAL,"loadTemplate(): [templateId=%d]",templateInfo->templateId);
       traceEvent(TRACE_NORMAL,"loadTemplate(): [fieldCount=%d][scopeFieldCount=%d][v9ScopeLen=%d]",
@@ -1759,18 +1726,6 @@ static FlowSetV9Ipfix *loadTemplateFromFile(FILE *f)
         _intoaV4(templateInfo->netflow_device_ip,buf,sizeof(buf)), templateInfo->observation_domain_id);
       traceEvent(TRACE_NORMAL,"loadTemplate(): [isOptionTemplate=%d]",templateInfo->isOptionTemplate);
     }
-  }
-
-  data_readed = fread(&template->flowLen,sizeof(template->flowLen),1,f);
-  if(data_readed!= 1)
-  {
-    traceEvent(TRACE_ERROR,"Error reading flow length.");
-    free(template);return NULL;
-  }
-  else
-  {
-    if(unlikely(readOnlyGlobals.enable_debug))
-      traceEvent(TRACE_NORMAL,"loadTemplate(): [flowLen=%d]",template->flowLen);
   }
 
   template->fields = loadTemplateFieldsFromFile(templateInfo->fieldCount,f);

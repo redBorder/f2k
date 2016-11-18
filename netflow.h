@@ -171,16 +171,6 @@ typedef struct flow_ver9_template_def {
   uint16_t fieldCount;
 } V9TemplateDef;
 
-typedef struct flow_ver9_ipfix_simple_template {
-  uint32_t netflow_device_ip, observation_domain_id;
-  /* V9TemplateHeader */
-  uint16_t flowsetLen;
-  /* V9TemplateDef */
-  uint16_t templateId;
-  uint16_t fieldCount, scopeFieldCount, v9ScopeLen;
-  uint8_t isOptionTemplate;
-} V9IpfixSimpleTemplate;
-
 typedef struct flow_ver9_option_template {
   uint16_t templateFlowset; /* = 0 */
   uint16_t flowsetLen;

@@ -62,7 +62,6 @@ static const FlowSetV9Ipfix example_template =
     .observation_domain_id = 0,
     .isOptionTemplate = 0,
   },
-  .flowLen = 62, /* Real flow length */
   .fields = (V9V10TemplateField *) &templateFields,
   .next = NULL
 };
@@ -105,7 +104,6 @@ static const FlowSetV9Ipfix example_template2 =
     .observation_domain_id = 0,
     .isOptionTemplate = 0,
   },
-  .flowLen = 62, /* Real flow length */
   .fields = (V9V10TemplateField *) &templateFields,
   .next = NULL
 };

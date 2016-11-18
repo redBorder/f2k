@@ -996,9 +996,8 @@ void save_template(observation_id_t *observation_id,
 	}
 
   if(unlikely(readOnlyGlobals.enable_debug))
-  traceEvent(TRACE_INFO, ">>>>> Defined flow template [id=%d][flowLen=%d][fieldCount=%d]",
-       template->templateInfo.templateId,
-       template->flowLen, template->templateInfo.fieldCount);
+  traceEvent(TRACE_INFO, ">>>>> Defined flow template [id=%d][fieldCount=%d]",
+       template->templateInfo.templateId, template->templateInfo.fieldCount);
 }
 
 void save_template_async(struct sensor *sensor,

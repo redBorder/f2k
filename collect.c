@@ -981,7 +981,6 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
 
               fields[fieldId].fieldId = htons(set->templateId) & 0x7FFF;
               fields[fieldId].fieldLen = htons(set->flowsetLen);
-              fields[fieldId].isPenField = is_enterprise_specific;
               fields[fieldId].v9_template = find_template(ntohs(set->templateId) & 0x7FFF);
 
               if(fields[fieldId].fieldLen != (uint16_t)-1) /* Variable lenght fields */
@@ -993,8 +992,6 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
                            is_enterprise_specific ? "true" : "false",
                            fields[fieldId].fieldLen, len);
             }
-
-            template.flowsetLen = len;
           }
         } else {
           /* NetFlow */
@@ -1005,7 +1002,6 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
           }
 
           good_template = true;
-          template.flowsetLen = 4 * template.fieldCount;
 
           if(unlikely(readOnlyGlobals.enable_debug))
           {
@@ -1038,7 +1034,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
         }
       }
 
-      if((template.flowsetLen > 1500) || (accumulatedLen > 1500)) {
+      if(accumulatedLen > 1500) {
         good_template = false;
       }
 
@@ -1053,7 +1049,6 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
         }
 
         /// @TODO save the fields directly in a new malloced template.
-        new_template->templateInfo.flowsetLen = len + sizeof(header);
         new_template->templateInfo.templateId = template.templateId;
         new_template->templateInfo.fieldCount = template.fieldCount;
         new_template->templateInfo.v9ScopeLen = template.v9ScopeLen;
@@ -1061,7 +1056,6 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
         new_template->templateInfo.isOptionTemplate = template.isOptionTemplate;
         new_template->templateInfo.netflow_device_ip = netflow_device_ip;
         new_template->templateInfo.observation_domain_id = observation_domain_id;
-        new_template->flowLen                 = accumulatedLen;
         new_template->fields                  = fields;
 
         // Save template for future use
@@ -1214,11 +1208,10 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
         /* if(cursor->templateInfo.isOptionTemplate) */ {
           traceEvent(TRACE_NORMAL, ">>>>> Dissecting flow field "
                      "[optionTemplate=%d][displ=%zd/%d][template=%d][fieldId=%d][fieldLen=%d]"
-                     "[isPenField=%d][field=%d/%d] [%zd...%d] [accum_len=%zu] [%02X %02X %02X %02X]",
+                     "[field=%d/%d] [%zd...%d] [accum_len=%zu] [%02X %02X %02X %02X]",
                      cursor->templateInfo.isOptionTemplate, displ, fs->flowsetLen,
                      fs->templateId, fields[fieldId].fieldId,
                      real_field_len,
-                     fields[fieldId].isPenField,
                      fieldId, cursor->templateInfo.fieldCount,
                      displ, (init_displ + fs->flowsetLen), accum_len,
                      buffer[displ] & 0xFF, buffer[displ+1] & 0xFF,
