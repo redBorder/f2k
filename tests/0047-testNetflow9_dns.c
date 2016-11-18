@@ -147,7 +147,7 @@ static int prepare_test_nf9(void **state) {
 			&v9Template, sizeof(v9Template),
 			&v9Flow, sizeof(v9Flow),
 			&checkdata, 1,
-			.config_json_path = "./tests/0000-testFlowV5-with-dns.json",
+			.config_json_path = "./tests/0047-testNetflow9_dns.json",
 			.kafka_url = "kafka:9092",
 			.dns_servers = "localhost"),
 	};
