@@ -41,26 +41,20 @@
 #define LEN_SMALL_WORK_BUFFER 2048
 
 #ifdef HAVE_UDNS
-#ifndef NDEBUG
-#define UDNS_OPAQUE_MAGIC 0xD0AED0AED0AED0AEL
-#endif
+
 struct udns_opaque {
-#ifdef UDNS_OPAQUE_MAGIC
+#ifndef NDEBUG
+  #define UDNS_OPAQUE_MAGIC 0xD0AED0AED0AED0AEL
   uint64_t magic;
 #endif
+  atomic_uint64_t refcnt;
 
   struct printbuf *curr_printbuf;
   struct flowCache *flowCache;
 
-/// @TODO use flowCache to this
-  uint64_t export_timestamp,dSwitched,bytes,pkts;
-#ifdef HAVE_ATOMICS_32
-  uint32_t refcnt;
-#else
-#error "You do not have support for atomics!!"
-#endif
 };
-#endif
+
+#endif /* HAVE_UDNS */
 
 /* ********* Templates queue ********** */
 
@@ -781,7 +775,7 @@ static void dns_query_completed0(struct dns_ctx *ctx,
     }
   }
 
-  if(0 == ATOMIC_OP32(sub,fetch,&opaque->refcnt,1)) {
+  if(0 == ATOMIC_OP(sub,fetch,&opaque->refcnt.value,1)) {
     /* src and dst have been fetched: enqueue to process */
     rd_thread_t *curr_thread = rd_currthread_get();
     assert(curr_thread);
@@ -1275,8 +1269,8 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
       opaque->curr_printbuf = kafka_line_buffer;
       const uint8_t *client_addr = get_direction_based_client_ip(flowCache);
       const uint8_t *target_addr = get_direction_based_target_ip(flowCache);
-      opaque->refcnt = (solve_client && client_addr ? 1 : 0)
-                     + (solve_target && target_addr ? 1 : 0);
+      opaque->refcnt.value = (solve_client && client_addr ? 1 : 0)
+                           + (solve_target && target_addr ? 1 : 0);
 
       /// @TODO remove duplication
       if(readOnlyGlobals.udns.cache) {
@@ -1286,7 +1280,7 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
           opaque->flowCache->address.client_name_cache = dns_cache_get_elm(
             readOnlyGlobals.udns.cache,(const uint8_t *)client_addr,now);
           if(NULL != opaque->flowCache->address.client_name_cache) {
-            opaque->refcnt--;
+            opaque->refcnt.value--;
           }
         }
 
@@ -1294,12 +1288,12 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
           opaque->flowCache->address.target_name_cache = dns_cache_get_elm(
             readOnlyGlobals.udns.cache,(const uint8_t *)target_addr,now);
           if(NULL != opaque->flowCache->address.target_name_cache) {
-            opaque->refcnt--;
+            opaque->refcnt.value--;
           }
         }
       }
 
-      if(0 == opaque->refcnt) {
+      if (0 == opaque->refcnt.value) {
         // We had the needed addresses in cache, so we can sent the flow to dissect
         rd_thread_func_call2(curr_worker,split_after_dns_query_completed,
           readOnlyGlobals.udns.dns_info_array[dns_worker_i].dns_ctx,opaque);
