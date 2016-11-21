@@ -37,8 +37,6 @@
 #include <stdbool.h>
 
 #define DEBUG_FLOWS
-//#define CISCO_DEBUG
-#define LEN_SMALL_WORK_BUFFER 2048
 
 #ifdef HAVE_UDNS
 
