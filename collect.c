@@ -834,6 +834,197 @@ struct netflow_sensor {
   uint16_t dst_port;
 };
 
+
+/** Extract parameters of nf9 option template header
+ * @param  new_template      Where to save parameters
+ * @param  buffer            Buffer that points to template
+ * @param  buffer_size       Buffer length
+ * @param  scope_field_count Count of scope fields
+ * @param  field_count       Count of options fields
+ * @param  sensor            Sensor (to print address in debug)
+ * @param  observation_id    Observation id (to print address in debug)
+ * @return                   Number of bytes read in buffer
+ */
+static size_t dissect_nf9_option_template_params(FlowSetV9Ipfix *new_template,
+    const void *buffer, size_t buffer_size, size_t *scope_field_count,
+    size_t *field_count, const struct sensor *sensor,
+    const observation_id_t *observation_id) {
+  const V9OptionTemplate *option_template = buffer;
+
+  assert(new_template);
+  assert(scope_count);
+  assert(field_count);
+
+  if (buffer_size < sizeof(*option_template)) {
+    traceEvent(TRACE_ERROR,
+      "Buffer len %zu is not long enough to hold a %zu "
+      "len option template, sensor %s observation id %"PRIu32, buffer_size,
+      sizeof(*option_template), sensor_ip_string(sensor),
+      observation_id_num(observation_id));
+    return 0;
+  }
+
+  new_template->templateInfo.templateId = ntohs(option_template->template_id);
+  *scope_field_count = ntohs(option_template->option_scope_len)/4;
+  *field_count = ntohs(option_template->option_len)/4;
+  return sizeof(*option_template);
+}
+
+/** Extract parameters of ipfix options template header
+ * @param  new_template      Where to save parameters
+ * @param  buffer            Buffer that points to template
+ * @param  buffer_size       Buffer length
+ * @param  scope_field_count Count of scope fields
+ * @param  field_count       Count of options fields
+ * @param  sensor            Sensor (to print address in debug)
+ * @param  observation_id    Observation id (to print address in debug)
+ * @return                   Number of bytes read in buffer
+ */
+static size_t dissect_ipfix_option_template_params(FlowSetV9Ipfix *new_template,
+    const void *buffer, size_t buffer_size, size_t *scope_field_count,
+    size_t *field_count, const struct sensor *sensor,
+    const observation_id_t *observation_id) {
+  const IPFIXOptionsTemplate *option_template = buffer;
+
+  assert(new_template);
+  assert(scope_count);
+  assert(field_count);
+
+  if (buffer_size < sizeof(*option_template)) {
+    traceEvent(TRACE_ERROR,
+      "Buffer len %zu is not long enough to hold a %zu "
+      "len option template, sensor %s observation id %"PRIu32, buffer_size,
+      sizeof(*option_template), sensor_ip_string(sensor),
+      observation_id_num(observation_id));
+    return 0;
+  }
+
+  new_template->templateInfo.templateId = ntohs(option_template->template_id);
+  *scope_field_count = ntohs(option_template->scope_field_count);
+  *field_count = ntohs(option_template->total_field_count) - *scope_field_count;
+  return sizeof(*option_template);
+}
+
+/** Dissect an option template
+ * @param Sensor this template belongs
+ * @param netflow_device_ip Netflow device that sent option template
+ * @param observation_id Observation id the template belongs
+ * @param sbuffer Option template buffer
+ * @param dissect_option_template_params Callback to extract template parameters
+ */
+static void dissect_option_template(const struct sensor *sensor,
+                                          uint32_t netflow_device_ip,
+                                          observation_id_t *observation_id,
+                                          const struct sized_buffer *sbuffer,
+                                          size_t
+                                            (*dissect_option_template_params)(
+                                              FlowSetV9Ipfix *,const void *,
+                                              size_t, size_t *, size_t *,
+                                              const struct sensor *,
+                                              const observation_id_t *)) {
+  static const size_t max_num_entries = 4;
+  const uint8_t *buffer = sbuffer->buffer;
+  FlowSetV9Ipfix new_template = {
+    .templateInfo = {
+      .netflow_device_ip = netflow_device_ip,
+      .observation_domain_id = observation_id_num(observation_id),
+      .is_option_template = true,
+    },
+  };
+
+  assert(dissect_option_template_params);
+
+  size_t scope_field_count = 0, field_count = 0;
+  size_t cursor = dissect_option_template_params(&new_template,
+    sbuffer->buffer, sbuffer->size, &scope_field_count, &field_count,
+    sensor, observation_id);
+  if (unlikely(0 == cursor)) {
+    /* bad template */
+    return;
+  }
+
+  new_template.templateInfo.fieldCount = scope_field_count + field_count;
+  if (unlikely(new_template.templateInfo.fieldCount > max_num_entries)) {
+    traceEvent(TRACE_ERROR, "Too much fields (%"PRIu16" > %zu) for sensor %s"
+      " observation id %"PRIu32
+      " option template. Interesting fields should be firsts",
+      new_template.templateInfo.fieldCount,
+      max_num_entries, sensor_ip_string(sensor),
+      observation_id_num(observation_id));
+
+    new_template.templateInfo.fieldCount = max_num_entries;
+  }
+
+  const size_t num_entries = new_template.templateInfo.fieldCount;
+  const size_t expected_buffer_min_size =
+    cursor + sizeof(V9FlowSet) * num_entries;
+  if (unlikely(sbuffer->size < expected_buffer_min_size)) {
+      traceEvent(TRACE_ERROR, "Buffer len %zu is not long enough to hold a %zu "
+      "len option template %zu entries, sensor %s observation id %"PRIu32,
+      sbuffer->size, expected_buffer_min_size, num_entries,
+      sensor_ip_string(sensor), observation_id_num(observation_id));
+    return;
+  }
+
+  // Prepare template
+  if(unlikely(readOnlyGlobals.enable_debug)) {
+    traceEvent(TRACE_NORMAL, "Received option template [id=%"PRIu32"]"
+      "[sensor=%s][observation domain id=%"PRIu32"]",
+      new_template.templateInfo.templateId, sensor_ip_string(sensor),
+      observation_id_num(observation_id));
+  }
+
+  V9V10TemplateField fields[num_entries];
+
+  // Scope fields
+  size_t i;
+  for (i = 0; i < num_entries; ++i, cursor += sizeof(V9FlowSet)) {
+    /* Note: NF9 scopes will be ignored in dissect_option_flow */
+    const V9FlowSet *set = (const V9FlowSet*)&buffer[cursor];
+
+    fields[i].fieldId = ntohs(set->templateId);
+    fields[i].fieldLen = ntohs(set->flowsetLen);
+    fields[i].v9_template = NULL;
+
+    if(unlikely(readOnlyGlobals.enable_debug)) {
+      traceEvent(TRACE_NORMAL,
+        " => %s [%zu/%zu][fieldId=%"PRIu16"][len=%"PRIu16"]",
+                 i < scope_field_count ? "SCOPE" : "FIELD",
+                 i, num_entries, fields[i].fieldId, fields[i].fieldLen);
+    }
+  }
+
+  V9V10TemplateField *save_fields = malloc(num_entries * sizeof(*save_fields));
+  if (unlikely(NULL == save_fields)) {
+    traceEvent(TRACE_ERROR, "Not enough memory to allocate fields");
+    return;
+  }
+  memcpy(save_fields, fields, num_entries * sizeof(*save_fields));
+
+  FlowSetV9Ipfix *save_templ = malloc(sizeof(*save_templ));
+  if (unlikely(NULL == save_fields)) {
+    traceEvent(TRACE_ERROR, "Not enough memory to allocate template");
+    free(save_fields);
+    return;
+  }
+  memcpy(save_templ, &new_template, sizeof(new_template));
+  save_templ->fields = save_fields;
+
+  save_template(observation_id, save_templ);
+
+}
+
+/**
+ * Dissect a netflow/ipfix template
+ * @param  worker         Worker thread
+ * @param  _buffer        Template buffer
+ * @param  sensor         Template sensor
+ * @param  observation_id Template observation id
+ * @param  readed         Bytes read before and after (in/out parameter)
+ * @param  numEntries     Number of entries (nf9) / total entries length (ipfix)
+ * @param  handle_ipfix   If we are in IPFIX
+ * @return                Always 1
+ */
 static int dissectNetFlowV9V10Template(worker_t *worker,
                                 const struct sized_buffer *_buffer,
                                 const struct netflow_sensor *sensor,
@@ -850,12 +1041,12 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
   ssize_t displ = 0;
   V9IpfixSimpleTemplate template;
 
-  uint8_t isOptionTemplate = (uint8_t)buffer[displ+1];
+  uint8_t is_option_template = buffer[displ+1];
 
   /* Template */
-  if(handle_ipfix && (isOptionTemplate == 2 /* Template Flowset */)) {
+  if(handle_ipfix && (is_option_template == 2 /* Template Flowset */)) {
     /*
-      IPFIX (isOptionTemplate)
+      IPFIX (is_option_template)
 
       A value of 2 is reserved for the
       Template Set.  A value of 3 is reserved for the Option Template
@@ -867,12 +1058,12 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
     /* This trick is necessary as only option template flowsets
        have to be handled differently from other templates
     */
-    isOptionTemplate = 0;
+    is_option_template = 0;
   }
 
   if(unlikely(readOnlyGlobals.enable_debug)) {
     traceEvent(TRACE_INFO, "Found Template [displ=%zd]", displ);
-    traceEvent(TRACE_INFO, "Found Template Type: %s", isOptionTemplate ? "Option" : "Flow");
+    traceEvent(TRACE_INFO, "Found Template Type: %s", is_option_template ? "Option" : "Flow");
   }
 
   if(bufferLen > (displ+(ssize_t)sizeof(V9TemplateHeader))) {
@@ -892,44 +1083,25 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
       size_t accumulatedLen = 0;
 
       memset(&template, 0, sizeof(template));
-      template.isOptionTemplate = isOptionTemplate,
+      template.is_option_template = is_option_template,
       template.netflow_device_ip = netflow_device_ip;
 
-      if(isOptionTemplate) {
+      if (is_option_template) {
         memcpy(&template.templateId, &buffer[displ], 2);
         template.templateId = htons(template.templateId), template.fieldCount = (header.flowsetLen - 14)/4;
 
-        if(handle_ipfix) {
-          uint16_t tot_field_count, tot_scope_field_count;
+        const struct sized_buffer ot_buffer = {
+          .buffer_start = _buffer->buffer_start,
+          .buffer = &buffer[displ],
+          .size = _buffer->size - displ
+        };
 
-          displ += 2, stillToProcess -= 2 /*, len += 2 */;
-          memcpy(&tot_field_count, &buffer[displ], 2); tot_field_count = htons(tot_field_count);
-          displ += 2, stillToProcess -= 2 /* , len += 2 */;
-          memcpy(&tot_scope_field_count, &buffer[displ], 2); tot_scope_field_count = htons(tot_scope_field_count);
-          displ += 2, stillToProcess -= 2 /* , len += 2 */;
-          template.scopeFieldCount = tot_scope_field_count;
+        dissect_option_template(sensor->sensor, netflow_device_ip,
+          observation_id, &ot_buffer,
+          handle_ipfix ? dissect_ipfix_option_template_params
+                       : dissect_nf9_option_template_params);
 
-          if(tot_field_count >= tot_scope_field_count) {
-            const size_t num = tot_scope_field_count * 4; /* FIX: check PEN here */
-            const size_t field_num = (tot_field_count-tot_scope_field_count) * 4;
-            const size_t delta = num + field_num;
-
-            displ += delta, stillToProcess -= delta /* , len += num */;
-          } else {
-            traceEvent(TRACE_WARNING,
-               "It looks looks like the template is broken (tot_field_count=%d,"
-               "tot_scope_field_count=%d) [num_dissected_flows=%"PRIu64"]"
-               "[templateType=%d]",
-               tot_field_count, tot_scope_field_count,
-               worker->stats.num_dissected_flow_packets,
-               isOptionTemplate);
-            displ += 4 /* , len += 4 */; /* Using default skip */
-          }
-        } else {
-          memcpy(&template.v9ScopeLen, &buffer[displ+8], 2);
-          template.v9ScopeLen = htons(template.v9ScopeLen);
-          displ += 10, /* len = 0, */ stillToProcess -= 10;
-        }
+        return 1;
       } else {
         V9TemplateDef templateDef;
 
@@ -1049,9 +1221,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
         /// @TODO save the fields directly in a new malloced template.
         new_template->templateInfo.templateId = template.templateId;
         new_template->templateInfo.fieldCount = template.fieldCount;
-        new_template->templateInfo.v9ScopeLen = template.v9ScopeLen;
-        new_template->templateInfo.scopeFieldCount  = template.scopeFieldCount;
-        new_template->templateInfo.isOptionTemplate = template.isOptionTemplate;
+        new_template->templateInfo.is_option_template = template.is_option_template;
         new_template->templateInfo.netflow_device_ip = netflow_device_ip;
         new_template->templateInfo.observation_domain_id = observation_domain_id;
         new_template->fields                  = fields;
@@ -1131,16 +1301,13 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
   struct sensor *sensor_object = _sensor->sensor;
 
   int fieldId, init_displ;
-  const int scopeOffset =
-    (4*cursor->templateInfo.scopeFieldCount) + cursor->templateInfo.v9ScopeLen;
   int end_flow;
   V9V10TemplateField *fields = cursor->fields;
 
-  init_displ = displ + scopeOffset;
-  displ += sizeof(V9FlowSet) + scopeOffset;
+  init_displ = displ;
+  displ += sizeof(V9FlowSet);
 
-  end_flow = init_displ + fs->flowsetLen-scopeOffset;
-  *tot_len += scopeOffset;
+  end_flow = init_displ + fs->flowsetLen;
 
   while(displ < end_flow) {
     const uint32_t _flowSequence = htonl(*flowSequence);
@@ -1150,7 +1317,7 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
     if(end_flow-displ < 4) break;
 
 #ifdef DEBUG_FLOWS
-    dumpFlow(displ,init_displ + fs->flowsetLen-scopeOffset,buffer);
+    dumpFlow(displ,init_displ + fs->flowsetLen, buffer);
 #endif
 
     struct printbuf *kafka_line_buffer = printbuf_new();
@@ -1203,11 +1370,11 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
         real_field_len = fields[fieldId].fieldLen, real_field_len_offset = 0;
 
       if(unlikely(readOnlyGlobals.enable_debug)) {
-        /* if(cursor->templateInfo.isOptionTemplate) */ {
+        /* if(cursor->templateInfo.is_option_template) */ {
           traceEvent(TRACE_NORMAL, ">>>>> Dissecting flow field "
                      "[optionTemplate=%d][displ=%zd/%d][template=%d][fieldId=%d][fieldLen=%d]"
                      "[field=%d/%d] [%zd...%d] [accum_len=%zu] [%02X %02X %02X %02X]",
-                     cursor->templateInfo.isOptionTemplate, displ, fs->flowsetLen,
+                     cursor->templateInfo.is_option_template, displ, fs->flowsetLen,
                      fs->templateId, fields[fieldId].fieldId,
                      real_field_len,
                      fieldId, cursor->templateInfo.fieldCount,
@@ -1323,6 +1490,71 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
   return kafka_string_list;
 }
 
+static size_t dissect_nf9_option_flow(observation_id_t *observation_id,
+    const FlowSetV9Ipfix *template, const struct sized_buffer *sbuffer) {
+  /* fields searched */
+  struct  {
+    struct {
+      uint64_t application_id;
+      struct sized_buffer application_name;
+    } app_id;
+  } searched = {};
+  size_t cursor = 0;
+  const uint8_t *buffer = sbuffer->buffer;
+  const size_t buffer_size = sbuffer->size;
+  const size_t template_fields = template->templateInfo.fieldCount;
+
+  size_t template_idx = 0;
+  for (template_idx = 0; template_idx < template_fields; ++template_idx) {
+    const V9V10TemplateField *field =
+      &template->fields[template_idx];
+    const uint16_t field_id = field->fieldId;
+    const uint16_t field_len = field->fieldLen;
+
+    if (cursor + field_len > buffer_size) {
+      break;
+    }
+
+    switch(field_id) {
+    case APPLICATION_ID:
+      searched.app_id.application_id = net2number(buffer + cursor, field_len);
+      break;
+    case APPLICATION_NAME:
+      searched.app_id.application_name.buffer = buffer + cursor;
+      searched.app_id.application_name.size = field_len;
+      break;
+    default:
+      break;
+    };
+
+    cursor += field_len;
+  }
+
+  if (searched.app_id.application_id && searched.app_id.application_name.buffer
+    && searched.app_id.application_name.size > 0) {
+    observation_id_add_application_id(observation_id,
+      searched.app_id.application_id, searched.app_id.application_name.buffer,
+      searched.app_id.application_name.size);
+  }
+
+  return cursor;
+}
+
+static size_t dissect_option_flow_set(observation_id_t *observation_id,
+    const FlowSetV9Ipfix *template, const struct sized_buffer *sbuffer) {
+  size_t cursor = 0;
+  while (cursor < sbuffer->size) {
+    const struct sized_buffer buffer_flow = {
+      .buffer = (const uint8_t *)sbuffer->buffer + cursor,
+      .size = sbuffer->size - cursor,
+    };
+
+    cursor += dissect_nf9_option_flow(observation_id, template, &buffer_flow);
+  }
+
+  return cursor;
+}
+
 /// @param flowHeader flow header as netflow5 record.
 /// @TODO change flowHeader to netflow 9/10 header union
 static struct string_list *dissectNetFlowV9V10Flow(worker_t *worker,
@@ -1332,20 +1564,14 @@ static struct string_list *dissectNetFlowV9V10Flow(worker_t *worker,
             int handle_ipfix, const struct flow_ver9_hdr *flowHeader,
             uint16_t *flowSequence) {
 
-  V9FlowSet fs;
-
-  struct string_list *kafka_string_list = NULL;
-
   const uint8_t *buffer  = _buffer->buffer;
+  struct string_list *kafka_string_list = NULL;
+  size_t tot_len = 0;
 
-  /// @TODO show right display.
-  ssize_t displ = 0;
-
-  memcpy(&fs, &buffer[displ], sizeof(V9FlowSet));
+  V9FlowSet fs;
+  memcpy(&fs, buffer, sizeof(V9FlowSet));
   fs.flowsetLen = ntohs(fs.flowsetLen);
   fs.templateId = ntohs(fs.templateId);
-
-  size_t tot_len = 4; /* @TODO why is this used? */
 
   const FlowSetV9Ipfix *cursor = find_observation_id_template(observation_id,
     fs.templateId);
@@ -1360,8 +1586,8 @@ static struct string_list *dissectNetFlowV9V10Flow(worker_t *worker,
     if(unlikely(readOnlyGlobals.enable_debug)) {
       const uint32_t netflow_device_ip = _sensor->netflow_device_ip;
       traceEvent(TRACE_NORMAL, ">>>>> Rcvd flow with UNKNOWN template %d "
-        "[sensor=%s][displ=%zd][len=%d]",
-        fs.templateId, _intoaV4(netflow_device_ip,ipv4_buf,1024), displ,
+        "[sensor=%s][len=%d]",
+        fs.templateId, _intoaV4(netflow_device_ip, ipv4_buf, 1024),
         fs.flowsetLen);
     }
 #endif
@@ -1369,19 +1595,23 @@ static struct string_list *dissectNetFlowV9V10Flow(worker_t *worker,
     return NULL;
   }
 
-  /* We process only flows, not option templates */
-  if(cursor->templateInfo.isOptionTemplate != 0) {
-    return NULL;
-  }
-
   if(unlikely(readOnlyGlobals.enable_debug))
-    traceEvent(TRACE_INFO, ">>>>> Rcvd flow with known template %d [%zd...%d]",
-             fs.templateId, displ, fs.flowsetLen);
+    traceEvent(TRACE_INFO, ">>>>> Rcvd flow with known template %d [len=%"
+      PRIu16"]",
+             fs.templateId, fs.flowsetLen);
 
   /* Template found */
-  kafka_string_list = dissectNetFlowV9V10FlowSetWithTemplate(worker, cursor,
-    &fs, &tot_len, _buffer, _sensor, observation_id, flowVersion, handle_ipfix,
-    flowHeader, flowSequence);
+  if (cursor->templateInfo.is_option_template) {
+    struct sized_buffer sbuffer = {
+      .buffer = buffer + sizeof(V9FlowSet),
+      .size = min(fs.flowsetLen, _buffer->size - sizeof(V9FlowSet)),
+    };
+    tot_len = dissect_option_flow_set(observation_id, cursor, &sbuffer);
+  } else {
+    kafka_string_list = dissectNetFlowV9V10FlowSetWithTemplate(worker, cursor,
+      &fs, &tot_len, _buffer, _sensor, observation_id, flowVersion,
+      handle_ipfix, flowHeader, flowSequence);
+  }
 
 #ifdef DEBUG_FLOWS
   if(unlikely(readOnlyGlobals.enable_debug))
@@ -1389,21 +1619,21 @@ static struct string_list *dissectNetFlowV9V10Flow(worker_t *worker,
 #endif
 
   if(tot_len < fs.flowsetLen) {
-    size_t padding = fs.flowsetLen - tot_len;
+    const size_t padding = fs.flowsetLen - tot_len;
 
     if(padding > 4) {
       traceEvent(TRACE_WARNING,
-                 "Template len mismatch [tot_len=%zu][flow_len=%d][padding=%zu]"
+                 "Template len mismatch [read=%zu][flow_len=%d][padding=%zu]"
                  "[num_dissected_flow_packets=%"PRIu64"]",
                  tot_len, fs.flowsetLen, padding,
                  worker->stats.num_dissected_flow_packets);
     } else {
 #ifdef DEBUG_FLOWS
-      if(unlikely(readOnlyGlobals.enable_debug))
+      if(unlikely(readOnlyGlobals.enable_debug)) {
         traceEvent(TRACE_INFO, ">>>>> %zu bytes padding [tot_len=%zu][flow_len=%d]",
                    padding, tot_len, fs.flowsetLen);
+      }
 #endif
-      displ += padding;
     }
   }
 
@@ -1457,8 +1687,10 @@ static struct string_list *dissectNetFlowV9V10Set(worker_t *worker,
     .size   = fs.flowsetLen
   };
 
+  const bool is_option_template = !handle_ipfix && fs.templateId == 1;
+
   /* @TODO pass here buffer[displ] instead of all buffer */
-  if(buffer[displ] == 0) {
+  if (buffer[displ] == 0 || is_option_template) {
     size_t readed = 0;
     dissectNetFlowV9V10Template(worker, &netflow_set_buffer, _sensor,
       observation_id, &readed, numEntries, handle_ipfix);

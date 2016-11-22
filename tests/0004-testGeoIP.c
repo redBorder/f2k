@@ -149,7 +149,7 @@ static const struct checkdata_value checkdata_values3[] = {
 	{.key="dst", .value="83.56.40.199"},
 	{.key="dst_as", .value="3352"},
 	{.key="dst_country_code", .value="ES"},
-	{.key="dst_as_name", .value = "TELEFONICA_DE_ESPANA"},
+	{.key="dst_as_name", .value = "Telefonica De Espana"},
 };
 
 static int prepare_test_geoip(void **state) {

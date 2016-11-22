@@ -204,9 +204,8 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, IN_DST_MAC_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IN_DST_MAC_MAP", "in_dst_mac_name", "destinationMacAddress", "Name Destination MAC Address",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, OUT_DST_MAC, 57, QUOTE_OUTPUT, "OUT_DST_MAC", "out_dst_mac", "PostdestinationMacAddress", "Destination MAC Address after observation point",save_post_dst_mac, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, OUT_DST_MAC_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "OUT_DST_MAC_MAP", "out_dst_mac_name", "PostdestinationMacAddress", "Name Destination MAC Address after observation point",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, APPLICATION_ID, 95, QUOTE_OUTPUT, "APPLICATION_ID", "application_id",  "application_id", "Cisco NBAR Application Id",NO_FN, C(APPLICATION_ID_NAME, ENGINE_ID))\
-	X(STANDARD_ENTERPRISE_ID, APPLICATION_NAME, 96, QUOTE_OUTPUT, "APPLICATION_NAME", "application_name",  "application_name", "Cisco NBAR Application Name",print_string, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, APPLICATION_ID_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "APPLICATION_ID_NAME", "application_id_name",  "application_id_name", "Cisco NBAR Application Id Name",print_application_id_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, APPLICATION_ID, 95, QUOTE_OUTPUT, "APPLICATION_ID", "application_id",  "application_id", "Cisco NBAR Application Id",NO_FN, C(APPLICATION_NAME, ENGINE_ID))\
+	X(STANDARD_ENTERPRISE_ID, APPLICATION_NAME, 96, QUOTE_OUTPUT, "APPLICATION_NAME", "application_id_name",  "application_name", "Cisco NBAR Application Name",print_application_id_name, NO_CHILDS)\
 	/* Use selector_id and engine_id */\
 	/*X(STANDARD_ENTERPRISE_ID, APPLICATION_ID_MAJOR, DONT_QUOTE_OUTPUT, "APPLICATION_ID_MAJOR", "application_id_major",  "application_id_major", "Cisco NBAR Application Id (major number)")*/\
 	/*X(STANDARD_ENTERPRISE_ID, APPLICATION_ID_MINOR, DONT_QUOTE_OUTPUT, "APPLICATION_ID_MINOR", "application_id_minor",  "application_id_minor", "Cisco NBAR Application Id (minor number)")*/\

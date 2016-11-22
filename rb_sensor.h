@@ -76,6 +76,11 @@ bool observation_id_has_router_mac(observation_id_t *obs_id,const uint64_t mac);
 bool observation_id_want_client_dns(const observation_id_t *observation_id);
 bool observation_id_want_target_dns(const observation_id_t *observation_id);
 #endif
+void observation_id_add_application_id(observation_id_t *observation_id,
+  uint64_t application_id, const char *application_name,
+  size_t application_name_len);
+const char *observation_id_application_name(observation_id_t *observation_id,
+  uint64_t application_id);
 
 int64_t observation_id_fallback_first_switch(const observation_id_t *obs_id);
 

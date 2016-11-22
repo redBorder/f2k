@@ -80,6 +80,27 @@ static int compare_networks(const void *_network1,const void *_network2){
 
 /* ******** */
 
+struct application_id {
+#ifndef NDEBUG
+#define APPLICATION_ID_MAGIC 0xA1CA101DA1CA1CA1
+  uint64_t magic;
+#endif
+  uint64_t id;
+  char *name;
+  rd_avl_node_t avl_node;
+};
+
+#define assert_application_id(x) assert(APPLICATION_ID_MAGIC == x->magic);
+
+static int application_id_cmp(const void *vaid1, const void *vaid2) {
+  const struct application_id *aid1 = vaid1, *aid2 = vaid2;
+  assert_application_id(aid1);
+  assert_application_id(aid2);
+  return aid1->id - aid2->id;
+}
+
+/* ******** */
+
 #define MAC_ADDRESS_TREE_NODE_MAGIC 0xACADDE55EE0EA1C
 struct mac_address_tree_node {
 #ifdef MAC_ADDRESS_TREE_NODE_MAGIC
@@ -113,6 +134,7 @@ struct observation_id_s {
 
   rd_avl_t routers_macs;
   rd_avl_t home_networks;
+  rd_avl_t applications;
   rd_memctx_t memctx;
   char *enrichment;
   bool span_mode;
@@ -186,6 +208,84 @@ static int observation_id_cmp(const void *vobs_id1, const void *vobs_id2) {
   assert_observation_id(observation_id2);
 
   return observation_id1->observation_id - observation_id2->observation_id;
+}
+
+static struct application_id *find_application_id(
+    observation_id_t *observation_id, uint64_t application_id) {
+  struct application_id dummy = {
+#ifdef APPLICATION_ID_MAGIC
+    .magic = APPLICATION_ID_MAGIC,
+#endif
+    .id = application_id,
+  };
+
+  return RD_AVL_FIND(&observation_id->applications, &dummy);
+}
+
+void observation_id_add_application_id(observation_id_t *observation_id,
+    uint64_t application_id, const char *application_name,
+    size_t application_name_len) {
+  assert(application_name);
+  assert(application_name_len > 0);
+
+  struct application_id *current_application_id = find_application_id(
+    observation_id, application_id);
+  if (!current_application_id) {
+    /* Unknown application id */
+    struct application_id *new_application_id = rd_memctx_calloc(
+      &observation_id->memctx, 1, sizeof(*new_application_id));
+    if (unlikely(NULL == new_application_id)) {
+      traceEvent(TRACE_ERROR, "Couldn't allocate new application id %"PRIu64,
+        application_id);
+      return;
+    }
+
+    new_application_id->name = rd_memctx_malloc(&observation_id->memctx,
+      application_name_len + 1);
+    if (likely(new_application_id->name)) {
+      memcpy(new_application_id->name, application_name, application_name_len);
+      new_application_id->name[application_name_len] = '\0';
+    } else {
+      traceEvent(TRACE_ERROR, "Couldn't allocate new application id %"PRIu64,
+        application_id);
+      free(new_application_id);
+      return;
+
+    }
+
+#ifdef APPLICATION_ID_MAGIC
+    new_application_id->magic = APPLICATION_ID_MAGIC;
+#endif
+    new_application_id->id = application_id;
+    RD_AVL_INSERT(&observation_id->applications, new_application_id, avl_node);
+  } else if (current_application_id &&
+      strncmp(current_application_id->name, application_name,
+        application_name_len)) {
+    /* Update application id name */
+    free(current_application_id->name);
+    current_application_id->name = rd_memctx_malloc(&observation_id->memctx,
+    application_name_len + 1);
+    if (likely(current_application_id->name)) {
+      memcpy(current_application_id->name, application_name, application_name_len);
+      current_application_id->name[application_name_len] = '\0';
+    } else {
+      traceEvent(TRACE_ERROR, "Couldn't allocate new application id %"PRIu64,
+        application_id);
+      RD_AVL_REMOVE_ELM(&observation_id->applications, current_application_id);
+      free(current_application_id);
+      return;
+    }
+  }
+
+  /* else => No need to update application id */
+}
+
+const char *observation_id_application_name(observation_id_t *observation_id,
+    uint64_t application_id) {
+  struct application_id *application_id_node = find_application_id(
+    observation_id, application_id);
+
+  return application_id_node ? application_id_node->name : NULL;
 }
 
 static bool observation_id_add_home_net(observation_id_t *observation_id,
@@ -467,6 +567,8 @@ static observation_id_t *observation_id_new(uint32_t observation_id,
 
   rd_avl_init(&ret->home_networks, compare_networks, 0);
   rd_avl_init(&ret->routers_macs, compare_mac_address_node, 0);
+  rd_avl_init(&ret->applications, application_id_cmp, 0);
+
   rd_memctx_init(&ret->memctx, NULL, RD_MEMCTX_F_TRACK);
   ret->refcnt.value = 1;
 

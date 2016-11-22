@@ -1597,11 +1597,12 @@ static int saveTemplateInFilef(const FlowSetV9Ipfix *template,FILE *f)
       char buf[1024];
       /* V9TemplateDef */
       traceEvent(TRACE_NORMAL,"saveTemplate(): [templateId=%d]",templateInfo->templateId);
-      traceEvent(TRACE_NORMAL,"saveTemplate(): [fieldCount=%d][scopeFieldCount=%d][v9ScopeLen=%d]",
-        templateInfo->fieldCount, templateInfo->scopeFieldCount,templateInfo->v9ScopeLen);
+      traceEvent(TRACE_NORMAL,"saveTemplate(): [fieldCount=%d]",
+        templateInfo->fieldCount);
       traceEvent(TRACE_NORMAL,"saveTemplate(): [netflow_device_ip=%s][observation_domain_id=%d]",
         _intoaV4(templateInfo->netflow_device_ip,buf,sizeof(buf)), templateInfo->observation_domain_id);
-      traceEvent(TRACE_NORMAL,"saveTemplate(): [isOptionTemplate=%d]",templateInfo->isOptionTemplate);
+      traceEvent(TRACE_NORMAL,"saveTemplate(): [isOptionTemplate=%d]",
+        templateInfo->is_option_template);
     }
   }
 
@@ -1719,12 +1720,12 @@ static FlowSetV9Ipfix *loadTemplateFromFile(FILE *f)
     {
       char buf[1024];
       /* V9TemplateDef */
-      traceEvent(TRACE_NORMAL,"loadTemplate(): [templateId=%d]",templateInfo->templateId);
-      traceEvent(TRACE_NORMAL,"loadTemplate(): [fieldCount=%d][scopeFieldCount=%d][v9ScopeLen=%d]",
-        templateInfo->fieldCount, templateInfo->scopeFieldCount,templateInfo->v9ScopeLen);
-      traceEvent(TRACE_NORMAL,"loadTemplate(): [netflow_device_ip=%s][observation_domain_id=%d]",
+      traceEvent(TRACE_NORMAL, "loadTemplate(): [templateId=%d][fieldCount=%d]",
+        templateInfo->templateId, templateInfo->fieldCount);
+      traceEvent(TRACE_NORMAL, "loadTemplate(): [netflow_device_ip=%s][observation_domain_id=%d]",
         _intoaV4(templateInfo->netflow_device_ip,buf,sizeof(buf)), templateInfo->observation_domain_id);
-      traceEvent(TRACE_NORMAL,"loadTemplate(): [isOptionTemplate=%d]",templateInfo->isOptionTemplate);
+      traceEvent(TRACE_NORMAL, "loadTemplate(): [isOptionTemplate=%d]",
+        templateInfo->is_option_template);
     }
   }
 

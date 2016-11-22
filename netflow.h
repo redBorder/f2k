@@ -172,11 +172,9 @@ typedef struct flow_ver9_template_def {
 } V9TemplateDef;
 
 typedef struct flow_ver9_option_template {
-  uint16_t templateFlowset; /* = 0 */
-  uint16_t flowsetLen;
-  uint16_t templateId;
-  uint16_t optionScopeLen;
-  uint16_t optionLen;
+  uint16_t template_id;
+  uint16_t option_scope_len;
+  uint16_t option_len;
 } V9OptionTemplate;
 
 typedef struct flow_ver9_flow_set {
@@ -216,6 +214,12 @@ typedef struct flow_ipfix_hdr {
 typedef struct flow_ipfix_set {
   uint16_t set_id, set_len;
 } IPFIXSet;
+
+typedef struct flow_ipfix_option_template {
+  uint16_t template_id;
+  uint16_t total_field_count;
+  uint16_t scope_field_count;
+} IPFIXOptionsTemplate;
 
 typedef struct flow_ipfix_field {
   uint16_t field_id, field_len;

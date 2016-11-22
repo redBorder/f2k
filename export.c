@@ -1022,8 +1022,8 @@ static size_t print_application_id0(struct printbuf *kafka_line_buffer,
 }
 
 static size_t print_application_id_name0(struct printbuf *kafka_line_buffer,
-    const void *buffer, const size_t real_field_len){
-  char err[1024];
+    const void *buffer, const size_t real_field_len,
+    observation_id_t *observation_id) {
 
   if (NULL==readOnlyGlobals.rb_databases.apps_name_as_list) {
     return 0; /* Nothing to do */
@@ -1039,11 +1039,19 @@ static size_t print_application_id_name0(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  const char *appid_str=searchNameAssociatedInTree(readOnlyGlobals.rb_databases.apps_name_as_list,appid,err,sizeof(err));
+  /* Search in observation id */
+  const char *appid_str = observation_id_application_name(observation_id,
+    appid);
 
-  if(appid_str){
+  if (!appid_str) {
+    // Search in default db
+    appid_str = searchNameAssociatedInTree(
+      readOnlyGlobals.rb_databases.apps_name_as_list, appid, NULL, 0);
+  }
+
+  if (appid_str) {
     return printbuf_memappend_fast_string(kafka_line_buffer,appid_str);
-  }else{
+  } else {
     return print_application_id0(kafka_line_buffer,buffer,real_field_len);
   }
 }
@@ -1062,10 +1070,9 @@ size_t print_application_id_name(struct printbuf *kafka_line_buffer,
     const void *vbuffer,const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flowCache){
   const char *buffer = vbuffer;
-  assert_multi(kafka_line_buffer, buffer);
-  unused_params(flowCache);
+  assert_multi(kafka_line_buffer, buffer, flowCache);
   return print_application_id_name0(kafka_line_buffer,
-    buffer + real_field_offset, real_field_len);
+    buffer + real_field_offset, real_field_len, flowCache->observation_id);
 }
 
 static size_t print_port0(struct printbuf *kafka_line_buffer,const uint16_t port){

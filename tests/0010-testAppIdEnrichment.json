@@ -1,0 +1,21 @@
+{
+	"sensors_networks": {
+		"4.3.2.1":{
+			"observations_id": {
+				"1": {
+					"enrichment": {
+						"sensor_ip":"4.3.2.1",
+						"sensor_name": "FlowTest"
+					}
+				}, "2": {
+					"enrichment": {
+						"sensor_ip":"4.3.2.1",
+						"sensor_name": "FlowTest"
+					}
+				}, "default": {
+
+				}
+			}
+		}
+	}
+}

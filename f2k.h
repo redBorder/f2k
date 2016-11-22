@@ -131,8 +131,8 @@ typedef struct flow_ver9_ipfix_simple_template {
   uint32_t netflow_device_ip, observation_domain_id;
   /* V9TemplateDef */
   uint16_t templateId;
-  uint16_t fieldCount, scopeFieldCount, v9ScopeLen;
-  uint8_t isOptionTemplate;
+  uint16_t fieldCount, scope_field_len;
+  bool is_option_template;
 } V9IpfixSimpleTemplate;
 
 typedef struct flowSetV9Ipfix {
