@@ -22,13 +22,13 @@
 
 /* *************************** */
 
-#include "rb_listener.h"
-#include "config.h"
-#include "netflow.h"
-
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+
+#include "rb_listener.h"
+#include "config.h"
+#include "netflow.h"
 
 /* See http://www.redhat.com/magazine/009jul05/features/execshield/ */
 #ifndef _FORTIFY_SOURCE

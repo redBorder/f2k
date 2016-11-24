@@ -1539,14 +1539,16 @@ size_t print_http_host(struct printbuf *kafka_line_buffer,
 }
 
 size_t print_http_host_l1(struct printbuf *kafka_line_buffer,
-                          const void *buffer, const size_t real_field_len,
+                          const void *vbuffer, const size_t real_field_len,
                           const size_t real_field_offset,
                           struct flowCache *flowCache) {
 
+  (void)flowCache;
   static const uint8_t http_host_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x02};
-  char *pos = NULL;
+  const char *buffer = vbuffer;
+  const char *pos = NULL;
 
-  if(real_field_len <= sizeof(http_host_id)) {
+  if (real_field_len <= sizeof(http_host_id)) {
     return 0;
   }
 
@@ -1555,7 +1557,7 @@ size_t print_http_host_l1(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  char *host_name = (char *)buffer + real_field_offset + sizeof(http_host_id);
+  const char *host_name = buffer + real_field_offset + sizeof(http_host_id);
 
   if (NULL == (pos = memrchr(host_name, '.', real_field_len))) {
     return 0;
@@ -1568,16 +1570,18 @@ size_t print_http_host_l1(struct printbuf *kafka_line_buffer,
 }
 
 size_t print_http_host_l2(struct printbuf *kafka_line_buffer,
-                          const void *buffer, const size_t real_field_len,
+                          const void *vbuffer, const size_t real_field_len,
                           const size_t real_field_offset,
                           struct flowCache *flowCache) {
 
+  (void)flowCache;
   static const uint8_t http_host_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x02};
-  char *pos_first = NULL;
-  char *pos_last = NULL;
+  const char *buffer = vbuffer;
+  const char *pos_first = NULL;
+  const char *pos_last = NULL;
 
   if (real_field_len <= sizeof(http_host_id)) {
-    return 0; 
+    return 0;
   }
 
   if (0 !=
@@ -1585,7 +1589,7 @@ size_t print_http_host_l2(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  char *host_name = (char *)(buffer + real_field_offset + sizeof(http_host_id));
+  const char *host_name = buffer + real_field_offset + sizeof(http_host_id);
 
   if (NULL == (pos_first = memrchr(host_name, '.', real_field_len))) {
     return 0;

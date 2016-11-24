@@ -136,10 +136,6 @@ const char *searchNameAssociatedInTree(NumNameAssocTree *tree,uint64_t searched_
 		.magic = NUMNAMEASSOCNODE_MAGIC,
 #endif
 		.number = searched_number,
-		.string = NULL,
-
-		/* private */
-		.avl_node ={{0}}
 	};
 
 	const int wrlock_rc = pthread_rwlock_rdlock(&tree->lock);

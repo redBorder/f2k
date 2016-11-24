@@ -193,7 +193,6 @@ static struct sensor_port_tree_node dummy_sensor_port(const uint16_t port_to_sea
     .magic=SENSOR_PORT_TREE_NODE_MAGIC,
 #endif
     .port = port_to_search,
-    .avl_node = {{0}}
   };
   return dummy_sensor_port_tree_node;
 }
@@ -237,14 +236,6 @@ static const struct network_tree_node *network_node(struct sensor *sensor,
 #ifdef NETWORK_TREE_NODE_MAGIC
     .magic = NETWORK_TREE_NODE_MAGIC,
 #endif
-    .avl_node = {{0}},
-    .netAddress = {
-    //  .network,
-    //  .networkMask,
-    //  .broadcast,
-    },
-    .name = NULL,
-    .addres_as_str = NULL,
   };
 
   /* @TODO
@@ -342,10 +333,7 @@ static struct bad_sensor *find_bad_sensor(uint64_t ip,struct rb_sensors_db *db)
 #ifdef SENSOR_NETWORK_MAGIC
     .magic = SENSOR_NETWORK_MAGIC,
 #endif
-
     .ip = ip,
-
-    .avl_node = {{0}}
   };
 
   return RD_AVL_FIND(&db->bad_sensors.avl,&proposed_sensor);
