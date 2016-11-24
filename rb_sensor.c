@@ -80,23 +80,68 @@ static int compare_networks(const void *_network1,const void *_network2){
 
 /* ******** */
 
-struct application_id {
+/// Name and description of an id (application id -> application name, for
+/// example)
+struct id_name_description_assoc {
 #ifndef NDEBUG
 #define APPLICATION_ID_MAGIC 0xA1CA101DA1CA1CA1
-  uint64_t magic;
+#define SELECTOR_ID_MAGIC    0x3EC01DA1C3EC01DA
+  uint64_t magic; ///< Magic to assert coherency
+#else
+#define APPLICATION_ID_MAGIC 0
+#define SELECTOR_ID_MAGIC    0
 #endif
-  uint64_t id;
-  char *name;
-  rd_avl_node_t avl_node;
+  uint64_t id; ///< Identification
+  char *name; ///< id name
+  char *description; ///< Id description
+  rd_avl_node_t avl_node; ///< AVL node
 };
 
-#define assert_application_id(x) assert(APPLICATION_ID_MAGIC == x->magic);
+/// Typedef to maintain coherency
+typedef struct id_name_description_assoc application_id_t;
 
-static int application_id_cmp(const void *vaid1, const void *vaid2) {
-  const struct application_id *aid1 = vaid1, *aid2 = vaid2;
-  assert_application_id(aid1);
-  assert_application_id(aid2);
-  return aid1->id - aid2->id;
+/**
+ * Compare two (id, name, description) ids
+ * @param  vnode1 Node 1
+ * @param  vnode2 Node 2
+ * @param  magic  Magic (if NDEBUG, the parameter is ignored)
+ * @return        node2->id - node1->id
+ */
+static int name_id_description_cmp(const void *vnode1, const void *vnode2,
+    uint64_t magic) {
+  const struct id_name_description_assoc *node1 = vnode1;
+  const struct id_name_description_assoc *node2 = vnode2;
+
+#ifdef NDEBUG
+  (void)magic;
+#endif
+
+  assert(node1);
+  assert(node2);
+  assert(node1->magic == magic);
+  assert(node2->magic == magic);
+
+  return node2->id - node1->id;
+}
+
+/**
+ * Compare two application id node
+ * @param  aid1 Application id 1
+ * @param  aid2 Application id 2
+ * @return      app_id->id name_id_description_cmp
+ */
+static int application_id_cmp(const void *aid1, const void *aid2) {
+  return name_id_description_cmp(aid1, aid2, APPLICATION_ID_MAGIC);
+}
+
+/**
+ * Compare two selector id
+ * @param  aid1 Application id 1
+ * @param  aid2 Application id 2
+ * @return      app_id->id name_id_description_cmp
+ */
+static int selector_id_cmp(const void *sid1, const void *sid2) {
+  return name_id_description_cmp(sid1, sid2, APPLICATION_ID_MAGIC);
 }
 
 /* ******** */
@@ -135,6 +180,7 @@ struct observation_id_s {
   rd_avl_t routers_macs;
   rd_avl_t home_networks;
   rd_avl_t applications;
+  rd_avl_t selectors;
   rd_memctx_t memctx;
   char *enrichment;
   bool span_mode;
@@ -210,82 +256,190 @@ static int observation_id_cmp(const void *vobs_id1, const void *vobs_id2) {
   return observation_id1->observation_id - observation_id2->observation_id;
 }
 
-static struct application_id *find_application_id(
-    observation_id_t *observation_id, uint64_t application_id) {
-  struct application_id dummy = {
-#ifdef APPLICATION_ID_MAGIC
-    .magic = APPLICATION_ID_MAGIC,
+/** Find a (id, name, description) tuple
+ * @param  avl   AVL to find tuple
+ * @param  id    Description id
+ * @param  magic Expected magic (if !NDEBUG is ignored)
+ * @return       Found node
+ */
+static struct id_name_description_assoc *find_id_description_assoc(
+    rd_avl_t *avl, uint64_t id, uint64_t magic) {
+
+#ifdef NDEBUG
+  (void)magic;
 #endif
-    .id = application_id,
+
+  const struct id_name_description_assoc dummy = {
+#ifndef NDEBUG
+    .magic = magic,
+#endif
+    .id = id,
   };
 
-  return RD_AVL_FIND(&observation_id->applications, &dummy);
+  return RD_AVL_FIND(avl, &dummy);
+}
+
+/** Check if string is equal, checking if old string exists
+ * @param  old     Old string
+ * @param  new     New string
+ * @param  new_len New string length
+ * @return         true if equal, false in other case
+ */
+static bool string_equal(const char *old, const char *new, size_t new_len) {
+  // We have a new string and it's different than old
+  return !(new && new_len > 0 && (!old || strncmp(new, old, new_len)));
+}
+
+/** Update an id_name_description_assoc string if needed
+ * @param memctx   Allocation memory context
+ * @param old      Old string
+ * @param new      New string
+ * @param new_size New string length
+ * @return         True if all ok, false if allocation fails
+ */
+static bool id_name_description_update_string(rd_memctx_t *memctx,
+    char **old, const char *new, const size_t new_len,
+    const char *memory_error_msg, const char *memory_error_field) {
+  assert(old);
+
+  if (unlikely(!string_equal(*old, new, new_len))) {
+    if (*old) {
+      rd_memctx_free(memctx, *old);
+    }
+
+    *old = rd_memctx_malloc(memctx, new_len + 1);
+    if (unlikely(NULL == *old)) {
+      traceEvent(TRACE_ERROR, "Couldn't allocate %s %s", memory_error_msg,
+        memory_error_field);
+      return false;
+    }
+
+    memcpy(*old, new, new_len);
+    (*old)[new_len] = '\0';
+  }
+
+  return true;
+}
+
+/** Add a (id, name, description) node to an AVL
+ * @param avl              AVL
+ * @param memctx           Allocations memory context
+ * @param id               Tuple ID
+ * @param name             Tuple name
+ * @param name_len         Tuple name length
+ * @param description      Tuple description
+ * @param description_len  Tuple description length
+ * @param memory_error_msg Kind of node (for error shows purposes)
+ * @param magic            Magic to assert coherency, ignored if !NDEBUG
+ */
+static void add_id_name_description(rd_avl_t *avl, rd_memctx_t *memctx,
+    uint64_t id, const char *name, size_t name_len,
+    const char *description, size_t description_len,
+    const char *memory_error_msg, uint64_t magic) {
+  assert(avl);
+
+  struct id_name_description_assoc *current = find_id_description_assoc(avl, id,
+    magic);
+
+  const bool node_in_avl = current;
+  if (unlikely(!node_in_avl)) {
+    current = rd_memctx_calloc(memctx, 1, sizeof(*current));
+    if (unlikely(NULL == current)) {
+      traceEvent(TRACE_ERROR, "Couldn't allocate %s node", memory_error_msg);
+      goto err;
+    }
+
+#ifndef NDEBUG
+    current->magic = magic;
+#else
+    (void)magic;
+#endif
+    current->id = id;
+  }
+
+  const bool name_rc = id_name_description_update_string(memctx, &current->name,
+    name, name_len, memory_error_msg, "name");
+  if (unlikely(!name_rc)) {
+    goto err;
+  }
+
+  const bool description_rc = id_name_description_update_string(memctx,
+    &current->description, description, description_len, memory_error_msg,
+    "description");
+  if (unlikely(!description_rc)) {
+    goto err;
+  }
+
+  if (unlikely(!node_in_avl)) {
+    RD_AVL_INSERT(avl, current, avl_node);
+  }
+
+  return;
+
+err:
+  if (current) {
+    if (node_in_avl) {
+      RD_AVL_REMOVE_ELM(avl, current);
+    }
+
+    if (current->name) {
+      rd_memctx_free(memctx, current->name);
+    }
+
+    if (current->description) {
+      rd_memctx_free(memctx, current->description);
+    }
+
+    rd_memctx_free(memctx, current);
+  }
 }
 
 void observation_id_add_application_id(observation_id_t *observation_id,
     uint64_t application_id, const char *application_name,
     size_t application_name_len) {
-  assert(application_name);
-  assert(application_name_len > 0);
 
-  struct application_id *current_application_id = find_application_id(
-    observation_id, application_id);
-  if (!current_application_id) {
-    /* Unknown application id */
-    struct application_id *new_application_id = rd_memctx_calloc(
-      &observation_id->memctx, 1, sizeof(*new_application_id));
-    if (unlikely(NULL == new_application_id)) {
-      traceEvent(TRACE_ERROR, "Couldn't allocate new application id %"PRIu64,
-        application_id);
-      return;
-    }
+  assert(observation_id);
 
-    new_application_id->name = rd_memctx_malloc(&observation_id->memctx,
-      application_name_len + 1);
-    if (likely(new_application_id->name)) {
-      memcpy(new_application_id->name, application_name, application_name_len);
-      new_application_id->name[application_name_len] = '\0';
-    } else {
-      traceEvent(TRACE_ERROR, "Couldn't allocate new application id %"PRIu64,
-        application_id);
-      free(new_application_id);
-      return;
+  add_id_name_description(&observation_id->applications,
+    &observation_id->memctx, application_id, application_name,
+    application_name_len, NULL, 0, "APPLICATION_ID", APPLICATION_ID_MAGIC);
+}
 
-    }
+void observation_id_add_selector_id(observation_id_t *observation_id,
+    uint64_t selector_id, const char *selector_name,
+    size_t selector_name_len) {
 
-#ifdef APPLICATION_ID_MAGIC
-    new_application_id->magic = APPLICATION_ID_MAGIC;
-#endif
-    new_application_id->id = application_id;
-    RD_AVL_INSERT(&observation_id->applications, new_application_id, avl_node);
-  } else if (current_application_id &&
-      strncmp(current_application_id->name, application_name,
-        application_name_len)) {
-    /* Update application id name */
-    free(current_application_id->name);
-    current_application_id->name = rd_memctx_malloc(&observation_id->memctx,
-    application_name_len + 1);
-    if (likely(current_application_id->name)) {
-      memcpy(current_application_id->name, application_name, application_name_len);
-      current_application_id->name[application_name_len] = '\0';
-    } else {
-      traceEvent(TRACE_ERROR, "Couldn't allocate new application id %"PRIu64,
-        application_id);
-      RD_AVL_REMOVE_ELM(&observation_id->applications, current_application_id);
-      free(current_application_id);
-      return;
-    }
-  }
+  assert(observation_id);
 
-  /* else => No need to update application id */
+  add_id_name_description(&observation_id->selectors,
+    &observation_id->memctx, selector_id, selector_name,
+    selector_name_len, NULL, 0, "SELECTOR_ID", SELECTOR_ID_MAGIC);
+}
+
+/**
+ * Name of a (id, name, description) record
+ * @param  avl   AVL to search record
+ * @param  id    Record id
+ * @param  magic Magic to assert coherency (ignored if !NDEBUG)
+ * @return       Tuple name
+ */
+static const char *id_name_description_assoc_name(rd_avl_t *avl, uint64_t id,
+    uint64_t magic) {
+  struct id_name_description_assoc *assoc = find_id_description_assoc(avl, id,
+    magic);
+  return assoc ? assoc->name : NULL;
 }
 
 const char *observation_id_application_name(observation_id_t *observation_id,
     uint64_t application_id) {
-  struct application_id *application_id_node = find_application_id(
-    observation_id, application_id);
+  return id_name_description_assoc_name(&observation_id->applications,
+    application_id, APPLICATION_ID_MAGIC);
+}
 
-  return application_id_node ? application_id_node->name : NULL;
+const char *observation_id_selector_name(observation_id_t *observation_id,
+    uint64_t selector_id) {
+  return id_name_description_assoc_name(&observation_id->selectors,
+    selector_id, SELECTOR_ID_MAGIC);
 }
 
 static bool observation_id_add_home_net(observation_id_t *observation_id,
@@ -568,6 +722,7 @@ static observation_id_t *observation_id_new(uint32_t observation_id,
   rd_avl_init(&ret->home_networks, compare_networks, 0);
   rd_avl_init(&ret->routers_macs, compare_mac_address_node, 0);
   rd_avl_init(&ret->applications, application_id_cmp, 0);
+  rd_avl_init(&ret->selectors, selector_id_cmp, 0);
 
   rd_memctx_init(&ret->memctx, NULL, RD_MEMCTX_F_TRACK);
   ret->refcnt.value = 1;

@@ -228,14 +228,14 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, OBSERVATION_POINT_TYPE, 277, DONT_QUOTE_OUTPUT, "OBSERVATION_POINT_TYPE", "observation_point_type", "<reserved>", "Observation point type",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, TRANSACTION_ID, 280, DONT_QUOTE_OUTPUT, "TRANSACTION_ID", "transaction_id", "<reserved>", "Transaction id", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, OBSERVATION_POINT_ID, 300, DONT_QUOTE_OUTPUT, "OBSERVATION_POINT_ID", "observation_point_id", "<reserved>", "Observation point id",NO_FN,NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, SELECTOR_ID, 302, DONT_QUOTE_OUTPUT, "SELECTOR_ID", "selector_id", "<reserved>", "Selector id",NO_FN,NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, SELECTOR_ID, 302, DONT_QUOTE_OUTPUT, "SELECTOR_ID", "selector_id", "<reserved>", "Selector id", print_number, SELECTOR_NAME)\
 	X(STANDARD_ENTERPRISE_ID, IPFIX_SAMPLING_ALGORITHM, 304, DONT_QUOTE_OUTPUT, "IPFIX_SAMPLING_ALGORITHM", "ipfix_sampling_algorithm", "<reserved>", "Sampling algorithm",NO_FN,NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, SAMPLING_SIZE, 309, DONT_QUOTE_OUTPUT, "SAMPLING_SIZE", "sampling_size", "<reserved>", "Number of packets to sample",NO_FN,NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, SAMPLING_POPULATION, 310, DONT_QUOTE_OUTPUT, "SAMPLING_POPULATION", "sampling_population", "<reserved>", "Sampling population",NO_FN,NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, FRAME_LENGTH, 312, DONT_QUOTE_OUTPUT, "FRAME_LENGTH", "frame_length", "<reserved>", "Original L2 frame length",NO_FN,NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, PACKETS_OBSERVED, 318, DONT_QUOTE_OUTPUT, "PACKETS_OBSERVED", "packets_observed", "<reserved>", "Tot number of packets seen",NO_FN,NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, PACKETS_SELECTED, 319, DONT_QUOTE_OUTPUT, "PACKETS_SELECTED", "packets_selected", "<reserved>", "Number of pkts selected for sampling",NO_FN,NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, SELECTOR_NAME, 335, DONT_QUOTE_OUTPUT, "SELECTOR_NAME", "selector_name", "<reserved>", "Sampler name",NO_FN,NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, SELECTOR_NAME, 335, QUOTE_OUTPUT, "SELECTOR_NAME", "selector_name", "<reserved>", "Sampler name", print_selector_name ,NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, USERNAME, 371, QUOTE_OUTPUT, "USERNAME", "user", "User Name", "User name", print_string, NO_CHILDS)\
 	X(NTOP_ENTERPRISE_ID, FRAGMENTS, NTOP_BASE_ID+80, DONT_QUOTE_OUTPUT, "FRAGMENTS", "fragments", "", "Number of fragmented flow packets",NO_FN,NO_CHILDS)\
 	X(NTOP_ENTERPRISE_ID, CLIENT_NW_DELAY_SEC, NTOP_BASE_ID+82, DONT_QUOTE_OUTPUT, "CLIENT_NW_DELAY_SEC", "client_nw_delay_sec", "", "Network latency client <-> nprobe (sec) [deprecated]",NO_FN,NO_CHILDS)\

@@ -76,11 +76,45 @@ bool observation_id_has_router_mac(observation_id_t *obs_id,const uint64_t mac);
 bool observation_id_want_client_dns(const observation_id_t *observation_id);
 bool observation_id_want_target_dns(const observation_id_t *observation_id);
 #endif
+
+/**
+ * Add an (application id, application name) tuple to observation id
+ * @param observation_id       Observation id
+ * @param application_id       Application id
+ * @param application_name     Application name
+ * @param application_name_len Application name length
+ */
 void observation_id_add_application_id(observation_id_t *observation_id,
   uint64_t application_id, const char *application_name,
   size_t application_name_len);
+
+/**
+ * Find name of a previously saved application id
+ * @param  observation_id Observation id
+ * @param  application_id Application id
+ * @return                Found name, NULL in other case
+ */
 const char *observation_id_application_name(observation_id_t *observation_id,
   uint64_t application_id);
+
+/** Add a (selector id, selector name) tuple to observation id
+ * @param observation_id    Observation id
+ * @param selector_id       Selector id
+ * @param selector_name     Selector name
+ * @param selector_name_len Selector name length
+ */
+void observation_id_add_selector_id(observation_id_t *observation_id,
+  uint64_t selector_id, const char *selector_name,
+  size_t selector_name_len);
+
+/**
+ * Get a selector name stored on an observation id from a selector id
+ * @param  observation_id Observation id
+ * @param  selector_id    Selector id
+ * @return                Selector name if found, NULL in other case
+ */
+const char *observation_id_selector_name(observation_id_t *observation_id,
+  uint64_t selector_id);
 
 int64_t observation_id_fallback_first_switch(const observation_id_t *obs_id);
 

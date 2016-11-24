@@ -1493,12 +1493,10 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
 static size_t dissect_nf9_option_flow(observation_id_t *observation_id,
     const FlowSetV9Ipfix *template, const struct sized_buffer *sbuffer) {
   /* fields searched */
-  struct  {
-    struct {
-      uint64_t application_id;
-      struct sized_buffer application_name;
-    } app_id;
-  } searched = {};
+  struct id_name_description {
+    uint64_t id;
+    struct sized_buffer name;
+  } app = {}, selector = {};
   size_t cursor = 0;
   const uint8_t *buffer = sbuffer->buffer;
   const size_t buffer_size = sbuffer->size;
@@ -1506,8 +1504,7 @@ static size_t dissect_nf9_option_flow(observation_id_t *observation_id,
 
   size_t template_idx = 0;
   for (template_idx = 0; template_idx < template_fields; ++template_idx) {
-    const V9V10TemplateField *field =
-      &template->fields[template_idx];
+    const V9V10TemplateField *field = &template->fields[template_idx];
     const uint16_t field_id = field->fieldId;
     const uint16_t field_len = field->fieldLen;
 
@@ -1517,12 +1514,18 @@ static size_t dissect_nf9_option_flow(observation_id_t *observation_id,
 
     switch(field_id) {
     case APPLICATION_ID:
-      searched.app_id.application_id = net2number(buffer + cursor, field_len);
+      app.id = net2number(buffer + cursor, field_len);
       break;
     case APPLICATION_NAME:
-      searched.app_id.application_name.buffer = buffer + cursor;
-      searched.app_id.application_name.size = field_len;
+      app.name.buffer = buffer + cursor;
+      app.name.size = field_len;
       break;
+    case SELECTOR_ID:
+      selector.id = net2number(buffer + cursor, field_len);
+      break;
+    case SELECTOR_NAME:
+      selector.name.buffer = buffer + cursor;
+      selector.name.size = field_len;
     default:
       break;
     };
@@ -1530,11 +1533,14 @@ static size_t dissect_nf9_option_flow(observation_id_t *observation_id,
     cursor += field_len;
   }
 
-  if (searched.app_id.application_id && searched.app_id.application_name.buffer
-    && searched.app_id.application_name.size > 0) {
-    observation_id_add_application_id(observation_id,
-      searched.app_id.application_id, searched.app_id.application_name.buffer,
-      searched.app_id.application_name.size);
+  if (app.id && app.name.buffer && app.name.size > 0) {
+    observation_id_add_application_id(observation_id, app.id, app.name.buffer,
+      app.name.size);
+  }
+
+  if (selector.id && (selector.name.buffer && selector.name.size > 0)) {
+    observation_id_add_selector_id(observation_id, selector.id,
+      selector.name.buffer, selector.name.size);
   }
 
   return cursor;

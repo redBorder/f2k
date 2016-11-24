@@ -2073,3 +2073,20 @@ struct string_list *rb_separate_long_time_flow(
 
   return kafka_buffers_list;
 }
+
+size_t print_selector_name(struct printbuf *kafka_line_buffer,
+    const void *vbuffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache) {
+  const uint8_t *buffer = vbuffer;
+  assert_multi(kafka_line_buffer, buffer, flowCache);
+  unused_params(buffer, real_field_len, real_field_offset);
+
+  const uint64_t selector_id = net2number(buffer + real_field_offset,
+    real_field_len);
+
+  const char *selector_name = observation_id_selector_name(
+    flowCache->observation_id, selector_id);
+
+  return selector_name ?
+    printbuf_memappend_fast_string(kafka_line_buffer, selector_name) : 0;
+}

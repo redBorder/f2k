@@ -292,6 +292,10 @@ size_t print_country6_code(struct printbuf *kafka_line_buffer,
   const void *buffer, const size_t real_field_len,
   const size_t real_field_len_offset,struct flowCache *flowCache);
 
+size_t print_selector_name(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache);
+
 size_t print_sensor_enrichment(struct printbuf *kafka_line_buffer,
     const struct flowCache *flowCache);
 
