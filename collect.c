@@ -1496,7 +1496,7 @@ static size_t dissect_nf9_option_flow(observation_id_t *observation_id,
   struct id_name_description {
     uint64_t id;
     struct sized_buffer name;
-  } app = {}, selector = {};
+  } app = {}, selector = {}, snmp = {}, snmp_description = {};
   size_t cursor = 0;
   const uint8_t *buffer = sbuffer->buffer;
   const size_t buffer_size = sbuffer->size;
@@ -1512,7 +1512,7 @@ static size_t dissect_nf9_option_flow(observation_id_t *observation_id,
       break;
     }
 
-    switch(field_id) {
+    switch (field_id) {
     case APPLICATION_ID:
       app.id = net2number(buffer + cursor, field_len);
       break;
@@ -1520,12 +1520,27 @@ static size_t dissect_nf9_option_flow(observation_id_t *observation_id,
       app.name.buffer = buffer + cursor;
       app.name.size = field_len;
       break;
+
     case SELECTOR_ID:
       selector.id = net2number(buffer + cursor, field_len);
       break;
     case SELECTOR_NAME:
       selector.name.buffer = buffer + cursor;
       selector.name.size = field_len;
+      break;
+
+    case INPUT_SNMP:
+      snmp.id = net2number(buffer + cursor, field_len);
+      break;
+    case IF_NAME:
+      snmp.name.buffer = buffer + cursor;
+      snmp.name.size = field_len;
+      break;
+    case IF_DESCRIPTION:
+      snmp_description.name.buffer = buffer + cursor;
+      snmp_description.name.size = field_len;
+      break;
+
     default:
       break;
     };
@@ -1541,6 +1556,13 @@ static size_t dissect_nf9_option_flow(observation_id_t *observation_id,
   if (selector.id && (selector.name.buffer && selector.name.size > 0)) {
     observation_id_add_selector_id(observation_id, selector.id,
       selector.name.buffer, selector.name.size);
+  }
+
+  if (snmp.id && ((snmp.name.buffer && snmp.name.size > 0) ||
+      (snmp.name.buffer && snmp.name.size > 0))) {
+    observation_id_add_interface(observation_id, snmp.id,
+      snmp.name.buffer, snmp.name.size,
+      snmp_description.name.buffer, snmp_description.name.size);
   }
 
   return cursor;

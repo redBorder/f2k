@@ -1035,7 +1035,7 @@ static size_t print_application_id_name0(struct printbuf *kafka_line_buffer,
   const char *appid_str = observation_id_application_name(observation_id,
     appid);
 
-  if (!appid_str) {
+  if (!appid_str && readOnlyGlobals.rb_databases.apps_name_as_list) {
     // Search in default db
     appid_str = searchNameAssociatedInTree(
       readOnlyGlobals.rb_databases.apps_name_as_list, appid, NULL, 0);
@@ -2132,19 +2132,42 @@ struct string_list *rb_separate_long_time_flow(
   return kafka_buffers_list;
 }
 
-size_t print_selector_name(struct printbuf *kafka_line_buffer,
+static size_t print_observation_id_attribute(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    const size_t real_field_offset, struct flowCache *flowCache,
+    const char *(*observation_id_get_attribute_cb)(observation_id_t *,
+      uint64_t attribute_id)) {
   const uint8_t *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer, flowCache);
   unused_params(buffer, real_field_len, real_field_offset);
 
-  const uint64_t selector_id = net2number(buffer + real_field_offset,
+  const uint64_t attribute_id = net2number(buffer + real_field_offset,
     real_field_len);
 
-  const char *selector_name = observation_id_selector_name(
-    flowCache->observation_id, selector_id);
+  const char *attribute_str = observation_id_get_attribute_cb(
+    flowCache->observation_id, attribute_id);
 
-  return selector_name ?
-    printbuf_memappend_fast_string(kafka_line_buffer, selector_name) : 0;
+  return attribute_str ?
+    printbuf_memappend_fast_string(kafka_line_buffer, attribute_str) : 0;
+}
+
+size_t print_selector_name(struct printbuf *kafka_line_buffer,
+    const void *vbuffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache) {
+  return print_observation_id_attribute(kafka_line_buffer, vbuffer, real_field_len,
+    real_field_offset, flowCache, observation_id_selector_name);
+}
+
+size_t print_interface_name(struct printbuf *kafka_line_buffer,
+    const void *vbuffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache) {
+  return print_observation_id_attribute(kafka_line_buffer, vbuffer, real_field_len,
+    real_field_offset, flowCache, observation_id_interface_name);
+}
+
+size_t print_interface_description(struct printbuf *kafka_line_buffer,
+    const void *vbuffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache) {
+  return print_observation_id_attribute(kafka_line_buffer, vbuffer, real_field_len,
+    real_field_offset, flowCache, observation_id_interface_description);
 }

@@ -86,10 +86,12 @@ struct id_name_description_assoc {
 #ifndef NDEBUG
 #define APPLICATION_ID_MAGIC 0xA1CA101DA1CA1CA1
 #define SELECTOR_ID_MAGIC    0x3EC01DA1C3EC01DA
+#define INTERFACE_ID_MAGIC   0x13AE1DA1C13AE1DA
   uint64_t magic; ///< Magic to assert coherency
 #else
 #define APPLICATION_ID_MAGIC 0
 #define SELECTOR_ID_MAGIC    0
+#define INTERFACE_ID_MAGIC   0
 #endif
   uint64_t id; ///< Identification
   char *name; ///< id name
@@ -144,6 +146,16 @@ static int selector_id_cmp(const void *sid1, const void *sid2) {
   return name_id_description_cmp(sid1, sid2, APPLICATION_ID_MAGIC);
 }
 
+/**
+ * Compare two interfaces id
+ * @param  aid1 Application id 1
+ * @param  aid2 Application id 2
+ * @return      app_id->id name_id_description_cmp
+ */
+static int interface_id_cmp(const void *iid1, const void *iid2) {
+  return name_id_description_cmp(iid1, iid2, INTERFACE_ID_MAGIC);
+}
+
 /* ******** */
 
 #define MAC_ADDRESS_TREE_NODE_MAGIC 0xACADDE55EE0EA1C
@@ -181,6 +193,7 @@ struct observation_id_s {
   rd_avl_t home_networks;
   rd_avl_t applications;
   rd_avl_t selectors;
+  rd_avl_t interfaces;
   rd_memctx_t memctx;
   char *enrichment;
   bool span_mode;
@@ -416,6 +429,19 @@ void observation_id_add_selector_id(observation_id_t *observation_id,
     selector_name_len, NULL, 0, "SELECTOR_ID", SELECTOR_ID_MAGIC);
 }
 
+void observation_id_add_interface(observation_id_t *observation_id,
+    uint64_t interface_id, const char *interface_name,
+    size_t interface_name_len, const char *interface_description,
+    size_t interface_description_len) {
+
+  assert(observation_id);
+
+  add_id_name_description(&observation_id->interfaces,
+    &observation_id->memctx, interface_id, interface_name,
+    interface_name_len, interface_description, interface_description_len,
+    "INTERFACE_ID", INTERFACE_ID_MAGIC);
+}
+
 /**
  * Name of a (id, name, description) record
  * @param  avl   AVL to search record
@@ -430,6 +456,20 @@ static const char *id_name_description_assoc_name(rd_avl_t *avl, uint64_t id,
   return assoc ? assoc->name : NULL;
 }
 
+/**
+ * Description of a (id, name, description) record
+ * @param  avl   AVL to search record
+ * @param  id    Record id
+ * @param  magic Magic to assert coherency (ignored if !NDEBUG)
+ * @return       Tuple name
+ */
+static const char *id_name_description_assoc_description(rd_avl_t *avl,
+  uint64_t id, uint64_t magic) {
+  struct id_name_description_assoc *assoc = find_id_description_assoc(avl, id,
+    magic);
+  return assoc ? assoc->description : NULL;
+}
+
 const char *observation_id_application_name(observation_id_t *observation_id,
     uint64_t application_id) {
   return id_name_description_assoc_name(&observation_id->applications,
@@ -440,6 +480,18 @@ const char *observation_id_selector_name(observation_id_t *observation_id,
     uint64_t selector_id) {
   return id_name_description_assoc_name(&observation_id->selectors,
     selector_id, SELECTOR_ID_MAGIC);
+}
+
+const char *observation_id_interface_name(observation_id_t *observation_id,
+    uint64_t interface_id) {
+  return id_name_description_assoc_name(&observation_id->interfaces,
+    interface_id, INTERFACE_ID_MAGIC);
+}
+
+const char *observation_id_interface_description(
+  observation_id_t *observation_id, uint64_t interface_id) {
+  return id_name_description_assoc_description(&observation_id->interfaces,
+    interface_id, INTERFACE_ID_MAGIC);
 }
 
 static bool observation_id_add_home_net(observation_id_t *observation_id,
@@ -723,6 +775,7 @@ static observation_id_t *observation_id_new(uint32_t observation_id,
   rd_avl_init(&ret->routers_macs, compare_mac_address_node, 0);
   rd_avl_init(&ret->applications, application_id_cmp, 0);
   rd_avl_init(&ret->selectors, selector_id_cmp, 0);
+  rd_avl_init(&ret->interfaces, interface_id_cmp, 0);
 
   rd_memctx_init(&ret->memctx, NULL, RD_MEMCTX_F_TRACK);
   ret->refcnt.value = 1;

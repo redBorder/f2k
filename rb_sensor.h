@@ -116,6 +116,38 @@ void observation_id_add_selector_id(observation_id_t *observation_id,
 const char *observation_id_selector_name(observation_id_t *observation_id,
   uint64_t selector_id);
 
+/** Add a (interface id, interface name) tuple to observation id
+ * @param observation_id    Observation id
+ * @param interface_id       interface id
+ * @param interface_name     interface name
+ * @param interface_name_len interface name length
+ * @param interface_desc     interface description
+ * @param interface_desc_len interface description length
+ */
+void observation_id_add_interface(observation_id_t *observation_id,
+  uint64_t interface_id, const char *interface_name,
+  size_t interface_name_len, const char *interface_description,
+  size_t interface_description_len);
+
+/**
+ * Get a interface name stored on an observation id from a interface id
+ * @param  observation_id Observation id
+ * @param  interface_id   Interface id
+ * @return                Interface name if found, NULL in other case
+ */
+const char *observation_id_interface_name(observation_id_t *observation_id,
+  uint64_t interface_id);
+
+/**
+ * Get a interface description stored on an observation id from a interface id
+ * @param  observation_id Observation id
+ * @param  interface_id   Interface id
+ * @return                Interface description if found, NULL in other case
+ */
+const char *observation_id_interface_description(
+  observation_id_t *observation_id, uint64_t interface_id);
+
+
 int64_t observation_id_fallback_first_switch(const observation_id_t *obs_id);
 
 observation_id_t *get_sensor_observation_id(struct sensor *, uint32_t obs_id);

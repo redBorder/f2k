@@ -119,7 +119,9 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_NET_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_SRC_NET_NAME", "src_net_name", "sourceIPv4NetName", "IPv4 source net name",print_net_name, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_NET, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_SRC_NET", "src_net", "sourceIPv4Net", "IPv4 source net name",print_net,C(IPV4_SRC_NET_NAME))\
 	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_MASK, 9, QUOTE_OUTPUT, "IPV4_SRC_MASK", "ipv4_src_mask", "sourceIPv4PrefixLength", "IPv4 source subnet mask (/<bits>)", NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, INPUT_SNMP, 10, DONT_QUOTE_OUTPUT, "INPUT_SNMP", "input_snmp", "ingressInterface", "Input interface SNMP idx",print_number, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, INPUT_SNMP, 10, DONT_QUOTE_OUTPUT, "INPUT_SNMP", "input_snmp", "ingressInterface", "Input interface SNMP idx",print_number, C(INPUT_SNMP_NAME, INPUT_SNMP_DESCRIPTION))\
+	X(STANDARD_ENTERPRISE_ID, INPUT_SNMP_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "INPUT_SNMP_NAME", "input_snmp_name", "ingressInterfaceName", "Input interface SNMP name",print_interface_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, INPUT_SNMP_DESCRIPTION, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "INPUT_SNMP_DESCRIPTION", "input_snmp_description", "ingressInterfaceDescription", "Input interface SNMP description",print_interface_description, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, L4_DST_PORT, 11, DONT_QUOTE_OUTPUT, "L4_DST_PORT", "dst_port", "destinationTransportPort", "IPv4 destination port",print_dst_port,C(L4_SRV_PORT))\
 	X(STANDARD_ENTERPRISE_ID, L4_DST_PORT_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "L4_DST_PORT_MAP", "dst_port_name", "", "Layer 4 destination port symbolic name", NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, L4_SRV_PORT, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "L4_SRV_PORT", "srv_port", "", "Layer 4 server port", print_srv_port, NO_CHILDS)\
@@ -131,7 +133,9 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, IPV4_DST_NET_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_DST_NET_NAME", "dst_net_name", "destinationIPv4NetName", "IPv4 destination net name", print_net_name, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV4_DST_NET, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_DST_NET", "dst_net", "destinationIPv4Net", "IPv4 destination net name",print_net ,C(IPV4_DST_NET_NAME))\
 	X(STANDARD_ENTERPRISE_ID, IPV4_DST_MASK, 13, QUOTE_OUTPUT, "IPV4_DST_MASK", "ipv4_dst_mask", "destinationIPv4PrefixLength", "IPv4 dest subnet mask (/<bits>)", NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, OUTPUT_SNMP, 14, DONT_QUOTE_OUTPUT, "OUTPUT_SNMP", "output_snmp", "egressInterface", "Output interface SNMP idx",print_number, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, OUTPUT_SNMP, 14, DONT_QUOTE_OUTPUT, "OUTPUT_SNMP", "output_snmp", "egressInterface", "Output interface SNMP idx",print_number, C(OUTPUT_SNMP_NAME, OUTPUT_SNMP_DESCRIPTION))\
+	X(STANDARD_ENTERPRISE_ID, OUTPUT_SNMP_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "OUTPUT_SNMP_NAME", "output_snmp_name", "egressInterfaceName", "Output interface SNMP name",print_interface_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, OUTPUT_SNMP_DESCRIPTION, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "OUTPUT_SNMP_DESCRIPTION", "output_snmp_description", "egressInterfaceDescription", "Output interface SNMP description",print_interface_description, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV4_NEXT_HOP, 15, QUOTE_OUTPUT, "IPV4_NEXT_HOP", "ipv4_next_hop", "ipNextHopIPv4Address", "IPv4 next hop address", NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, SRC_AS, 16, DONT_QUOTE_OUTPUT, "SRC_AS", "prev_as", "bgpSourceAsNumber", "Source BGP AS",print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, DST_AS, 17, DONT_QUOTE_OUTPUT, "DST_AS", "next_as", "bgpDestinationAsNumber", "Destination BGP AS",print_number, NO_CHILDS)\
@@ -201,6 +205,8 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, MPLS_LABEL_9, 78, DONT_QUOTE_OUTPUT, "MPLS_LABEL_9", "mpls_label_9", "mplsLabelStackSection9", "MPLS label at position 9",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, MPLS_LABEL_10, 79, DONT_QUOTE_OUTPUT, "MPLS_LABEL_10", "mpls_label_10", "mplsLabelStackSection10", "MPLS label at position 10",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IN_DST_MAC, 80, QUOTE_OUTPUT, "IN_DST_MAC", "in_dst_mac", "destinationMacAddress", "Destination MAC Address",save_dst_mac, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IF_NAME, 82, QUOTE_OUTPUT, "IF_NAME", NULL, NULL, "Interface name",NO_FN, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IF_DESCRIPTION, 83, QUOTE_OUTPUT, "IF_NAME", NULL, NULL, "Interface description",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IN_DST_MAC_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IN_DST_MAC_MAP", "in_dst_mac_name", "destinationMacAddress", "Name Destination MAC Address",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, OUT_DST_MAC, 57, QUOTE_OUTPUT, "OUT_DST_MAC", "out_dst_mac", "PostdestinationMacAddress", "Destination MAC Address after observation point",save_post_dst_mac, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, OUT_DST_MAC_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "OUT_DST_MAC_MAP", "out_dst_mac_name", "PostdestinationMacAddress", "Name Destination MAC Address after observation point",NO_FN, NO_CHILDS)\
