@@ -18,8 +18,6 @@
   *  + Changed default starting buffer (from 32 to 2048)
   */
 
-#define _GNU_SOURCE /* vasprintf */
-
 #include "config.h"
 
 #include <stdarg.h>

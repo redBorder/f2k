@@ -146,6 +146,7 @@ int nf_test_teardown(void **state) {
     readOnlyGlobals.rb_databases.sensors_info = NULL;
   }
 
+#ifdef HAVE_UDNS
   if (readOnlyGlobals.udns.dns_poll_threads) {
     for (i = 0; i < readOnlyGlobals.numProcessThreads; i++) {
       rd_thread_kill_join(readOnlyGlobals.udns.dns_poll_threads[i], NULL);
@@ -155,6 +156,11 @@ int nf_test_teardown(void **state) {
     free(readOnlyGlobals.udns.dns_poll_threads);
     free(readOnlyGlobals.udns.csv_dns_servers);
   }
+
+	if (dns_ctx) {
+		dns_close(dns_ctx);
+	}
+#endif
 
   if (readWriteGlobals->kafka.rk) {
     while (rd_kafka_outq_len(readWriteGlobals->kafka.rk) > 0) {
@@ -166,10 +172,6 @@ int nf_test_teardown(void **state) {
     // rd_kafka_wait_destroyed(readWriteGlobals->kafka.rk);
     readWriteGlobals->kafka.rk = NULL;
     readWriteGlobals->kafka.rkt = NULL;
-  }
-
-  if (dns_ctx) {
-    dns_close(dns_ctx);
   }
 
   free(readWriteGlobals);
@@ -277,6 +279,7 @@ static struct string_list *test_flow_i(const struct test_params *params,
     init_f2k_zk(params->zk_url);
   }
 
+#ifdef HAVE_UDNS
   if (params->dns_servers) {
     readOnlyGlobals.numProcessThreads = 1;
     size_t i = 0;
@@ -287,7 +290,6 @@ static struct string_list *test_flow_i(const struct test_params *params,
     }
 
     dns_init(&dns_defctx, 0 /* don't do_open */);
-
     readOnlyGlobals.udns.dns_poll_threads =
         calloc(readOnlyGlobals.numProcessThreads,
                sizeof(readOnlyGlobals.udns.dns_poll_threads[0]));
@@ -336,6 +338,7 @@ static struct string_list *test_flow_i(const struct test_params *params,
       }
     }
   }
+#endif
 
   if (params->kafka_url) {
     init_kafka_producer(params->kafka_url);

@@ -6,7 +6,7 @@ mkl_require atomics must pass
 mkl_require socket
 mkl_require gitversion as GITVERSION
 
-mkl_mkvar_append CPPFLAGS CPPFLAGS "-DFORTIFY_SOURCE=2"
+mkl_mkvar_append CPPFLAGS CPPFLAGS "-D_GNU_SOURCE -DFORTIFY_SOURCE=2"
 mkl_mkvar_append CPPFLAGS CPPFLAGS "-DNDEBUG"
 #mkl_mkvar_append CPPFLAGS CPPFLAGS "-ftrack-macro-expansion=2 -Wsign-conversion"
 #mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wjump-misses-init" # New in gcc 4.5
@@ -38,11 +38,11 @@ function checks_librdkafka {
 }
 
 function checks_no_missing_initializers {
-  # GCC<4.7 throws this warning if with >1 members is initialized = {0}
+  # GCC<4.7 throws this warning if with >1 members are initialized = {0}
   # TODO check with clang
   MAJOR=$(echo __GNUC__ | ${CC} -E -x c - | tail -n 1)
   MINOR=$(echo __GNUC_MINOR__ | ${CC} -E -x c - | tail -n 1)
-  if [ $MAJOR -le 5 ] && [ $MINOR -lt 1 ]; then
+  if [ $MAJOR -le 5 ] || ([ $MAJOR -eq 5 ] && [ $MINOR -lt 1 ]); then
     mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wno-missing-field-initializers"
   fi
 }

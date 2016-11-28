@@ -17,7 +17,6 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define _GNU_SOURCE             /* See feature_test_macros(7) */
 #include "f2k.h"
 #include "rb_sensor.h"
 #include "template.h"

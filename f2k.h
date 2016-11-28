@@ -26,15 +26,6 @@
 #include "config.h"
 #include "netflow.h"
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-
-/* See http://www.redhat.com/magazine/009jul05/features/execshield/ */
-#ifndef _FORTIFY_SOURCE
-#define _FORTIFY_SOURCE 2
-#endif
-
 #if defined(linux) || defined(__linux__)
 
 /*
