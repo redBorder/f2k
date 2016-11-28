@@ -38,11 +38,11 @@ function checks_librdkafka {
 }
 
 function checks_no_missing_initializers {
-  # GCC<4.7 throws this warning if with >1 members is initialized = {0}
+  # GCC<4.7 throws this warning if with >1 members are initialized = {0}
   # TODO check with clang
   MAJOR=$(echo __GNUC__ | ${CC} -E -x c - | tail -n 1)
   MINOR=$(echo __GNUC_MINOR__ | ${CC} -E -x c - | tail -n 1)
-  if [ $MAJOR -le 5 ] && [ $MINOR -lt 1 ]; then
+  if [ $MAJOR -le 5 ] || ([ $MAJOR -eq 5 ] && [ $MINOR -lt 1 ]); then
     mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wno-missing-field-initializers"
   fi
 }
