@@ -6,7 +6,7 @@ mkl_require atomics must pass
 mkl_require socket
 mkl_require gitversion as GITVERSION
 
-mkl_mkvar_append CPPFLAGS CPPFLAGS "-DFORTIFY_SOURCE=2"
+mkl_mkvar_append CPPFLAGS CPPFLAGS "-D_GNU_SOURCE -DFORTIFY_SOURCE=2"
 mkl_mkvar_append CPPFLAGS CPPFLAGS "-DNDEBUG"
 #mkl_mkvar_append CPPFLAGS CPPFLAGS "-ftrack-macro-expansion=2 -Wsign-conversion"
 #mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wjump-misses-init" # New in gcc 4.5

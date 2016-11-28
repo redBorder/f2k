@@ -505,7 +505,7 @@ static struct string_list *dissectNetFlowV5Record(const NetFlow5Record *the5Reco
   }
 
   printbuf_memappend_fast(kafka_line_buffer, "{", strlen("{"));
-  struct flowCache flowCache = {0};
+  struct flowCache flowCache = {};
   associateSensor(&flowCache,sensor_object);
   uint64_t field_idx=0;
   printNetflowRecordWithTemplate(kafka_line_buffer, TEMPLATE_OF(REDBORDER_TYPE),
