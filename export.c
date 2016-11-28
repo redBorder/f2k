@@ -1025,15 +1025,7 @@ static size_t print_application_id_name0(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     observation_id_t *observation_id) {
 
-  if (NULL==readOnlyGlobals.rb_databases.apps_name_as_list) {
-    return 0; /* Nothing to do */
-  }
-
-  if (unlikely(4 != real_field_len)) {
-    traceEvent(TRACE_ERROR, "APP_ID length %zu != 4", real_field_len);
-    return 0;
-  }
-  const uint32_t appid = net2number(buffer,real_field_len);
+  const uint64_t appid = net2number(buffer,real_field_len);
 
   if (appid == 0) {
     return 0;
