@@ -1496,10 +1496,23 @@ size_t print_sensor_enrichment(struct printbuf *kafka_line_buffer,
 
 #ifdef HAVE_CISCO_URL
 
-static size_t print_cisco_private_buffer(struct printbuf *kafka_line_buffer,
+static const char http_host_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x02};
+
+
+/**
+ * @param kafka_line_buffer          Buffer to print result
+ * @param vbuffer                    Buffer with data
+ * @param real_field_len             Length of attribute
+ * @param real_field_offset          Offset of attribute because of variable len
+ * @param flowCache                  Flow cache
+ * @param expected_identifier        Expected CISCO identifier
+ * @param expected_identifier_length Expected CISCO identifier length
+ */
+static size_t cisco_private_decorator(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flowCache,
-    const char *expected_identifier, size_t expected_identifier_length) {
+    const char *expected_identifier, size_t expected_identifier_length,
+    size_t (*cb)(struct printbuf *, const void *, size_t, struct flowCache *)) {
   const char *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer);
   (void)flowCache;
@@ -1513,9 +1526,31 @@ static size_t print_cisco_private_buffer(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  return append_escaped(kafka_line_buffer,buffer+real_field_offset+6,
-                                                        real_field_len-6);
+  const size_t buffer_len = real_field_len - expected_identifier_length;
+  if (buffer_len == 0) {
+    return 0;
+  }
 
+  return cb(kafka_line_buffer,
+    buffer + real_field_offset + expected_identifier_length,
+    real_field_len - expected_identifier_length,
+    flowCache);
+}
+
+static size_t cisco_private_field_append(struct printbuf *kafka_line_buffer,
+    const void *vbuffer, size_t vbuffer_size, struct flowCache *flow_cache) {
+  (void)flow_cache;
+  const char *buffer = vbuffer;
+  return append_escaped(kafka_line_buffer, buffer, vbuffer_size);
+}
+
+static size_t print_cisco_private_buffer(struct printbuf *kafka_line_buffer,
+    const void *vbuffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache,
+    const char *expected_identifier, size_t expected_identifier_length) {
+  return cisco_private_decorator(kafka_line_buffer, vbuffer, real_field_len,
+    real_field_offset, flowCache, expected_identifier,
+    expected_identifier_length, cisco_private_field_append);
 }
 
 size_t print_http_url(struct printbuf *kafka_line_buffer,
@@ -1532,41 +1567,49 @@ size_t print_http_host(struct printbuf *kafka_line_buffer,
   const void *buffer,const size_t real_field_len,
   const size_t real_field_offset,struct flowCache *flowCache) {
 
-  static const char http_host_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x02};
   return print_cisco_private_buffer(kafka_line_buffer,
     buffer,real_field_len,real_field_offset,flowCache,
     http_host_id,sizeof(http_host_id));
+}
+
+static size_t print_http_host_l1_0(struct printbuf *kafka_line_buffer,
+    const void *host, size_t host_size, struct flowCache *flow_cache) {
+  (void)flow_cache;
+
+  const char *dot = memrchr(host, '.', host_size);
+  if (!dot) {
+    return 0;
+  }
+
+  const size_t l1_host_len = host_size - (dot - (const char *)host) - 1;
+  return append_escaped(kafka_line_buffer, dot + 1, l1_host_len);
+}
+
+static size_t print_http_host_l2_0(struct printbuf *kafka_line_buffer,
+    const void *host, size_t host_size, struct flowCache *flow_cache) {
+  (void)flow_cache;
+
+  const char *l1_dot = memrchr(host, '.', host_size);
+  if (!l1_dot) {
+    return 0;
+  }
+
+  const char *l2_dot = memrchr(host, '.', l1_dot - (const char *)host);
+  if (!l2_dot) {
+    return 0;
+  }
+
+  const size_t l2_host_len = host_size - (l2_dot - (const char *)host) - 1;
+  return append_escaped(kafka_line_buffer, l2_dot + 1, l2_host_len);
 }
 
 size_t print_http_host_l1(struct printbuf *kafka_line_buffer,
                           const void *vbuffer, const size_t real_field_len,
                           const size_t real_field_offset,
                           struct flowCache *flowCache) {
-
-  (void)flowCache;
-  static const uint8_t http_host_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x02};
-  const char *buffer = vbuffer;
-  const char *pos = NULL;
-
-  if (real_field_len <= sizeof(http_host_id)) {
-    return 0;
-  }
-
-  if (0 !=
-      memcmp(http_host_id, &buffer[real_field_offset], sizeof(http_host_id))) {
-    return 0;
-  }
-
-  const char *host_name = buffer + real_field_offset + sizeof(http_host_id);
-
-  if (NULL == (pos = memrchr(host_name, '.', real_field_len))) {
-    return 0;
-  }
-
-  const size_t host_len =
-      real_field_len - (pos - host_name) - sizeof(http_host_id) - 1;
-
-  return append_escaped(kafka_line_buffer, pos + 1, host_len);
+  return cisco_private_decorator(kafka_line_buffer, vbuffer, real_field_len,
+    real_field_offset, flowCache, http_host_id, sizeof(http_host_id),
+    print_http_host_l1_0);
 }
 
 size_t print_http_host_l2(struct printbuf *kafka_line_buffer,
@@ -1574,34 +1617,10 @@ size_t print_http_host_l2(struct printbuf *kafka_line_buffer,
                           const size_t real_field_offset,
                           struct flowCache *flowCache) {
 
-  (void)flowCache;
-  static const uint8_t http_host_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x02};
-  const char *buffer = vbuffer;
-  const char *pos_first = NULL;
-  const char *pos_last = NULL;
+    return cisco_private_decorator(kafka_line_buffer, vbuffer, real_field_len,
+    real_field_offset, flowCache, http_host_id, sizeof(http_host_id),
+    print_http_host_l2_0);
 
-  if (real_field_len <= sizeof(http_host_id)) {
-    return 0;
-  }
-
-  if (0 !=
-      memcmp(http_host_id, &buffer[real_field_offset], sizeof(http_host_id))) {
-    return 0;
-  }
-
-  const char *host_name = buffer + real_field_offset + sizeof(http_host_id);
-
-  if (NULL == (pos_first = memrchr(host_name, '.', real_field_len))) {
-    return 0;
-  }
-  if (NULL == (pos_last = memrchr(host_name, '.', pos_first - host_name))) {
-    return 0;
-  }
-
-  const size_t host_len =
-      real_field_len - (pos_last - host_name) - sizeof(http_host_id) - 1;
-
-  return append_escaped(kafka_line_buffer, pos_last + 1, host_len);
 }
 
 size_t print_http_user_agent(struct printbuf *kafka_line_buffer,

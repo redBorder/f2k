@@ -39,10 +39,12 @@
 		    '1',  '2',  '3',  '4',  '5',  '6',  '7',  '8', \
 		    '2',  '.',  'j',  'p',  'g'
 
-#define CISCO_HOST 0x1d, 0x03, 0x00, 0x00, 0x50, 0x34, 0x02, 'i', \
-		   'm',  'a',  'g',  'e',  's',  '.',  'a',  'k', \
-		   '.',  'i',  'n',  's',  't',  'a',  'g',  'r', \
-		   'a',  'm',  '.',  'c',  'o',  'm'
+#define CISCO_HOST_ID 0x03, 0x00, 0x00, 0x50, 0x34, 0x02
+#define CISCO_NO_HOST 0x06, CISCO_HOST_ID
+#define CISCO_HOST 0x1d, CISCO_HOST_ID, 'i', \
+		   'm', 'a', 'g', 'e', 's', '.', 'a', 'k', \
+		   '.', 'i', 'n', 's', 't', 'a', 'g', 'r', \
+		   'a', 'm', '.', 'c', 'o', 'm'
 
 #define CISCO_UA 0x4e, 0x03, 0x00, 0x00, 0x50, 0x34, 0x03, 'I', \
 		 'n',  's',  't',  'a',  'g',  'r',  'a',  'm', \
@@ -56,6 +58,12 @@
 		 'i',  't',  '/',  '4',  '2',  '0',  '+'
 
 #define CISCO_REFERER 0x06, 0x03, 0x00, 0x00, 0x50, 0x34, 0x04
+
+/*
+	Regression test 1:
+	Bad h1/h2 domain detection: it detects point in next field as own field
+	(buffer overflow)
+ */
 
 #define ENTITIES(RT,R) \
 	RT(IPV4_SRC_ADDR, 4, 0, 10, 13, 122, 44) \
@@ -77,7 +85,28 @@
 	RT(IN_BYTES, 8, 0, UINT64_TO_UINT8_ARR(2744)) \
 	RT(IN_PKTS, 4, 0, UINT32_TO_UINT8_ARR(31)) \
 	RT(FIRST_SWITCHED, 4, 0, 0x0f, 0xed, 0x0a, 0xc0) \
-	RT(LAST_SWITCHED, 4, 0, 0x0f, 0xee, 0x18, 0x00)
+	RT(LAST_SWITCHED, 4, 0, 0x0f, 0xee, 0x18, 0x00) \
+	/* Regression test 1 */ \
+	R(IPV4_SRC_ADDR, 4, 0, 10, 13, 122, 44) \
+	R(IPV4_DST_ADDR, 4, 0, 66, 220, 152, 19) \
+	R(IP_PROTOCOL_VERSION, 1, 0, 4) \
+	R(PROTOCOL, 1, 0, 6) \
+	R(L4_SRC_PORT, 2, 0, UINT16_TO_UINT8_ARR(54713)) \
+	R(L4_DST_PORT, 2, 0, UINT16_TO_UINT8_ARR(443)) \
+	R(FLOW_END_REASON, 1, 0, 3) \
+	R(BIFLOW_DIRECTION, 1, 0, 1) \
+	R(FLOW_SAMPLER_ID, 1, 0, 0) \
+	R(TRANSACTION_ID, 8, 0, 0x8f, 0x63, 0xf3, 0x40, \
+				0x00, 0x01, 0x00, 0x00) \
+	R(APPLICATION_ID, 4, 0, FLOW_APPLICATION_ID(13, 459)) \
+	R(CISCO_URL, 0xffff, 9, M_CISCO_URL) \
+	R(CISCO_URL, 0xffff, 9, CISCO_UA) \
+	R(CISCO_URL, 0xffff, 9, CISCO_REFERER) \
+	R(CISCO_URL, 0xffff, 9, CISCO_HOST) \
+	R(IN_BYTES, 8, 0, '.', '.', '.', '.', '.', '.', '.', '.') \
+	R(IN_PKTS, 4, 0, '.', '.', '.', '.') \
+	R(FIRST_SWITCHED, 4, 0, 0x0f, 0xed, 0x0a, 0xc0) \
+	R(LAST_SWITCHED, 4, 0, 0x0f, 0xee, 0x18, 0x00)
 
 static const struct checkdata_value checkdata_values1[] = {
 	{.key = "type", .value="netflowv10"},
@@ -93,10 +122,11 @@ static int prepare_test_nf10_cisco_url(void **state) {
 	static const IPFIX_FLOW(v10Flow, TEST_IPFIX_FLOW_HEADER,
 		IPFIX_TEMPLATE_ID, ENTITIES);
 
-	static const struct checkdata sl1_checkdata = {
-		.checks = checkdata_values1,
-		.size = RD_ARRAYSIZE(checkdata_values1),
+#define CHECK(checkdata) {.checks = checkdata, .size = RD_ARRAYSIZE(checkdata)}
+	static const struct checkdata sl1_checkdata[] = {
+		CHECK(checkdata_values1), CHECK(checkdata_values1)
 	};
+#undef CHECK
 
 #define TEST(config_path, mhosts_db_path, mrecord, mrecord_size, checks,       \
 								checks_size) { \
@@ -113,7 +143,7 @@ static int prepare_test_nf10_cisco_url(void **state) {
 				NULL, 0),
 
 		[1] = TEST(NULL, NULL, &v10Flow, sizeof(v10Flow),
-			&sl1_checkdata, 1),
+			sl1_checkdata, RD_ARRAYSIZE(sl1_checkdata)),
 	};
 
 	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
