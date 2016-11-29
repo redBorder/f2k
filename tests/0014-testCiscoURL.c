@@ -39,12 +39,10 @@
 		    '1',  '2',  '3',  '4',  '5',  '6',  '7',  '8', \
 		    '2',  '.',  'j',  'p',  'g'
 
-#define CISCO_HOST_ID 0x03, 0x00, 0x00, 0x50, 0x34, 0x02
-#define CISCO_NO_HOST 0x06, CISCO_HOST_ID
-#define CISCO_HOST 0x1d, CISCO_HOST_ID, 'i', \
-		   'm', 'a', 'g', 'e', 's', '.', 'a', 'k', \
-		   '.', 'i', 'n', 's', 't', 'a', 'g', 'r', \
-		   'a', 'm', '.', 'c', 'o', 'm'
+#define CISCO_HOST 0x1d, 0x03, 0x00, 0x00, 0x50, 0x34, 0x02, 'i', \
+		   'm',  'a',  'g',  'e',  's',  '.',  'a',  'k', \
+		   '.',  'i',  'n',  's',  't',  'a',  'g',  'r', \
+		   'a',  'm',  '.',  'c',  'o',  'm'
 
 #define CISCO_UA 0x4e, 0x03, 0x00, 0x00, 0x50, 0x34, 0x03, 'I', \
 		 'n',  's',  't',  'a',  'g',  'r',  'a',  'm', \
