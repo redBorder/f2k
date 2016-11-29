@@ -1646,8 +1646,8 @@ static struct string_list *dissectNetFlowV9V10Flow(worker_t *worker,
     traceEvent(TRACE_INFO, ">>>>> tot_len=%zu / fs.flowsetLen=%d", tot_len, fs.flowsetLen);
 #endif
 
-  if(tot_len < fs.flowsetLen) {
-    const size_t padding = fs.flowsetLen - tot_len;
+  if(tot_len < fs.flowsetLen - sizeof(fs)) {
+    const size_t padding = fs.flowsetLen - tot_len - sizeof(fs);
 
     if(padding > 4) {
       traceEvent(TRACE_WARNING,
