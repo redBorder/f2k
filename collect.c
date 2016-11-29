@@ -1548,18 +1548,18 @@ static size_t dissect_nf9_option_flow(observation_id_t *observation_id,
     cursor += field_len;
   }
 
-  if (app.id && app.name.buffer && app.name.size > 0) {
+  if (app.name.buffer && app.name.size > 0) {
     observation_id_add_application_id(observation_id, app.id, app.name.buffer,
       app.name.size);
   }
 
-  if (selector.id && (selector.name.buffer && selector.name.size > 0)) {
+  if (selector.name.buffer && selector.name.size > 0) {
     observation_id_add_selector_id(observation_id, selector.id,
       selector.name.buffer, selector.name.size);
   }
 
-  if (snmp.id && ((snmp.name.buffer && snmp.name.size > 0) ||
-      (snmp.name.buffer && snmp.name.size > 0))) {
+  if ((snmp.name.buffer && snmp.name.size > 0) ||
+      (snmp_description.name.buffer && snmp_description.name.size > 0)) {
     observation_id_add_interface(observation_id, snmp.id,
       snmp.name.buffer, snmp.name.size,
       snmp_description.name.buffer, snmp_description.name.size);

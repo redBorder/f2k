@@ -170,19 +170,19 @@ static int prepare_test_nf9_appid_enrichment(void **state) {
 	{.key = "output_snmp_description", .value = output_snmp_description}}
 
 	static const struct checkdata_value checkdata1[] =
-		CHECKDATA("1", NULL, NULL, "2", NULL, NULL);
+		CHECKDATA("1", "1", "1", "2", "2", "2");
 	static const struct checkdata_value checkdata2[] =
-		CHECKDATA("2", NULL, NULL, "4", NULL, NULL);
+		CHECKDATA("2", "2", "2", "4", "4", "4");
 	static const struct checkdata_value checkdata3[] =
-		CHECKDATA("3", NULL, NULL, "1", NULL, NULL);
+		CHECKDATA("3", "3", "3", "1", "1", "1");
 
 	static const struct checkdata_value checkdata1_name[] =
 		CHECKDATA("1", "ethernet0/1", "ethernet0/1d",
 			"2", "ethernet0/2", "ethernet0/2d");
 	static const struct checkdata_value checkdata2_name[] =
-		CHECKDATA("2", "ethernet0/2", "ethernet0/2d", "4", NULL, NULL);
+		CHECKDATA("2", "ethernet0/2", "ethernet0/2d", "4", "4", "4");
 	static const struct checkdata_value checkdata3_name[] =
-		CHECKDATA("3", NULL, NULL, "1", "ethernet0/1", "ethernet0/1d");
+		CHECKDATA("3", "3", "3", "1", "ethernet0/1", "ethernet0/1d");
 #undef CHECKDATA
 
 #define CHECK(checkdata) {.size = RD_ARRAYSIZE(checkdata), .checks = checkdata}

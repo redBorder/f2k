@@ -142,11 +142,11 @@ static int prepare_test_nf9_appid_enrichment(void **state) {
 	{.key = "selector_name", .value = selector_name}}
 
 	static const struct checkdata_value checkdata1[] =
-		CHECKDATA("1", NULL);
+		CHECKDATA("1", "1");
 	static const struct checkdata_value checkdata2[] =
-		CHECKDATA("2", NULL);
+		CHECKDATA("2", "2");
 	static const struct checkdata_value checkdata3[] =
-		CHECKDATA("3", NULL);
+		CHECKDATA("3", "3");
 
 	static const struct checkdata_value checkdata1_name[] =
 		CHECKDATA("1", "one");

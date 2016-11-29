@@ -2147,8 +2147,11 @@ static size_t print_observation_id_attribute(struct printbuf *kafka_line_buffer,
   const char *attribute_str = observation_id_get_attribute_cb(
     flowCache->observation_id, attribute_id);
 
-  return attribute_str ?
-    printbuf_memappend_fast_string(kafka_line_buffer, attribute_str) : 0;
+  if (attribute_str) {
+    return printbuf_memappend_fast_string(kafka_line_buffer, attribute_str);
+  } else {
+    return printbuf_memappend_fast_n10(kafka_line_buffer, attribute_id);
+  }
 }
 
 size_t print_selector_name(struct printbuf *kafka_line_buffer,
