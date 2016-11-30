@@ -270,6 +270,16 @@ size_t print_ipv6(void *vdst_buf, struct printbuf *kafka_line_buffer,
                   const void *vbuffer, const size_t real_field_len,
                   const size_t real_field_offset);
 
+size_t print_client_port(struct printbuf *kafka_line_buffer, const void *buffer,
+                         const size_t real_field_len,
+                         const size_t real_field_len_offset,
+                         struct flowCache *flowCache);
+
+size_t print_target_port(struct printbuf *kafka_line_buffer, const void *buffer,
+                         const size_t real_field_len,
+                         const size_t real_field_len_offset,
+                         struct flowCache *flowCache);
+
 size_t print_ipv6_src_addr(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
@@ -366,6 +376,9 @@ size_t print_referer_l2(struct printbuf *kafka_line_buffer,
 
 const uint8_t *get_direction_based_client_ip(const struct flowCache *flowCache);
 const uint8_t *get_direction_based_target_ip(const struct flowCache *flowCache);
+
+uint16_t get_direction_based_client_port(const struct flowCache *flowCache);
+uint16_t get_direction_based_target_port(const struct flowCache *flowCache);
 
 size_t print_client_name(struct printbuf *kafka_line_buffer,
   const void *buffer, const size_t real_field_len,
