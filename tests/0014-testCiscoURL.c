@@ -31,22 +31,39 @@
 
 #define IPFIX_TEMPLATE_ID 0x0200
 
-#define M_CISCO_URL 0x34, 0x03, 0x00, 0x00, 0x50, 0x34, 0x01, '/', \
+/// @todo handle case of >255
+#define ARGS(...) __VA_ARGS__
+#define CISCO_HTTP_LEN(HOST) 6+sizeof((uint8_t[]) {HOST})
+#define CISCO_HTTP_FIELD(ID, ...) CISCO_HTTP_LEN(ARGS(__VA_ARGS__)), ID, \
+	__VA_ARGS__
+#define CISCO_HTTP_EMPTY_FIELD(ID) 0x06, ID
+
+#define CISCO_HTTP_ID 0x03, 0x00, 0x00, 0x50, 0x34
+#define CISCO_HTTP_URL_ID CISCO_HTTP_ID, 0x01
+#define CISCO_HTTP_HOST_ID CISCO_HTTP_ID, 0x02
+#define CISCO_HTTP_UA_ID CISCO_HTTP_ID, 0x03
+#define CISCO_HTTP_REFERER_ID CISCO_HTTP_ID, 0x04
+
+#define CISCO_HTTP_URL(...) CISCO_HTTP_FIELD(CISCO_HTTP_URL_ID, __VA_ARGS__)
+#define CISCO_HTTP_HOST(...) CISCO_HTTP_FIELD(CISCO_HTTP_HOST_ID, __VA_ARGS__)
+#define CISCO_HTTP_UA(...) CISCO_HTTP_FIELD(CISCO_HTTP_UA_ID, __VA_ARGS__)
+#define CISCO_HTTP_REFERER(...) \
+	CISCO_HTTP_FIELD(CISCO_HTTP_REFERER_ID, __VA_ARGS__)
+
+#define T_CISCO_URL CISCO_HTTP_URL('/', \
 		    'p',  'r',  'o',  'f',  'i',  'l',  'e',  's', \
 		    '/',  'p',  'r',  'o',  'f',  'i',  'l',  'e', \
 		    '_',  '1',  '2',  '3',  '4',  '5',  '6',  '7', \
 		    '7',  '_',  '7',  '5',  's',  'q',  '_',  '1', \
 		    '1',  '2',  '3',  '4',  '5',  '6',  '7',  '8', \
-		    '2',  '.',  'j',  'p',  'g'
+		    '2',  '.',  'j',  'p',  'g')
 
-#define CISCO_HOST_ID 0x03, 0x00, 0x00, 0x50, 0x34, 0x02
-#define CISCO_NO_HOST 0x06, CISCO_HOST_ID
-#define CISCO_HOST 0x1d, CISCO_HOST_ID, 'i', \
+#define T_CISCO_HOST CISCO_HTTP_HOST('i', \
 		   'm', 'a', 'g', 'e', 's', '.', 'a', 'k', \
 		   '.', 'i', 'n', 's', 't', 'a', 'g', 'r', \
-		   'a', 'm', '.', 'c', 'o', 'm'
+		   'a', 'm', '.', 'c', 'o', 'm')
 
-#define CISCO_UA 0x4e, 0x03, 0x00, 0x00, 0x50, 0x34, 0x03, 'I', \
+#define T_CISCO_UA CISCO_HTTP_UA('I', \
 		 'n',  's',  't',  'a',  'g',  'r',  'a',  'm', \
 		 ' ',  '4',  '.',  '2',  '.',  '3',  ' ',  '(', \
 		 'i',  'P',  'h',  'o',  'n',  'e',  '5',  ',', \
@@ -55,9 +72,9 @@
 		 '_',  '2',  ';',  ' ',  'e',  'n',  '_',  'U', \
 		 'S',  ';',  ' ',  'e',  'n',  ')',  ' ',  'A', \
 		 'p',  'p',  'l',  'e',  'W',  'e',  'b',  'K', \
-		 'i',  't',  '/',  '4',  '2',  '0',  '+'
+		 'i',  't',  '/',  '4',  '2',  '0',  '+')
 
-#define CISCO_REFERER 0x06, 0x03, 0x00, 0x00, 0x50, 0x34, 0x04
+#define T_CISCO_REFERER CISCO_HTTP_EMPTY_FIELD(CISCO_HTTP_REFERER_ID)
 
 /*
 	Regression test 1:
@@ -78,10 +95,10 @@
 	RT(TRANSACTION_ID, 8, 0, 0x8f, 0x63, 0xf3, 0x40, \
 				 0x00, 0x01, 0x00, 0x00) \
 	RT(APPLICATION_ID, 4, 0, FLOW_APPLICATION_ID(13, 459)) \
-	RT(CISCO_URL, 0xffff, 9, M_CISCO_URL) \
-	RT(CISCO_URL, 0xffff, 9, CISCO_HOST) \
-	RT(CISCO_URL, 0xffff, 9, CISCO_UA) \
-	RT(CISCO_URL, 0xffff, 9, CISCO_REFERER) \
+	RT(CISCO_URL, 0xffff, 9, T_CISCO_URL) \
+	RT(CISCO_URL, 0xffff, 9, T_CISCO_HOST) \
+	RT(CISCO_URL, 0xffff, 9, T_CISCO_UA) \
+	RT(CISCO_URL, 0xffff, 9, T_CISCO_REFERER) \
 	RT(IN_BYTES, 8, 0, UINT64_TO_UINT8_ARR(2744)) \
 	RT(IN_PKTS, 4, 0, UINT32_TO_UINT8_ARR(31)) \
 	RT(FIRST_SWITCHED, 4, 0, 0x0f, 0xed, 0x0a, 0xc0) \
@@ -99,10 +116,10 @@
 	R(TRANSACTION_ID, 8, 0, 0x8f, 0x63, 0xf3, 0x40, \
 				0x00, 0x01, 0x00, 0x00) \
 	R(APPLICATION_ID, 4, 0, FLOW_APPLICATION_ID(13, 459)) \
-	R(CISCO_URL, 0xffff, 9, M_CISCO_URL) \
-	R(CISCO_URL, 0xffff, 9, CISCO_UA) \
-	R(CISCO_URL, 0xffff, 9, CISCO_REFERER) \
-	R(CISCO_URL, 0xffff, 9, CISCO_HOST) \
+	R(CISCO_URL, 0xffff, 9, T_CISCO_URL) \
+	R(CISCO_URL, 0xffff, 9, T_CISCO_UA) \
+	R(CISCO_URL, 0xffff, 9, T_CISCO_REFERER) \
+	R(CISCO_URL, 0xffff, 9, T_CISCO_HOST) \
 	R(IN_BYTES, 8, 0, '.', '.', '.', '.', '.', '.', '.', '.') \
 	R(IN_PKTS, 4, 0, '.', '.', '.', '.') \
 	R(FIRST_SWITCHED, 4, 0, 0x0f, 0xed, 0x0a, 0xc0) \
