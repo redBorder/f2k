@@ -24,175 +24,211 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
-#define TEST_TEMPLATE_ID 512
+#define TEST_TEMPLATE_ID_V4 512
+#define TEST_TEMPLATE_ID_V6 513
 
-#define TEST_FLOW_HEADER \
-	.unix_secs = constexpr_be32toh(3713886546), \
-	.flow_sequence = constexpr_be32toh(232117909), \
-	.observationDomainId = 65536
+#define TEST_FLOW_HEADER                                                       \
+  .unix_secs = constexpr_be32toh(3713886546),                                  \
+  .flow_sequence = constexpr_be32toh(232117909), .observationDomainId = 65536
 
-#define FIXED_FLOW_ENTITIES(X)                                                \
-	X(PROTOCOL, 1, 0, 0x06)                                                     \
-	X(FLOW_END_REASON, 1, 0, 0x03)                                              \
-	X(BIFLOW_DIRECTION, 1, 0, 0x01)                                             \
-	X(TRANSACTION_ID, 8, 0, 0x8f, 0x63, 0xf3, 0x40, 0x00, 0x01, 0x00, 0x00)     \
-	X(DIRECTION, 1, 0, 0x00)                                                    \
-	X(FLOW_SAMPLER_ID, 1, 0, 0x00)                                              \
-	X(APPLICATION_ID, 4, 0, 0x03, 0x00, 0x00, 0x50)                             \
-	X(IN_BYTES, 8, 0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0xb8)           \
-	X(IN_PKTS, 4, 0, 0x00, 0x00, 0x00, 0x1f)                                    \
-	X(FIRST_SWITCHED, 4, 0, 0x0f, 0xed, 0x0a, 0xc0)                             \
-	X(LAST_SWITCHED, 4, 0, 0x0f, 0xee, 0x18, 0x00)                              \
+#define FIXED_FLOW_ENTITIES(X)                                                 \
+  X(L4_SRC_PORT, 2, 0, UINT16_TO_UINT8_ARR(54713))                             \
+  X(L4_DST_PORT, 2, 0, UINT16_TO_UINT8_ARR(443))                               \
+  X(IN_SRC_MAC, 6, 0, 0x00, 0x24, 0x14, 0x01, 0x02, 0x03)                      \
+  X(IN_DST_MAC, 6, 0, 0x00, 0x22, 0x55, 0x04, 0x05, 0x06)                      \
+  X(OUT_DST_MAC, 6, 0, 0x00, 0x24, 0x1d, 0x04, 0x05, 0x06)                     \
+  X(PROTOCOL, 1, 0, 0x06)                                                      \
+  X(FLOW_END_REASON, 1, 0, 0x03)                                               \
+  X(BIFLOW_DIRECTION, 1, 0, 0x01)                                              \
+  X(TRANSACTION_ID, 8, 0, 0x8f, 0x63, 0xf3, 0x40, 0x00, 0x01, 0x00, 0x00)      \
+  X(DIRECTION, 1, 0, 0x00)                                                     \
+  X(FLOW_SAMPLER_ID, 1, 0, 0x00)                                               \
+  X(APPLICATION_ID, 4, 0, 0x03, 0x00, 0x00, 0x50)                              \
+  X(IN_BYTES, 8, 0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0xb8)            \
+  X(IN_PKTS, 4, 0, 0x00, 0x00, 0x00, 0x1f)                                     \
+  X(FIRST_SWITCHED, 4, 0, 0x0f, 0xed, 0x0a, 0xc0)                              \
+  X(LAST_SWITCHED, 4, 0, 0x0f, 0xee, 0x18, 0x00)
 
-#define FLOW_ENTITIES(RT, R)                                                   \
+#define FIXED_FLOW_ENTITIES_1_V4(X)                                            \
+  FIXED_FLOW_ENTITIES(X)                                                       \
+  X(IPV4_SRC_ADDR, 4, 0, 10, 13, 30, 44)                                       \
+  X(IPV4_DST_ADDR, 4, 0, 66, 220, 152, 19)                                     \
+  X(IP_PROTOCOL_VERSION, 1, 0, 0x04)
+#define FIXED_FLOW_ENTITIES_2_V4(X)                                            \
+  FIXED_FLOW_ENTITIES(X)                                                       \
+  X(IPV4_SRC_ADDR, 4, 0, 66, 220, 152, 19)                                     \
+  X(IPV4_DST_ADDR, 4, 0, 10, 13, 30, 44)                                       \
+  X(IP_PROTOCOL_VERSION, 1, 0, 0x04)
+#define FIXED_FLOW_ENTITIES_3_V4(X)                                            \
+  FIXED_FLOW_ENTITIES(X)                                                       \
+  X(IPV4_SRC_ADDR, 4, 0, 10, 13, 30, 44)                                       \
+  X(IPV4_DST_ADDR, 4, 0, 10, 13, 30, 45)                                       \
+  X(IP_PROTOCOL_VERSION, 1, 0, 0x04)
+#define FIXED_FLOW_ENTITIES_4_V4(X)                                            \
+  FIXED_FLOW_ENTITIES(X)                                                       \
+  X(IPV4_SRC_ADDR, 4, 0, 66, 220, 152, 19)                                     \
+  X(IPV4_SRC_ADDR, 4, 0, 66, 220, 152, 20)                                     \
+  X(IP_PROTOCOL_VERSION, 1, 0, 0x04)
+
+#define FIXED_FLOW_ENTITIES_1_V6(X)                                            \
+  FIXED_FLOW_ENTITIES(X)                                                       \
+  X(IPV6_SRC_ADDR, 16, 0, 0x20, 0x01, 0x04, 0x28, 0xce, 0x00, 0x00, 0x00,      \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01)                            \
+  X(IPV6_DST_ADDR, 16, 0, 0x20, 0x01, 0x04, 0x28, 0xff, 0x00, 0x00, 0x00,      \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02)                            \
+  X(IP_PROTOCOL_VERSION, 1, 0, 0x06)
+#define FIXED_FLOW_ENTITIES_2_V6(X)                                            \
+  FIXED_FLOW_ENTITIES(X)                                                       \
+  X(IPV6_SRC_ADDR, 16, 0, 0x20, 0x01, 0x04, 0x28, 0xff, 0x00, 0x00, 0x00,      \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02)                            \
+  X(IPV6_DST_ADDR, 16, 0, 0x20, 0x01, 0x04, 0x28, 0xce, 0x00, 0x00, 0x00,      \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01)                            \
+  X(IP_PROTOCOL_VERSION, 1, 0, 0x06)
+#define FIXED_FLOW_ENTITIES_3_V6(X)                                            \
+  FIXED_FLOW_ENTITIES(X)                                                       \
+  X(IPV6_SRC_ADDR, 16, 0, 0x20, 0x01, 0x04, 0x28, 0xce, 0x00, 0x00, 0x00,      \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01)                            \
+  X(IPV6_DST_ADDR, 16, 0, 0x20, 0x01, 0x04, 0x28, 0xce, 0x00, 0x00, 0x00,      \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02)                            \
+  X(IP_PROTOCOL_VERSION, 1, 0, 0x06)
+#define FIXED_FLOW_ENTITIES_4_V6(X)                                            \
+  FIXED_FLOW_ENTITIES(X)                                                       \
+  X(IPV6_SRC_ADDR, 16, 0, 0x20, 0x01, 0x04, 0x28, 0xff, 0x00, 0x00, 0x00,      \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01)                            \
+  X(IPV6_DST_ADDR, 16, 0, 0x20, 0x01, 0x04, 0x28, 0xff, 0x00, 0x00, 0x00,      \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02)                            \
+  X(IP_PROTOCOL_VERSION, 1, 0, 0x06)
+
+#define FLOW_ENTITIES_V4(RT, R)                                                \
   /* First flow (ingress) */                                                   \
-  FIXED_FLOW_ENTITIES(RT)                                                      \
-  RT(IPV4_SRC_ADDR, 4, 0, 10, 13, 30, 44)                                      \
-  RT(IPV4_DST_ADDR, 4, 0, 66, 220, 152, 19)                                    \
-  RT(IP_PROTOCOL_VERSION, 1, 0, 0x04)                                          \
-  RT(L4_SRC_PORT, 2, 0, 0xd5, 0xb9)                                            \
-  RT(L4_DST_PORT, 2, 0, 0x01, 0xbb)                                            \
-  RT(IN_SRC_MAC, 6, 0, 0x00, 0x24, 0x14, 0x01, 0x02, 0x03)                     \
-  RT(IN_DST_MAC, 6, 0, 0x00, 0x22, 0x55, 0x04, 0x05, 0x06)                     \
-  RT(OUT_DST_MAC, 6, 0, 0x00, 0x24, 0x1d, 0x04, 0x05, 0x06)                    \
+  FIXED_FLOW_ENTITIES_1_V4(RT)                                                 \
   RT(DIRECTION, 1, 0, 0x00)                                                    \
+                                                                               \
   /* First flow (egress) */                                                    \
-  FIXED_FLOW_ENTITIES(R)                                                       \
-  R(IPV4_SRC_ADDR, 4, 0, 10, 13, 30, 44)                                       \
-  R(IPV4_DST_ADDR, 4, 0, 66, 220, 152, 19)                                     \
-  R(IP_PROTOCOL_VERSION, 1, 0, 0x04)                                           \
-  R(L4_SRC_PORT, 2, 0, 0xd5, 0xb9)                                             \
-  R(L4_DST_PORT, 2, 0, 0x01, 0xbb)                                             \
-  R(IN_SRC_MAC, 6, 0, 0x00, 0x24, 0x14, 0x01, 0x02, 0x03)                      \
-  R(IN_DST_MAC, 6, 0, 0x00, 0x22, 0x55, 0x04, 0x05, 0x06)                      \
-  R(OUT_DST_MAC, 6, 0, 0x00, 0x24, 0x1d, 0x04, 0x05, 0x06)                     \
+  FIXED_FLOW_ENTITIES_1_V4(R)                                                  \
   R(DIRECTION, 1, 0, 0x01)                                                     \
+                                                                               \
   /* Second flow (ingress) */                                                  \
-  FIXED_FLOW_ENTITIES(R)                                                       \
-  R(IPV4_SRC_ADDR, 4, 0, 66, 220, 152, 19)                                     \
-  R(IPV4_DST_ADDR, 4, 0, 10, 13, 30, 44)                                       \
-  R(IP_PROTOCOL_VERSION, 1, 0, 0x04)                                           \
-  R(L4_SRC_PORT, 2, 0, 0xd5, 0xb9)                                             \
-  R(L4_DST_PORT, 2, 0, 0x01, 0xbb)                                             \
-  R(IN_SRC_MAC, 6, 0, 0x00, 0x24, 0x14, 0x01, 0x02, 0x03)                      \
-  R(IN_DST_MAC, 6, 0, 0x00, 0x22, 0x55, 0x04, 0x05, 0x06)                      \
-  R(OUT_DST_MAC, 6, 0, 0x00, 0x24, 0x1d, 0x04, 0x05, 0x06)                     \
+  FIXED_FLOW_ENTITIES_2_V4(R)                                                  \
   R(DIRECTION, 1, 0, 0x00)                                                     \
+                                                                               \
   /* Second flow (egress) */                                                   \
-  FIXED_FLOW_ENTITIES(R)                                                       \
-  R(IPV4_SRC_ADDR, 4, 0, 66, 220, 152, 19)                                     \
-  R(IPV4_DST_ADDR, 4, 0, 10, 13, 30, 44)                                       \
-  R(IP_PROTOCOL_VERSION, 1, 0, 0x04)                                           \
-  R(L4_SRC_PORT, 2, 0, 0xd5, 0xb9)                                             \
-  R(L4_DST_PORT, 2, 0, 0x01, 0xbb)                                             \
-  R(IN_SRC_MAC, 6, 0, 0x00, 0x24, 0x14, 0x01, 0x02, 0x03)                      \
-  R(IN_DST_MAC, 6, 0, 0x00, 0x22, 0x55, 0x04, 0x05, 0x06)                      \
-  R(OUT_DST_MAC, 6, 0, 0x00, 0x24, 0x1d, 0x04, 0x05, 0x06)                     \
+  FIXED_FLOW_ENTITIES_2_V4(R)                                                  \
   R(DIRECTION, 1, 0, 0x01)                                                     \
+                                                                               \
   /* Third flow (ingress) */                                                   \
-  FIXED_FLOW_ENTITIES(R)                                                       \
-  R(IPV4_SRC_ADDR, 4, 0, 10, 13, 30, 44)                                       \
-  R(IPV4_DST_ADDR, 4, 0, 10, 13, 30, 45)                                       \
-  R(IP_PROTOCOL_VERSION, 1, 0, 0x04)                                           \
-  R(L4_SRC_PORT, 2, 0, 0xd5, 0xb9)                                             \
-  R(L4_DST_PORT, 2, 0, 0x01, 0xbb)                                             \
-  R(IN_SRC_MAC, 6, 0, 0x00, 0x24, 0x14, 0x01, 0x02, 0x03)                      \
-  R(IN_DST_MAC, 6, 0, 0x00, 0x22, 0x55, 0x04, 0x05, 0x06)                      \
-  R(OUT_DST_MAC, 6, 0, 0x00, 0x24, 0x1d, 0x04, 0x05, 0x06)                     \
+  FIXED_FLOW_ENTITIES_3_V4(R)                                                  \
   R(DIRECTION, 1, 0, 0x00)                                                     \
+                                                                               \
   /* Third flow (egress) */                                                    \
-  FIXED_FLOW_ENTITIES(R)                                                       \
-  R(IPV4_SRC_ADDR, 4, 0, 10, 13, 30, 44)                                       \
-  R(IPV4_DST_ADDR, 4, 0, 10, 13, 30, 45)                                       \
-  R(IP_PROTOCOL_VERSION, 1, 0, 0x04)                                           \
-  R(L4_SRC_PORT, 2, 0, 0xd5, 0xb9)                                             \
-  R(L4_DST_PORT, 2, 0, 0x01, 0xbb)                                             \
-  R(IN_SRC_MAC, 6, 0, 0x00, 0x24, 0x14, 0x01, 0x02, 0x03)                      \
-  R(IN_DST_MAC, 6, 0, 0x00, 0x22, 0x55, 0x04, 0x05, 0x06)                      \
-  R(OUT_DST_MAC, 6, 0, 0x00, 0x24, 0x1d, 0x04, 0x05, 0x06)                     \
+  FIXED_FLOW_ENTITIES_3_V4(R)                                                  \
   R(DIRECTION, 1, 0, 0x01)                                                     \
+                                                                               \
   /* Fourth flow (ingress) */                                                  \
-  FIXED_FLOW_ENTITIES(R)                                                       \
-  R(IPV4_SRC_ADDR, 4, 0, 66, 220, 152, 19)                                     \
-  R(IPV4_SRC_ADDR, 4, 0, 66, 220, 152, 20)                                     \
-  R(IP_PROTOCOL_VERSION, 1, 0, 0x04)                                           \
-  R(L4_SRC_PORT, 2, 0, 0xd5, 0xb9)                                             \
-  R(L4_DST_PORT, 2, 0, 0x01, 0xbb)                                             \
-  R(IN_SRC_MAC, 6, 0, 0x00, 0x24, 0x14, 0x01, 0x02, 0x03)                      \
-  R(IN_DST_MAC, 6, 0, 0x00, 0x22, 0x55, 0x04, 0x05, 0x06)                      \
-  R(OUT_DST_MAC, 6, 0, 0x00, 0x24, 0x1d, 0x04, 0x05, 0x06)                     \
+  FIXED_FLOW_ENTITIES_4_V4(R)                                                  \
   R(DIRECTION, 1, 0, 0x00)                                                     \
+                                                                               \
   /* Fourth flow (egress) */                                                   \
-  FIXED_FLOW_ENTITIES(R)                                                       \
-  R(IPV4_SRC_ADDR, 4, 0, 66, 220, 152, 19)                                     \
-  R(IPV4_SRC_ADDR, 4, 0, 66, 220, 152, 20)                                     \
-  R(IP_PROTOCOL_VERSION, 1, 0, 0x04)                                           \
-  R(L4_SRC_PORT, 2, 0, 0xd5, 0xb9)                                             \
-  R(L4_DST_PORT, 2, 0, 0x01, 0xbb)                                             \
-  R(IN_SRC_MAC, 6, 0, 0x00, 0x24, 0x14, 0x01, 0x02, 0x03)                      \
-  R(IN_DST_MAC, 6, 0, 0x00, 0x22, 0x55, 0x04, 0x05, 0x06)                      \
-  R(OUT_DST_MAC, 6, 0, 0x00, 0x24, 0x1d, 0x04, 0x05, 0x06)                     \
+  FIXED_FLOW_ENTITIES_4_V4(R)                                                  \
   R(DIRECTION, 1, 0, 0x01)
 
-static const struct checkdata_value checkdata_values_span_egress[] = {
-	{.key = "type", .value="netflowv10"},
-	{.key = "direction", .value="egress"},
-	{.key = "client_mac", .value="00:22:55:04:05:06"},
+#define FLOW_ENTITIES_V6(RT, R)                                                \
+  /* First flow (ingress) */                                                   \
+  FIXED_FLOW_ENTITIES_1_V6(RT)                                                 \
+  RT(DIRECTION, 1, 0, 0x00)                                                    \
+                                                                               \
+  /* First flow (egress) */                                                    \
+  FIXED_FLOW_ENTITIES_1_V6(R)                                                  \
+  R(DIRECTION, 1, 0, 0x01)                                                     \
+                                                                               \
+  /* Second flow (ingress) */                                                  \
+  FIXED_FLOW_ENTITIES_2_V6(R)                                                  \
+  R(DIRECTION, 1, 0, 0x00)                                                     \
+                                                                               \
+  /* Second flow (egress) */                                                   \
+  FIXED_FLOW_ENTITIES_2_V6(R)                                                  \
+  R(DIRECTION, 1, 0, 0x01)                                                     \
+                                                                               \
+  /* Third flow (ingress) */                                                   \
+  FIXED_FLOW_ENTITIES_3_V6(R)                                                  \
+  R(DIRECTION, 1, 0, 0x00)                                                     \
+                                                                               \
+  /* Third flow (egress) */                                                    \
+  FIXED_FLOW_ENTITIES_3_V6(R)                                                  \
+  R(DIRECTION, 1, 0, 0x01)                                                     \
+                                                                               \
+  /* Fourth flow (ingress) */                                                  \
+  FIXED_FLOW_ENTITIES_4_V6(R)                                                  \
+  R(DIRECTION, 1, 0, 0x00)                                                     \
+                                                                               \
+  /* Fourth flow (egress) */                                                   \
+  FIXED_FLOW_ENTITIES_4_V6(R)                                                  \
+  R(DIRECTION, 1, 0, 0x01)
+
+#define CHECKDATA(direction, client_mac, client_ip, target_ip, client_port, \
+    target_port) \
+    {.size=6, .checks = (struct checkdata_value[]) { \
+        {.key = "direction", .value=direction}, \
+        {.key = "client_mac", .value=client_mac}, \
+        {.key = "client_ip", .value=client_ip}, \
+        {.key = "target_ip", .value=target_ip}, \
+        {.key = "client_port", .value=client_port}, \
+        {.key = "target_port", .value=target_port}}}
+
+static const struct checkdata checkdata_span_true_v4[] = {
+	CHECKDATA("ingress", "00:24:14:01:02:03", "10.13.30.44", "66.220.152.19", NULL, NULL),
+	CHECKDATA("ingress", "00:24:14:01:02:03", "10.13.30.44", "66.220.152.19", NULL, NULL),
+	CHECKDATA("egress", "00:22:55:04:05:06", "10.13.30.44", "66.220.152.19", NULL, NULL),
+	CHECKDATA("egress", "00:22:55:04:05:06", "10.13.30.44", "66.220.152.19", NULL, NULL),
+	CHECKDATA("internal", "00:22:55:04:05:06", "10.13.30.45", "10.13.30.44", NULL, NULL),
+	CHECKDATA("internal", "00:22:55:04:05:06", "10.13.30.45", "10.13.30.44", NULL, NULL),
+	CHECKDATA("ingress", "00:24:14:01:02:03", "66.220.152.19", "66.220.152.20", NULL, NULL),
+	CHECKDATA("egress", "00:22:55:04:05:06", "66.220.152.20", "66.220.152.19", NULL, NULL),
 };
 
-static const struct checkdata_value checkdata_values_span_ingress[] = {
-	{.key = "type", .value="netflowv10"},
-	{.key = "direction", .value="ingress"},
-	{.key = "client_mac", .value="00:24:14:01:02:03"},
+static const struct checkdata checkdata_span_false_v4[] = {
+	CHECKDATA("ingress", "00:24:14:01:02:03", "10.13.30.44", "66.220.152.19", NULL, NULL),
+	CHECKDATA("ingress", "00:24:14:01:02:03", "10.13.30.44", "66.220.152.19", NULL, NULL),
+	CHECKDATA("egress", "00:24:1d:04:05:06", "10.13.30.44", "66.220.152.19", NULL, NULL),
+	CHECKDATA("egress", "00:24:1d:04:05:06", "10.13.30.44", "66.220.152.19", NULL, NULL),
+	CHECKDATA("internal", "00:24:1d:04:05:06", "10.13.30.45", "10.13.30.44", NULL, NULL),
+	CHECKDATA("internal", "00:24:1d:04:05:06", "10.13.30.45", "10.13.30.44", NULL, NULL),
+	CHECKDATA("ingress", "00:24:14:01:02:03", "66.220.152.19", "66.220.152.20", NULL, NULL),
+	CHECKDATA("egress", "00:24:1d:04:05:06", "66.220.152.20", "66.220.152.19", NULL, NULL),
 };
 
-static const struct checkdata_value checkdata_values_span_internal[] = {
-	{.key = "type", .value="netflowv10"},
-	{.key = "direction", .value="internal"},
-	{.key = "client_mac", .value="00:22:55:04:05:06"},
+static const struct checkdata checkdata_span_true_v6[] = {
+    CHECKDATA("ingress", "00:24:14:01:02:03", "2001:0428:ce00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", NULL, NULL),
+    CHECKDATA("ingress", "00:24:14:01:02:03", "2001:0428:ce00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", NULL, NULL),
+    CHECKDATA("egress", "00:22:55:04:05:06", "2001:0428:ce00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", NULL, NULL),
+    CHECKDATA("egress", "00:22:55:04:05:06", "2001:0428:ce00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", NULL, NULL),
+    CHECKDATA("internal", "00:22:55:04:05:06", "2001:0428:ce00:0000:0000:0000:0000:0002", "2001:0428:ce00:0000:0000:0000:0000:0001", NULL, NULL),
+    CHECKDATA("internal", "00:22:55:04:05:06", "2001:0428:ce00:0000:0000:0000:0000:0002", "2001:0428:ce00:0000:0000:0000:0000:0001", NULL, NULL),
+    CHECKDATA("ingress", "00:24:14:01:02:03", "2001:0428:ff00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", NULL, NULL),
+    CHECKDATA("egress", "00:22:55:04:05:06", "2001:0428:ff00:0000:0000:0000:0000:0002", "2001:0428:ff00:0000:0000:0000:0000:0001", NULL, NULL),
 };
 
-static const struct checkdata_value checkdata_values_nospan_egress[] = {
-	{.key = "type", .value="netflowv10"},
-	{.key = "direction", .value="egress"},
-	{.key = "client_mac", .value="00:24:1d:04:05:06"},
-};
-
-#define checkdata_values_nospan_ingress checkdata_values_span_ingress
-
-static const struct checkdata_value checkdata_values_nospan_internal[] = {
-	{.key = "type", .value="netflowv10"},
-	{.key = "direction", .value="internal"},
-	{.key = "client_mac", .value="00:24:1d:04:05:06"},
-};
-
-static const struct checkdata checkdata_span_true[] = {
-	{.size = RD_ARRAYSIZE(checkdata_values_span_ingress), .checks=checkdata_values_span_ingress},
-	{.size = RD_ARRAYSIZE(checkdata_values_span_ingress), .checks=checkdata_values_span_ingress},
-	{.size = RD_ARRAYSIZE(checkdata_values_span_egress), .checks=checkdata_values_span_egress},
-	{.size = RD_ARRAYSIZE(checkdata_values_span_egress), .checks=checkdata_values_span_egress},
-	{.size = RD_ARRAYSIZE(checkdata_values_span_internal), .checks=checkdata_values_span_internal},
-	{.size = RD_ARRAYSIZE(checkdata_values_span_internal), .checks=checkdata_values_span_internal},
-	{.size = RD_ARRAYSIZE(checkdata_values_span_ingress), .checks=checkdata_values_span_ingress},
-	{.size = RD_ARRAYSIZE(checkdata_values_span_egress), .checks=checkdata_values_span_egress},
-};
-
-static const struct checkdata checkdata_span_false[] = {
-	{.size = RD_ARRAYSIZE(checkdata_values_nospan_ingress), .checks=checkdata_values_nospan_ingress},
-	{.size = RD_ARRAYSIZE(checkdata_values_nospan_ingress), .checks=checkdata_values_nospan_ingress},
-	{.size = RD_ARRAYSIZE(checkdata_values_nospan_egress), .checks=checkdata_values_nospan_egress},
-	{.size = RD_ARRAYSIZE(checkdata_values_nospan_egress), .checks=checkdata_values_nospan_egress},
-	{.size = RD_ARRAYSIZE(checkdata_values_nospan_internal), .checks=checkdata_values_nospan_internal},
-	{.size = RD_ARRAYSIZE(checkdata_values_nospan_internal), .checks=checkdata_values_nospan_internal},
-	{.size = RD_ARRAYSIZE(checkdata_values_nospan_ingress), .checks=checkdata_values_nospan_ingress},
-	{.size = RD_ARRAYSIZE(checkdata_values_nospan_egress), .checks=checkdata_values_nospan_egress},
+static const struct checkdata checkdata_span_false_v6[] = {
+	CHECKDATA("ingress", "00:24:14:01:02:03", "2001:0428:ce00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", NULL, NULL),
+	CHECKDATA("ingress", "00:24:14:01:02:03", "2001:0428:ce00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", NULL, NULL),
+	CHECKDATA("egress", "00:24:1d:04:05:06", "2001:0428:ce00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", NULL, NULL),
+	CHECKDATA("egress", "00:24:1d:04:05:06", "2001:0428:ce00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", NULL, NULL),
+	CHECKDATA("internal", "00:24:1d:04:05:06", "2001:0428:ce00:0000:0000:0000:0000:0002", "2001:0428:ce00:0000:0000:0000:0000:0001", NULL, NULL),
+	CHECKDATA("internal", "00:24:1d:04:05:06", "2001:0428:ce00:0000:0000:0000:0000:0002", "2001:0428:ce00:0000:0000:0000:0000:0001", NULL, NULL),
+	CHECKDATA("ingress", "00:24:14:01:02:03", "2001:0428:ff00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", NULL, NULL),
+	CHECKDATA("egress", "00:24:1d:04:05:06", "2001:0428:ff00:0000:0000:0000:0000:0002", "2001:0428:ff00:0000:0000:0000:0000:0001", NULL, NULL),
 };
 
 static int prepare_test_nf10_mac_direction(void **state) {
-	static const IPFIX_TEMPLATE(v10Template, TEST_FLOW_HEADER,
-			TEST_TEMPLATE_ID, FLOW_ENTITIES);
-		static const IPFIX_FLOW(v10Flow, TEST_FLOW_HEADER, TEST_TEMPLATE_ID,
-			FLOW_ENTITIES);
+	static const IPFIX_TEMPLATE(v10Template, TEST_FLOW_HEADER, TEST_TEMPLATE_ID_V4,
+	                            FLOW_ENTITIES_V4);
+	static const IPFIX_FLOW(v10Flow, TEST_FLOW_HEADER, TEST_TEMPLATE_ID_V4,
+	                        FLOW_ENTITIES_V4);
+
+	static const IPFIX_TEMPLATE(v10Template_v6, TEST_FLOW_HEADER,
+	                            TEST_TEMPLATE_ID_V6, FLOW_ENTITIES_V6);
+	static const IPFIX_FLOW(v10Flow_v6, TEST_FLOW_HEADER, TEST_TEMPLATE_ID_V6,
+	                        FLOW_ENTITIES_V6);
 
 #define TEST(config_path, nf_dev_ip, mrecord, mrecord_size, checks,            \
 								checks_size) { \
@@ -213,17 +249,32 @@ static int prepare_test_nf10_mac_direction(void **state) {
 			0x04030201,
 			&v10Template, sizeof(v10Template),
 			&v10Flow, sizeof(v10Flow),
-			checkdata_span_true, RD_ARRAYSIZE(checkdata_span_true)),
+			checkdata_span_true_v4, RD_ARRAYSIZE(checkdata_span_true_v4)),
 		TEST_TEMPLATE_FLOW(NULL, 0x04030301,
 			&v10Template, sizeof(v10Template),
 			&v10Flow, sizeof(v10Flow),
-			checkdata_span_false,
-			RD_ARRAYSIZE(checkdata_span_false)),
+			checkdata_span_false_v4,
+			RD_ARRAYSIZE(checkdata_span_false_v4)),
 		TEST_TEMPLATE_FLOW(NULL, 0x04030401,
 			&v10Template, sizeof(v10Template),
 			&v10Flow, sizeof(v10Flow),
-			checkdata_span_false,
-			RD_ARRAYSIZE(checkdata_span_false)),
+			checkdata_span_false_v4,
+			RD_ARRAYSIZE(checkdata_span_false_v4)),
+
+		TEST_TEMPLATE_FLOW(NULL, 0x04030201,
+			&v10Template_v6, sizeof(v10Template_v6),
+			&v10Flow_v6, sizeof(v10Flow_v6),
+			checkdata_span_true_v6, RD_ARRAYSIZE(checkdata_span_true_v6)),
+		TEST_TEMPLATE_FLOW(NULL, 0x04030301,
+			&v10Template_v6, sizeof(v10Template_v6),
+			&v10Flow_v6, sizeof(v10Flow_v6),
+			checkdata_span_false_v6,
+			RD_ARRAYSIZE(checkdata_span_false_v6)),
+		TEST_TEMPLATE_FLOW(NULL, 0x04030401,
+			&v10Template_v6, sizeof(v10Template_v6),
+			&v10Flow_v6, sizeof(v10Flow_v6),
+			checkdata_span_false_v6,
+			RD_ARRAYSIZE(checkdata_span_false_v6)),
 	};
 
 	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
