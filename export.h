@@ -221,6 +221,14 @@ size_t print_ipv4_dst_addr(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
 
+size_t print_ip_client_addr(struct printbuf * kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_len_offset, struct flowCache *flowCache);
+
+size_t print_ip_target_addr(struct printbuf * kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_len_offset, struct flowCache *flowCache);
+
 size_t print_proto_name(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
@@ -252,6 +260,10 @@ size_t print_dst_port(struct printbuf * kafka_line_buffer,
 size_t print_srv_port(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
+
+size_t print_ipv6(void *vdst_buf, struct printbuf *kafka_line_buffer,
+                  const void *vbuffer, const size_t real_field_len,
+                  const size_t real_field_offset);
 
 size_t print_ipv6_src_addr(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,

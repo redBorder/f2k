@@ -293,6 +293,8 @@ const char* getStandardFieldId(size_t id);
 	X(CISCO_ENTERPRISE_ID, CLIENT_MAC_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "CLIENT_MAC_ADDRESS_NAME", "client_mac_name", "apMacAddressName", "Access Point MAC Address Name" , print_mac_map, NO_CHILDS)\
 	X(CISCO_ENTERPRISE_ID, CLIENT_MAC_VENDOR, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "CLIENT_MAC_ADDRESS_VENDOR", "client_mac_vendor", "apMacAddressName", "Access Point MAC Address Name" , print_mac_vendor, NO_CHILDS)\
 	X(CISCO_ENTERPRISE_ID, DIRECTION_BASED_CLIENT_MAC_VENDOR, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DIRECTION_BASED_CLIENT_MAC_ADDRESS_VENDOR", "client_mac_vendor", "apMacAddressName", "Access Point MAC Address Name" , print_direction_based_client_mac_vendor, NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, CLIENT_IP_BASED_ON_DIRECTION, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "CLIENT_IP_BASED_ON_DIRECTION", "client_ip", "clientIP", "Client IP address", print_ip_client_addr, NO_CHILDS)\
+	X(CISCO_ENTERPRISE_ID, TARGET_IP_BASED_ON_DIRECTION, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "TARGET_IP_BASED_ON_DIRECTION", "target_ip", "targetIP", "Target IP address", print_ip_target_addr, NO_CHILDS)\
 	X(CISCO_ENTERPRISE_ID, STA_IPV4_ADDRESS, 366, QUOTE_OUTPUT, "STA_IPV4_ADDRESS", "src", "src", "IPv4 destination address",print_ipv4_src_addr, C(IPV4_SRC_NET, IPV4_SRC_ASNUM, SRC_IP_COUNTRY))\
 	X(CISCO_ENTERPRISE_ID, STA_IPV4_ADDRESS_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "STA_IPV4_ADDRESS_NAME", "src_name","src_name", "IPv4 destination address Name",NO_FN,NO_CHILDS)\
 	X(CISCO_ENTERPRISE_ID, WAP_MAC_ADDRESS, 367, QUOTE_OUTPUT, "WAP_MAC_ADDRESS", "wireless_station", "devMacAddr", "Device MAC Address",print_mac, NO_CHILDS)\
