@@ -24,266 +24,212 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
-/*
-	@test Extracting client mac based on flow direction
-*/
+#define TEST_TEMPLATE_ID_V4 512
+#define TEST_TEMPLATE_ID_V6 513
 
-/// @todo template+flow in the same message
-struct TestV10Template{
-	IPFIXFlowHeader flowHeader;
-	IPFIXSet flowSetHeader;
-	V9TemplateDef templateHeader; /* It's the same */
-	const uint8_t templateBuffer[148];
+#define TEST_FLOW_HEADER                                                       \
+  .unix_secs = constexpr_be32toh(3713886546),                                  \
+  .flow_sequence = constexpr_be32toh(232117909), .observationDomainId = 65536
+
+#define FIXED_FLOW_ENTITIES(X)                                                 \
+  X(L4_SRC_PORT, 2, 0, UINT16_TO_UINT8_ARR(54713))                             \
+  X(L4_DST_PORT, 2, 0, UINT16_TO_UINT8_ARR(443))                               \
+  X(IN_SRC_MAC, 6, 0, 0x00, 0x24, 0x14, 0x01, 0x02, 0x03)                      \
+  X(IN_DST_MAC, 6, 0, 0x00, 0x22, 0x55, 0x04, 0x05, 0x06)                      \
+  X(OUT_DST_MAC, 6, 0, 0x00, 0x24, 0x1d, 0x04, 0x05, 0x06)                     \
+  X(PROTOCOL, 1, 0, 0x06)                                                      \
+  X(FLOW_END_REASON, 1, 0, 0x03)                                               \
+  X(BIFLOW_DIRECTION, 1, 0, 0x01)                                              \
+  X(TRANSACTION_ID, 8, 0, 0x8f, 0x63, 0xf3, 0x40, 0x00, 0x01, 0x00, 0x00)      \
+  X(DIRECTION, 1, 0, 0x00)                                                     \
+  X(FLOW_SAMPLER_ID, 1, 0, 0x00)                                               \
+  X(APPLICATION_ID, 4, 0, 0x03, 0x00, 0x00, 0x50)                              \
+  X(IN_BYTES, 8, 0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0xb8)            \
+  X(IN_PKTS, 4, 0, 0x00, 0x00, 0x00, 0x1f)                                     \
+  X(FIRST_SWITCHED, 4, 0, 0x0f, 0xed, 0x0a, 0xc0)                              \
+  X(LAST_SWITCHED, 4, 0, 0x0f, 0xee, 0x18, 0x00)
+
+#define FIXED_FLOW_ENTITIES_1_V4(X)                                            \
+  FIXED_FLOW_ENTITIES(X)                                                       \
+  X(IPV4_SRC_ADDR, 4, 0, 10, 13, 30, 44)                                       \
+  X(IPV4_DST_ADDR, 4, 0, 66, 220, 152, 19)                                     \
+  X(IP_PROTOCOL_VERSION, 1, 0, 0x04)
+#define FIXED_FLOW_ENTITIES_2_V4(X)                                            \
+  FIXED_FLOW_ENTITIES(X)                                                       \
+  X(IPV4_SRC_ADDR, 4, 0, 66, 220, 152, 19)                                     \
+  X(IPV4_DST_ADDR, 4, 0, 10, 13, 30, 44)                                       \
+  X(IP_PROTOCOL_VERSION, 1, 0, 0x04)
+#define FIXED_FLOW_ENTITIES_3_V4(X)                                            \
+  FIXED_FLOW_ENTITIES(X)                                                       \
+  X(IPV4_SRC_ADDR, 4, 0, 10, 13, 30, 44)                                       \
+  X(IPV4_DST_ADDR, 4, 0, 10, 13, 30, 45)                                       \
+  X(IP_PROTOCOL_VERSION, 1, 0, 0x04)
+#define FIXED_FLOW_ENTITIES_4_V4(X)                                            \
+  FIXED_FLOW_ENTITIES(X)                                                       \
+  X(IPV4_SRC_ADDR, 4, 0, 66, 220, 152, 19)                                     \
+  X(IPV4_SRC_ADDR, 4, 0, 66, 220, 152, 20)                                     \
+  X(IP_PROTOCOL_VERSION, 1, 0, 0x04)
+
+#define FIXED_FLOW_ENTITIES_1_V6(X)                                            \
+  FIXED_FLOW_ENTITIES(X)                                                       \
+  X(IPV6_SRC_ADDR, 16, 0, 0x20, 0x01, 0x04, 0x28, 0xce, 0x00, 0x00, 0x00,      \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01)                            \
+  X(IPV6_DST_ADDR, 16, 0, 0x20, 0x01, 0x04, 0x28, 0xff, 0x00, 0x00, 0x00,      \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02)                            \
+  X(IP_PROTOCOL_VERSION, 1, 0, 0x06)
+#define FIXED_FLOW_ENTITIES_2_V6(X)                                            \
+  FIXED_FLOW_ENTITIES(X)                                                       \
+  X(IPV6_SRC_ADDR, 16, 0, 0x20, 0x01, 0x04, 0x28, 0xff, 0x00, 0x00, 0x00,      \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02)                            \
+  X(IPV6_DST_ADDR, 16, 0, 0x20, 0x01, 0x04, 0x28, 0xce, 0x00, 0x00, 0x00,      \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01)                            \
+  X(IP_PROTOCOL_VERSION, 1, 0, 0x06)
+#define FIXED_FLOW_ENTITIES_3_V6(X)                                            \
+  FIXED_FLOW_ENTITIES(X)                                                       \
+  X(IPV6_SRC_ADDR, 16, 0, 0x20, 0x01, 0x04, 0x28, 0xce, 0x00, 0x00, 0x00,      \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01)                            \
+  X(IPV6_DST_ADDR, 16, 0, 0x20, 0x01, 0x04, 0x28, 0xce, 0x00, 0x00, 0x00,      \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02)                            \
+  X(IP_PROTOCOL_VERSION, 1, 0, 0x06)
+#define FIXED_FLOW_ENTITIES_4_V6(X)                                            \
+  FIXED_FLOW_ENTITIES(X)                                                       \
+  X(IPV6_SRC_ADDR, 16, 0, 0x20, 0x01, 0x04, 0x28, 0xff, 0x00, 0x00, 0x00,      \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01)                            \
+  X(IPV6_DST_ADDR, 16, 0, 0x20, 0x01, 0x04, 0x28, 0xff, 0x00, 0x00, 0x00,      \
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02)                            \
+  X(IP_PROTOCOL_VERSION, 1, 0, 0x06)
+
+#define FLOW_ENTITIES_V4(RT, R)                                                \
+  /* First flow (ingress) */                                                   \
+  FIXED_FLOW_ENTITIES_1_V4(RT)                                                 \
+  RT(DIRECTION, 1, 0, 0x00)                                                    \
+                                                                               \
+  /* First flow (egress) */                                                    \
+  FIXED_FLOW_ENTITIES_1_V4(R)                                                  \
+  R(DIRECTION, 1, 0, 0x01)                                                     \
+                                                                               \
+  /* Second flow (ingress) */                                                  \
+  FIXED_FLOW_ENTITIES_2_V4(R)                                                  \
+  R(DIRECTION, 1, 0, 0x00)                                                     \
+                                                                               \
+  /* Second flow (egress) */                                                   \
+  FIXED_FLOW_ENTITIES_2_V4(R)                                                  \
+  R(DIRECTION, 1, 0, 0x01)                                                     \
+                                                                               \
+  /* Third flow (ingress) */                                                   \
+  FIXED_FLOW_ENTITIES_3_V4(R)                                                  \
+  R(DIRECTION, 1, 0, 0x00)                                                     \
+                                                                               \
+  /* Third flow (egress) */                                                    \
+  FIXED_FLOW_ENTITIES_3_V4(R)                                                  \
+  R(DIRECTION, 1, 0, 0x01)                                                     \
+                                                                               \
+  /* Fourth flow (ingress) */                                                  \
+  FIXED_FLOW_ENTITIES_4_V4(R)                                                  \
+  R(DIRECTION, 1, 0, 0x00)                                                     \
+                                                                               \
+  /* Fourth flow (egress) */                                                   \
+  FIXED_FLOW_ENTITIES_4_V4(R)                                                  \
+  R(DIRECTION, 1, 0, 0x01)
+
+#define FLOW_ENTITIES_V6(RT, R)                                                \
+  /* First flow (ingress) */                                                   \
+  FIXED_FLOW_ENTITIES_1_V6(RT)                                                 \
+  RT(DIRECTION, 1, 0, 0x00)                                                    \
+                                                                               \
+  /* First flow (egress) */                                                    \
+  FIXED_FLOW_ENTITIES_1_V6(R)                                                  \
+  R(DIRECTION, 1, 0, 0x01)                                                     \
+                                                                               \
+  /* Second flow (ingress) */                                                  \
+  FIXED_FLOW_ENTITIES_2_V6(R)                                                  \
+  R(DIRECTION, 1, 0, 0x00)                                                     \
+                                                                               \
+  /* Second flow (egress) */                                                   \
+  FIXED_FLOW_ENTITIES_2_V6(R)                                                  \
+  R(DIRECTION, 1, 0, 0x01)                                                     \
+                                                                               \
+  /* Third flow (ingress) */                                                   \
+  FIXED_FLOW_ENTITIES_3_V6(R)                                                  \
+  R(DIRECTION, 1, 0, 0x00)                                                     \
+                                                                               \
+  /* Third flow (egress) */                                                    \
+  FIXED_FLOW_ENTITIES_3_V6(R)                                                  \
+  R(DIRECTION, 1, 0, 0x01)                                                     \
+                                                                               \
+  /* Fourth flow (ingress) */                                                  \
+  FIXED_FLOW_ENTITIES_4_V6(R)                                                  \
+  R(DIRECTION, 1, 0, 0x00)                                                     \
+                                                                               \
+  /* Fourth flow (egress) */                                                   \
+  FIXED_FLOW_ENTITIES_4_V6(R)                                                  \
+  R(DIRECTION, 1, 0, 0x01)
+
+#define CHECKDATA(direction, client_mac, client_ip, target_ip, client_port, \
+    target_port) \
+    {.size=6, .checks = (struct checkdata_value[]) { \
+        {.key = "direction", .value=direction}, \
+        {.key = "client_mac", .value=client_mac}, \
+        {.key = "client_ip", .value=client_ip}, \
+        {.key = "target_ip", .value=target_ip}, \
+        {.key = "client_port", .value=client_port}, \
+        {.key = "target_port", .value=target_port}}}
+
+static const struct checkdata checkdata_span_true_v4[] = {
+	CHECKDATA("ingress", "00:24:14:01:02:03", "10.13.30.44", "66.220.152.19", "54713", "443"),
+	CHECKDATA("ingress", "00:24:14:01:02:03", "10.13.30.44", "66.220.152.19", "54713", "443"),
+	CHECKDATA("egress", "00:22:55:04:05:06", "10.13.30.44", "66.220.152.19", "443", "54713"),
+	CHECKDATA("egress", "00:22:55:04:05:06", "10.13.30.44", "66.220.152.19", "443", "54713"),
+	CHECKDATA("internal", "00:22:55:04:05:06", "10.13.30.45", "10.13.30.44", "443", "54713"),
+	CHECKDATA("internal", "00:22:55:04:05:06", "10.13.30.45", "10.13.30.44", "443", "54713"),
+	CHECKDATA("ingress", "00:24:14:01:02:03", "66.220.152.19", "66.220.152.20", "54713", "443"),
+	CHECKDATA("egress", "00:22:55:04:05:06", "66.220.152.20", "66.220.152.19", "443", "54713"),
 };
 
-struct TestV10Flow{
-	IPFIXFlowHeader flowHeader;
-	IPFIXSet flowSetHeader;
-	const uint8_t buffer1[1048];
-}__attribute__((packed));
-
-static const struct TestV10Template v10Template = {
-	.flowHeader = {
-		/*uint16_t*/ .version = 0x0a00,           /* Current version=9*/
-		/*uint16_t*/ .len = 0xac00,               /* The number of records in PDU. */
-		/*uint32_t*/ .unix_secs = 0xdd5d6952,     /* Current time in msecs since router booted */
-		/*uint32_t*/ .flow_sequence = 0x38040000, /* Sequence number of total flows seen */
-		/*uint32_t*/ .observationDomainId = 0x00010000,      /* Source id */
-	},
-
-	.flowSetHeader = {
-		/*uint16_t*/ .set_id = 0x0200,
-		/*uint16_t*/ .set_len = 0x9c00,
-	},
-
-	.templateHeader = {
-		/*uint16_t*/ .templateId = 0x0301, /*259*/
-		/*uint16_t*/ .fieldCount = 0x1c00,
-	},
-
-	.templateBuffer = {
-		0x00, 0x08, 0x00, 0x04, /* SRC ADDR */
-		0x00, 0x0c, 0x00, 0x04, /* DST ADDR */
-		0x00, 0x3c, 0x00, 0x01, /* IP VERSION */
-		0x00, 0x04, 0x00, 0x01, /* PROTO */
-		0x00, 0x07, 0x00, 0x02, /* SRC PORT */
-		0x00, 0x0b, 0x00, 0x02, /* DST PORT */
-		0x00, 0x38, 0x00, 0x06, /* SRC MAC */
-		0x00, 0x88, 0x00, 0x01, /* flowEndreason */
-		0x00, 0xef, 0x00, 0x01, /* biflowDirection */
-		0x01, 0x18, 0x00, 0x08, /* TRANSACTION_ID */
-		0x00, 0x50, 0x00, 0x06, /* DST MAC */
-		0x00, 0x39, 0x00, 0x06, /* POST DST MAC */
-		0x00, 0x3d, 0x00, 0x01, /* DIRECTION */
-		0x00, 0x30, 0x00, 0x01, /* FLOW_SAMPLER_ID */
-		0x00, 0x5f, 0x00, 0x04, /* APPLICATION ID*/
-		0xaf, 0xcb, 0xff, 0xff, 0x00, 0x00, 0x00, 0x09, /* CISCO_URL, variable length */
-		0xaf, 0xcb, 0xff, 0xff, 0x00, 0x00, 0x00, 0x09, /* CISCO_URL, variable length */
-		0xaf, 0xcb, 0xff, 0xff, 0x00, 0x00, 0x00, 0x09, /* CISCO_URL, variable length */
-		0xaf, 0xcb, 0xff, 0xff, 0x00, 0x00, 0x00, 0x09, /* CISCO_URL, variable length */
-		0xaf, 0xcb, 0xff, 0xff, 0x00, 0x00, 0x00, 0x09, /* CISCO_URL, variable length */
-		0xaf, 0xcb, 0xff, 0xff, 0x00, 0x00, 0x00, 0x09, /* CISCO_URL, variable length */
-		0xaf, 0xcb, 0xff, 0xff, 0x00, 0x00, 0x00, 0x09, /* CISCO_URL, variable length */
-		0xaf, 0xcb, 0xff, 0xff, 0x00, 0x00, 0x00, 0x09, /* CISCO_URL, variable length */
-		0xaf, 0xcb, 0xff, 0xff, 0x00, 0x00, 0x00, 0x09, /* CISCO_URL, variable length */
-		0x00, 0x01, 0x00, 0x08, /* BYTES: */
-		0x00, 0x02, 0x00, 0x04, /* PKTS*/
-		0x00, 0x16, 0x00, 0x04, /* FIRST_SWITCHED */
-		0x00, 0x15, 0x00, 0x04, /* LAST_SWITCHED*/
-	}
+static const struct checkdata checkdata_span_false_v4[] = {
+	CHECKDATA("ingress", "00:24:14:01:02:03", "10.13.30.44", "66.220.152.19", "54713", "443"),
+	CHECKDATA("ingress", "00:24:14:01:02:03", "10.13.30.44", "66.220.152.19", "54713", "443"),
+	CHECKDATA("egress", "00:24:1d:04:05:06", "10.13.30.44", "66.220.152.19", "443", "54713"),
+	CHECKDATA("egress", "00:24:1d:04:05:06", "10.13.30.44", "66.220.152.19", "443", "54713"),
+	CHECKDATA("internal", "00:24:1d:04:05:06", "10.13.30.45", "10.13.30.44", "443", "54713"),
+	CHECKDATA("internal", "00:24:1d:04:05:06", "10.13.30.45", "10.13.30.44", "443", "54713"),
+	CHECKDATA("ingress", "00:24:14:01:02:03", "66.220.152.19", "66.220.152.20", "54713", "443"),
+	CHECKDATA("egress", "00:24:1d:04:05:06", "66.220.152.20", "66.220.152.19", "443", "54713"),
 };
 
-#define FLOW(src_addr_0,src_addr_1,src_addr_2,src_addr_3, \
-		     dst_addr_0,dst_addr_1,dst_addr_2,dst_addr_3, \
-		     ip_version, \
-		     src_mac_0, src_mac_1, src_mac_2, src_mac_3, src_mac_4, src_mac_5, \
-		     dst_mac_0, dst_mac_1, dst_mac_2, dst_mac_3, dst_mac_4, dst_mac_5, \
-		     pdst_mac_0, pdst_mac_1, pdst_mac_2, pdst_mac_3, pdst_mac_4, pdst_mac_5, \
-		     direction) \
-		src_addr_0,src_addr_1,src_addr_2,src_addr_3, /* SRC ADDR   */ \
-		dst_addr_0,dst_addr_1,dst_addr_2,dst_addr_3, /* DST ADDR   */ \
-		ip_version,                                  /* IP VERSION */ \
-		0x06,                   /* PROTO: 6 */ \
-		0xd5, 0xb9,             /* SRC PORT: 54713 */ \
-		0x01, 0xbb,             /* DST PORT: 443 */ \
-		src_mac_0, src_mac_1, src_mac_2, src_mac_3, src_mac_4, src_mac_5, /* SRC MAC */ \
-		0x03,                   /* flowEndreason */ \
-		0x01,                   /* biflowDirection */ \
-		0x8f, 0x63, 0xf3, 0x40, 0x00, 0x01, 0x00, 0x00, /* TRANSACTION_ID */ \
-		dst_mac_0, dst_mac_1, dst_mac_2, dst_mac_3, dst_mac_4, dst_mac_5, /* DST MAC */ \
-		pdst_mac_0, pdst_mac_1, pdst_mac_2, pdst_mac_3, pdst_mac_4, pdst_mac_5, /* POST DST MAC */ \
-		direction,              /* DIRECTION */ \
-		0x00,                   /* SAMPLER ID */ \
-		0x03, 0x00, 0x00, 0x50, /* APPLICATION ID 13:453 */ \
- \
-		0x06, 0x03, 0x00, 0x00, 0x19, 0x34, 0x01, /* CISCO DPI */ \
-		0x06, 0x03, 0x00, 0x00, 0x19, 0x34, 0x02, \
-		0x06, 0x03, 0x00, 0x00, 0x50, 0x34, 0x01, \
-		0x06, 0x03, 0x00, 0x00, 0x50, 0x34, 0x02, \
-		0x06, 0x03, 0x00, 0x00, 0x50, 0x34, 0x03, \
-		0x06, 0x03, 0x00, 0x00, 0x50, 0x34, 0x04, \
-		0x06, 0x03, 0x00, 0x00, 0x6e, 0x34, 0x01, \
-		0x06, 0x03, 0x00, 0x00, 0xc4, 0x34, 0x01, \
-		0x06, 0x03, 0x00, 0x00, 0xc4, 0x34, 0x02, \
- \
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0xb8, /* BYTES: 2744 */ \
-		0x00, 0x00, 0x00, 0x1f, /* PKTS: 31*/ \
-		0x0f, 0xed, 0x0a, 0xc0, /* FIRST_SWITCHED:  */ \
-		0x0f, 0xee, 0x18, 0x00, /* LAST_SWITCHED: */
-
-
-static const struct TestV10Flow v10Flow = {
-	.flowHeader = {
-		/*uint16_t*/ .version = 0x0a00,           /* Current version=9*/
-		/*uint16_t*/ .len = 0x2c04,               /* The number of records in PDU. */
-		/*uint32_t*/ .unix_secs = 0xdd5d6952,     /* Current time in msecs since router booted */
-		/*uint32_t*/ .flow_sequence = 0x38040000, /* Sequence number of total flows seen */
-		/*uint32_t*/ .observationDomainId = 0x00010000,      /* Source id */
-	},
-
-	.flowSetHeader = {
-		/*uint16_t*/ .set_id = 0x0301,
-		/*uint16_t*/ .set_len = 0x1c04,
-	},
-
-	.buffer1 = {
-		/* FIRST FLOW: SRC in HOME_NET, DST not in HOME_NET, DIRECTION ingress */
-		FLOW(
-			0x0a, 0x0d, 0x1e, 0x2c,             /* SRC ADDR 10.13.30.44 */
-			0x42, 0xdc, 0x98, 0x13,             /* DST ADDR 66.220.152.19 */
-			0x04,                               /* IP VERSION 4 */
-			0x00, 0x24, 0x14, 0x01, 0x02, 0x03, /* SRC MAC */
-			0x00, 0x22, 0x55, 0x04, 0x05, 0x06, /* DST MAC */
-			0x00, 0x24, 0x1d, 0x04, 0x05, 0x06, /* POST DST MAC */
-			0x00)                               /* DIRECTION */
-
-		/* FIRST FLOW: SRC in HOME_NET, DST not in HOME_NET, DIRECTION egress */
-		FLOW(
-			0x0a, 0x0d, 0x1e, 0x2c,             /* SRC ADDR 10.13.30.44 */
-			0x42, 0xdc, 0x98, 0x13,             /* DST ADDR 66.220.152.19 */
-			0x04,                               /* IP VERSION 4 */
-			0x00, 0x24, 0x14, 0x01, 0x02, 0x03, /* SRC MAC */
-			0x00, 0x22, 0x55, 0x04, 0x05, 0x06, /* DST MAC */
-			0x00, 0x24, 0x1d, 0x04, 0x05, 0x06, /* POST DST MAC */
-			0x01)                               /* DIRECTION */
-
-		/* SECOND FLOW: SRC not in HOME_NET, DST in HOME_NET, DIRECTION ingress */
-		FLOW(
-			0x42, 0xdc, 0x98, 0x13,             /* SRC ADDR 66.220.152.19*/
-			0x0a, 0x0d, 0x1e, 0x2c,             /* DST ADDR 10.13.30.44 */
-			0x04,                               /* IP VERSION: 4 */
-			0x00, 0x24, 0x14, 0x01, 0x02, 0x03, /* SRC MAC */
-			0x00, 0x22, 0x55, 0x04, 0x05, 0x06, /* DST MAC */
-			0x00, 0x24, 0x1d, 0x04, 0x05, 0x06, /* POST DST MAC */
-			0x00)                               /* DIRECTION */
-
-		/* SECOND FLOW: SRC not in HOME_NET, DST in HOME_NET, DIRECTION egress */
-		FLOW(
-			0x42, 0xdc, 0x98, 0x13,             /* SRC ADDR 66.220.152.19*/
-			0x0a, 0x0d, 0x1e, 0x2c,             /* DST ADDR 10.13.30.44 */
-			0x04,                               /* IP VERSION: 4 */
-			0x00, 0x24, 0x14, 0x01, 0x02, 0x03, /* SRC MAC */
-			0x00, 0x22, 0x55, 0x04, 0x05, 0x06, /* DST MAC */
-			0x00, 0x24, 0x1d, 0x04, 0x05, 0x06, /* POST DST MAC */
-			0x01)                               /* DIRECTION */
-
-		/* THIRD  FLOW: SRC in HOME_NET, DST in HOME_NET, DIRECTION egress */
-		FLOW(
-			0x0a, 0x0d, 0x1e, 0x2c,             /* DST ADDR 10.13.30.44 */
-			0x0a, 0x0d, 0x1e, 0x2c,             /* SRC ADDR 10.13.30.44 */
-			0x04,                               /* IP VERSION: 4 */
-			0x00, 0x24, 0x14, 0x01, 0x02, 0x03, /* SRC MAC */
-			0x00, 0x22, 0x55, 0x04, 0x05, 0x06, /* DST MAC */
-			0x00, 0x24, 0x1d, 0x04, 0x05, 0x06, /* POST DST MAC */
-			0x00)                               /* DIRECTION */
-
-		/* THIRD  FLOW: SRC in HOME_NET, DST in HOME_NET, DIRECTION egress */
-		FLOW(
-			0x0a, 0x0d, 0x1e, 0x2c,             /* DST ADDR 10.13.30.44 */
-			0x0a, 0x0d, 0x1e, 0x2c,             /* SRC ADDR 10.13.30.44 */
-			0x04,                               /* IP VERSION: 4 */
-			0x00, 0x24, 0x14, 0x01, 0x02, 0x03, /* SRC MAC */
-			0x00, 0x22, 0x55, 0x04, 0x05, 0x06, /* DST MAC */
-			0x00, 0x24, 0x1d, 0x04, 0x05, 0x06, /* POST DST MAC */
-			0x01)                               /* DIRECTION */
-
-		/* FOURTH FLOW: SRC not in HOME_NET, DST not in HOME_NET, DIRECTION egress */
-		FLOW(
-			0x42, 0xdc, 0x98, 0x13,             /* SRC ADDR 66.220.152.19*/
-			0x42, 0xdc, 0x98, 0x14,             /* DST ADDR 66.220.152.19*/
-			0x04,                               /* IP VERSION: 4 */
-			0x00, 0x24, 0x14, 0x01, 0x02, 0x03, /* SRC MAC */
-			0x00, 0x22, 0x55, 0x04, 0x05, 0x06, /* DST MAC */
-			0x00, 0x24, 0x1d, 0x04, 0x05, 0x06, /* POST DST MAC */
-			0x00)                               /* DIRECTION */
-
-		/* FOURTH FLOW: SRC not in HOME_NET, DST not in HOME_NET, DIRECTION egress */
-		FLOW(
-			0x42, 0xdc, 0x98, 0x13,             /* SRC ADDR 66.220.152.19*/
-			0x42, 0xdc, 0x98, 0x14,             /* DST ADDR 66.220.152.19*/
-			0x04,                               /* IP VERSION: 4 */
-			0x00, 0x24, 0x14, 0x01, 0x02, 0x03, /* SRC MAC */
-			0x00, 0x22, 0x55, 0x04, 0x05, 0x06, /* DST MAC */
-			0x00, 0x24, 0x1d, 0x04, 0x05, 0x06, /* POST DST MAC */
-			0x01)                               /* DIRECTION */
-	},
+static const struct checkdata checkdata_span_true_v6[] = {
+    CHECKDATA("ingress", "00:24:14:01:02:03", "2001:0428:ce00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", "54713", "443"),
+    CHECKDATA("ingress", "00:24:14:01:02:03", "2001:0428:ce00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", "54713", "443"),
+    CHECKDATA("egress", "00:22:55:04:05:06", "2001:0428:ce00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", "443", "54713"),
+    CHECKDATA("egress", "00:22:55:04:05:06", "2001:0428:ce00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", "443", "54713"),
+    CHECKDATA("internal", "00:22:55:04:05:06", "2001:0428:ce00:0000:0000:0000:0000:0002", "2001:0428:ce00:0000:0000:0000:0000:0001", "443", "54713"),
+    CHECKDATA("internal", "00:22:55:04:05:06", "2001:0428:ce00:0000:0000:0000:0000:0002", "2001:0428:ce00:0000:0000:0000:0000:0001", "443", "54713"),
+    CHECKDATA("ingress", "00:24:14:01:02:03", "2001:0428:ff00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", "54713", "443"),
+    CHECKDATA("egress", "00:22:55:04:05:06", "2001:0428:ff00:0000:0000:0000:0000:0002", "2001:0428:ff00:0000:0000:0000:0000:0001", "443", "54713"),
 };
 
-static const struct checkdata_value checkdata_values_span_egress[] = {
-	{.key = "type", .value="netflowv10"},
-	{.key = "direction", .value="egress"},
-	{.key = "client_mac", .value="00:22:55:04:05:06"},
-};
-
-static const struct checkdata_value checkdata_values_span_ingress[] = {
-	{.key = "type", .value="netflowv10"},
-	{.key = "direction", .value="ingress"},
-	{.key = "client_mac", .value="00:24:14:01:02:03"},
-};
-
-static const struct checkdata_value checkdata_values_span_internal[] = {
-	{.key = "type", .value="netflowv10"},
-	{.key = "direction", .value="internal"},
-	{.key = "client_mac", .value="00:22:55:04:05:06"},
-};
-
-static const struct checkdata_value checkdata_values_nospan_egress[] = {
-	{.key = "type", .value="netflowv10"},
-	{.key = "direction", .value="egress"},
-	{.key = "client_mac", .value="00:24:1d:04:05:06"},
-};
-
-#define checkdata_values_nospan_ingress checkdata_values_span_ingress
-
-static const struct checkdata_value checkdata_values_nospan_internal[] = {
-	{.key = "type", .value="netflowv10"},
-	{.key = "direction", .value="internal"},
-	{.key = "client_mac", .value="00:24:1d:04:05:06"},
-};
-
-static const struct checkdata checkdata_span_true[] = {
-	{.size = RD_ARRAYSIZE(checkdata_values_span_ingress), .checks=checkdata_values_span_ingress},
-	{.size = RD_ARRAYSIZE(checkdata_values_span_ingress), .checks=checkdata_values_span_ingress},
-	{.size = RD_ARRAYSIZE(checkdata_values_span_egress), .checks=checkdata_values_span_egress},
-	{.size = RD_ARRAYSIZE(checkdata_values_span_egress), .checks=checkdata_values_span_egress},
-	{.size = RD_ARRAYSIZE(checkdata_values_span_internal), .checks=checkdata_values_span_internal},
-	{.size = RD_ARRAYSIZE(checkdata_values_span_internal), .checks=checkdata_values_span_internal},
-	{.size = RD_ARRAYSIZE(checkdata_values_span_ingress), .checks=checkdata_values_span_ingress},
-	{.size = RD_ARRAYSIZE(checkdata_values_span_egress), .checks=checkdata_values_span_egress},
-};
-
-static const struct checkdata checkdata_span_false[] = {
-	{.size = RD_ARRAYSIZE(checkdata_values_nospan_ingress), .checks=checkdata_values_nospan_ingress},
-	{.size = RD_ARRAYSIZE(checkdata_values_nospan_ingress), .checks=checkdata_values_nospan_ingress},
-	{.size = RD_ARRAYSIZE(checkdata_values_nospan_egress), .checks=checkdata_values_nospan_egress},
-	{.size = RD_ARRAYSIZE(checkdata_values_nospan_egress), .checks=checkdata_values_nospan_egress},
-	{.size = RD_ARRAYSIZE(checkdata_values_nospan_internal), .checks=checkdata_values_nospan_internal},
-	{.size = RD_ARRAYSIZE(checkdata_values_nospan_internal), .checks=checkdata_values_nospan_internal},
-	{.size = RD_ARRAYSIZE(checkdata_values_nospan_ingress), .checks=checkdata_values_nospan_ingress},
-	{.size = RD_ARRAYSIZE(checkdata_values_nospan_egress), .checks=checkdata_values_nospan_egress},
+static const struct checkdata checkdata_span_false_v6[] = {
+	CHECKDATA("ingress", "00:24:14:01:02:03", "2001:0428:ce00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", "54713", "443"),
+	CHECKDATA("ingress", "00:24:14:01:02:03", "2001:0428:ce00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", "54713", "443"),
+	CHECKDATA("egress", "00:24:1d:04:05:06", "2001:0428:ce00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", "443", "54713"),
+	CHECKDATA("egress", "00:24:1d:04:05:06", "2001:0428:ce00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", "443", "54713"),
+	CHECKDATA("internal", "00:24:1d:04:05:06", "2001:0428:ce00:0000:0000:0000:0000:0002", "2001:0428:ce00:0000:0000:0000:0000:0001", "443", "54713"),
+	CHECKDATA("internal", "00:24:1d:04:05:06", "2001:0428:ce00:0000:0000:0000:0000:0002", "2001:0428:ce00:0000:0000:0000:0000:0001", "443", "54713"),
+	CHECKDATA("ingress", "00:24:14:01:02:03", "2001:0428:ff00:0000:0000:0000:0000:0001", "2001:0428:ff00:0000:0000:0000:0000:0002", "54713", "443"),
+	CHECKDATA("egress", "00:24:1d:04:05:06", "2001:0428:ff00:0000:0000:0000:0000:0002", "2001:0428:ff00:0000:0000:0000:0000:0001", "443", "54713"),
 };
 
 static int prepare_test_nf10_mac_direction(void **state) {
+	static const IPFIX_TEMPLATE(v10Template, TEST_FLOW_HEADER, TEST_TEMPLATE_ID_V4,
+	                            FLOW_ENTITIES_V4);
+	static const IPFIX_FLOW(v10Flow, TEST_FLOW_HEADER, TEST_TEMPLATE_ID_V4,
+	                        FLOW_ENTITIES_V4);
+
+	static const IPFIX_TEMPLATE(v10Template_v6, TEST_FLOW_HEADER,
+	                            TEST_TEMPLATE_ID_V6, FLOW_ENTITIES_V6);
+	static const IPFIX_FLOW(v10Flow_v6, TEST_FLOW_HEADER, TEST_TEMPLATE_ID_V6,
+	                        FLOW_ENTITIES_V6);
+
 #define TEST(config_path, nf_dev_ip, mrecord, mrecord_size, checks,            \
 								checks_size) { \
 		.config_json_path = config_path,                               \
@@ -303,17 +249,32 @@ static int prepare_test_nf10_mac_direction(void **state) {
 			0x04030201,
 			&v10Template, sizeof(v10Template),
 			&v10Flow, sizeof(v10Flow),
-			checkdata_span_true, RD_ARRAYSIZE(checkdata_span_true)),
+			checkdata_span_true_v4, RD_ARRAYSIZE(checkdata_span_true_v4)),
 		TEST_TEMPLATE_FLOW(NULL, 0x04030301,
 			&v10Template, sizeof(v10Template),
 			&v10Flow, sizeof(v10Flow),
-			checkdata_span_false,
-			RD_ARRAYSIZE(checkdata_span_false)),
+			checkdata_span_false_v4,
+			RD_ARRAYSIZE(checkdata_span_false_v4)),
 		TEST_TEMPLATE_FLOW(NULL, 0x04030401,
 			&v10Template, sizeof(v10Template),
 			&v10Flow, sizeof(v10Flow),
-			checkdata_span_false,
-			RD_ARRAYSIZE(checkdata_span_false)),
+			checkdata_span_false_v4,
+			RD_ARRAYSIZE(checkdata_span_false_v4)),
+
+		TEST_TEMPLATE_FLOW(NULL, 0x04030201,
+			&v10Template_v6, sizeof(v10Template_v6),
+			&v10Flow_v6, sizeof(v10Flow_v6),
+			checkdata_span_true_v6, RD_ARRAYSIZE(checkdata_span_true_v6)),
+		TEST_TEMPLATE_FLOW(NULL, 0x04030301,
+			&v10Template_v6, sizeof(v10Template_v6),
+			&v10Flow_v6, sizeof(v10Flow_v6),
+			checkdata_span_false_v6,
+			RD_ARRAYSIZE(checkdata_span_false_v6)),
+		TEST_TEMPLATE_FLOW(NULL, 0x04030401,
+			&v10Template_v6, sizeof(v10Template_v6),
+			&v10Flow_v6, sizeof(v10Flow_v6),
+			checkdata_span_false_v6,
+			RD_ARRAYSIZE(checkdata_span_false_v6)),
 	};
 
 	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));

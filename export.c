@@ -757,6 +757,60 @@ size_t print_ipv4_dst_addr(struct printbuf *kafka_line_buffer,
     real_field_len, real_field_offset, flowCache);
 }
 
+size_t print_ip_client_addr(struct printbuf *kafka_line_buffer,
+                            const void *buffer, const size_t real_field_len,
+                            const size_t real_field_offset,
+                            struct flowCache *flowCache) {
+
+  unused_params(buffer, real_field_len, real_field_offset);
+
+  static const uint8_t ipv4_mapped[12] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                          0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF};
+  if (!flowCache || !flowCache->address.src || !flowCache->address.dst) {
+    return 0;
+  }
+
+  const uint8_t *client_ip = get_direction_based_client_ip(flowCache);
+  if (NULL == client_ip) {
+    return 0;
+  }
+
+  if (0 == memcmp(client_ip, ipv4_mapped, 12)) {
+    return print_ipv4_addr0(kafka_line_buffer,
+                            client_ip[15] + (client_ip[14] << 8) +
+                                (client_ip[13] << 16) + (client_ip[12] << 24));
+  } else {
+    return print_ipv6(NULL, kafka_line_buffer, client_ip, 16, 0);
+  }
+}
+
+size_t print_ip_target_addr(struct printbuf *kafka_line_buffer,
+                            const void *buffer, const size_t real_field_len,
+                            const size_t real_field_offset,
+                            struct flowCache *flowCache) {
+
+  unused_params(buffer, real_field_len, real_field_offset);
+
+  static const uint8_t ipv4_mapped[12] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                          0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF};
+  if (!flowCache || !flowCache->address.src || !flowCache->address.dst) {
+    return 0;
+  }
+
+  const uint8_t *target_ip = get_direction_based_target_ip(flowCache);
+  if (NULL == target_ip) {
+    return 0;
+  }
+
+  if (0 == memcmp(target_ip, ipv4_mapped, 12)) {
+    return print_ipv4_addr0(kafka_line_buffer,
+                            target_ip[15] + (target_ip[14] << 8) +
+                                (target_ip[13] << 16) + (target_ip[12] << 24));
+  } else {
+    return print_ipv6(NULL, kafka_line_buffer, target_ip, 16, 0);
+  }
+}
+
 static size_t print_mac0(struct printbuf *kafka_line_buffer,
     const void *vbuffer) {
   const uint8_t *buffer = vbuffer;
@@ -1132,6 +1186,38 @@ size_t print_srv_port(struct printbuf *kafka_line_buffer,
 
 }
 
+size_t print_client_port(struct printbuf *kafka_line_buffer, const void *buffer,
+                         const size_t real_field_len,
+                         const size_t real_field_offset,
+                         struct flowCache *flowCache) {
+
+  assert_multi(kafka_line_buffer);
+  unused_params(buffer, real_field_len, real_field_offset);
+
+  const uint16_t client_port = get_direction_based_client_port(flowCache);
+  if (!client_port) {
+    return 0;
+  }
+
+  return print_port0(kafka_line_buffer, client_port);
+}
+
+size_t print_target_port(struct printbuf *kafka_line_buffer, const void *buffer,
+                         const size_t real_field_len,
+                         const size_t real_field_offset,
+                         struct flowCache *flowCache) {
+
+  assert_multi(kafka_line_buffer);
+  unused_params(buffer, real_field_len, real_field_offset);
+
+  const uint16_t target_port = get_direction_based_target_port(flowCache);
+  if (!target_port) {
+    return 0;
+  }
+
+  return print_port0(kafka_line_buffer, target_port);
+}
+
 /** Print and store ipv6
  * @param  dst_buf           Destination buffer to save ipv6
  * @param  kafka_line_buffer buffer to print ipv6
@@ -1141,23 +1227,25 @@ size_t print_srv_port(struct printbuf *kafka_line_buffer,
  * @param  flowCache         Flow cache
  * @return                   Bytes written in kafka_line_buffer
  */
-static size_t print_ipv6(void *vdst_buf, struct printbuf *kafka_line_buffer,
+size_t print_ipv6(void *vdst_buf, struct printbuf *kafka_line_buffer,
       const void *vbuffer, const size_t real_field_len,
       const size_t real_field_offset) {
 
   const uint8_t *buffer = (const uint8_t *)vbuffer + real_field_offset;
   uint8_t *dst_buf = vdst_buf;
   size_t i;
-  assert_multi(vdst_buf, kafka_line_buffer, buffer);
+  assert_multi(kafka_line_buffer, buffer);
 
   if (unlikely(real_field_len != 16)) {
     traceEvent(TRACE_ERROR,"IPv6 field len is not 16");
     return 0;
   }
 
-  // @TODO memcpy(dst_buf, buffer);
-  for(i=0;i<16;++i){
-    dst_buf[i] = buffer[i];
+  if (dst_buf) {
+    // @TODO memcpy(dst_buf, buffer);
+    for (i = 0; i < 16; ++i) {
+      dst_buf[i] = buffer[i];
+    }
   }
 
   for (i=0;i<8;++i) {
@@ -1681,6 +1769,14 @@ static const uint8_t *get_dst_ip(const struct flowCache *flowCache) {
   return (const uint8_t *)flowCache->address.dst;
 }
 
+static uint16_t get_src_port(const struct flowCache *flowCache) {
+  return flowCache->ports.src;
+}
+
+static uint16_t get_dst_port(const struct flowCache *flowCache) {
+  return flowCache->ports.dst;
+}
+
 const uint8_t *get_direction_based_client_ip(const struct flowCache *flowCache) {
   assert(flowCache);
 
@@ -1720,6 +1816,44 @@ const uint8_t *get_direction_based_target_ip(
     dst_ip : src_ip;
 }
 
+uint16_t get_direction_based_client_port(const struct flowCache *flowCache) {
+  assert(flowCache);
+
+  uint16_t ret = 0;
+  const uint16_t src_port = get_src_port(flowCache);
+  const uint16_t dst_port = get_dst_port(flowCache);
+
+  /*
+    Netflow probe point of view
+
+    (client) -> (probe) traffic => ingress -> client_mac is src mac
+    (client) <- (probe) traffic => egress  -> client_mac is dst mac
+  */
+  /// @NOTE keep in sync with get_direction_based_client_mac
+  if (flowCache->macs.direction == DIRECTION_INGRESS && src_port) {
+    ret = src_port;
+  } else if (flowCache->macs.direction == DIRECTION_EGRESS && dst_port) {
+    ret = dst_port;
+  } else if (flowCache->macs.direction == DIRECTION_INTERNAL) {
+    if (dst_port) {
+      ret = dst_port;
+    } else if (src_port) {
+      ret = src_port;
+    }
+  }
+
+  return (const uint16_t)ret;
+}
+
+uint16_t get_direction_based_target_port(const struct flowCache *flowCache) {
+  assert(flowCache);
+
+  const uint16_t src_port = get_src_port(flowCache);
+  const uint16_t dst_port = get_dst_port(flowCache);
+
+  const uint16_t client_port = get_direction_based_client_port(flowCache);
+  return (client_port == src_port) ? dst_port : src_port;
+}
 
 /// @TODO difference client/target src/dst
 size_t print_client_name(struct printbuf *kafka_line_buffer,
