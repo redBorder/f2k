@@ -40,6 +40,11 @@ struct flowCache {
     uint16_t src,dst;
   }ports;
 
+  struct {
+    size_t str_size;
+    const char *str;
+  } http_referer, http_host, ssl_host;
+
   struct{
     uint8_t src[16],dst[16];
 #ifdef HAVE_UDNS
@@ -308,8 +313,6 @@ size_t print_sensor_enrichment(struct printbuf *kafka_line_buffer,
 
 #endif /* HAVE_GEOIP */
 
-#ifdef HAVE_CISCO_URL
-
 size_t print_http_url(struct printbuf *kafka_line_buffer,
   const void *buffer, const size_t real_field_len,
   const size_t real_field_len_offset,struct flowCache *flowCache);
@@ -332,8 +335,6 @@ size_t print_http_referer(struct printbuf *kafka_line_buffer,
 size_t print_https_common_name(struct printbuf *kafka_line_buffer,
   const void *buffer, const size_t real_field_len,
   const size_t real_field_len_offset,struct flowCache *flowCache);
-
-#endif /* CISCO_URL */
 
 #ifdef HAVE_UDNS
 

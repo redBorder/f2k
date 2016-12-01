@@ -1494,8 +1494,6 @@ size_t print_sensor_enrichment(struct printbuf *kafka_line_buffer,
   }
 }
 
-#ifdef HAVE_CISCO_URL
-
 static const char http_host_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x02};
 
 
@@ -1670,8 +1668,6 @@ size_t print_https_common_name(struct printbuf *kafka_line_buffer,
     https_command_name_nbar_id,sizeof(https_command_name_nbar_id));
 }
 
-#endif /* HAVE_CISCO_URL */
-
 #ifdef HAVE_UDNS
 
 static size_t print_dns_obtained_hostname(struct printbuf *kafka_line_buffer,
@@ -1764,12 +1760,6 @@ size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache) {
   const uint8_t *buffer = vbuffer;
-  #ifdef CISCO_URL
-  #if 1
-  //static __thread char url[2048] = {'\0'};
-  //static __thread int social_user_printed = 0; // useful for coordinate host+url and referer social user printing
-  #endif
-  #endif
   const int start_bpos = kafka_line_buffer->bpos;
   int value_ret=0;
   if(0!=strcmp(kafka_line_buffer->buf,"{")){
@@ -1789,51 +1779,10 @@ size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
   }
 
 
-  {
-    // @TODO Move all this .
-    const size_t bufsize = 1024;
-    char buf[bufsize];
-    buf[0] = '\0';
-
-    switch(templateElement->templateElementId)
-    {
-      case CISCO_HTTP_SOCIAL_MEDIA_YT:
-      case CISCO_HTTP_SOCIAL_USER_FB:
-      case CISCO_HTTP_SOCIAL_MEDIA_TT:
-      case CISCO_HTTP_SOCIAL_USER_TT:
-      case CISCO_HTTP_SOCIAL_MEDIA_IG:
-      case CISCO_HTTP_USER_AGENT_OS:
-        if(real_field_len < 6)
-          break;
-        snprintf(buf,min(sizeof(buf),(unsigned) real_field_len-6+1),"%s",buffer+real_field_len_offset+6);
-        break;
-      default:
-        // Do nothing
-        break;
-    };
-
-    /// @TODO send all this to template system
+  /// @TODO send all this to template system
+#if 0 /* SOCIAL_MEDIA */
     if(NULL==templateElement->export_fn) switch(templateElement->templateElementId)
     {
-#ifdef HAVE_CISCO_URL
-      case CISCO_URL:
-        // do nothing. subtask will do.
-        break;
-
-      case CISCO_HTTP_HOST_L1:
-      case CISCO_HTTP_REFERER_L1:
-      if(real_field_len > 6){
-        char * referer = malloc(sizeof(char)*(real_field_len -6 + 1));
-        snprintf(referer,real_field_len-6,"%s",buffer+real_field_len_offset+6);
-        size_t domain_len;
-        const char *l1_domain = rb_l1_domain(referer,&domain_len, readOnlyGlobals.rb_databases.domains_name_as_list);
-        if(l1_domain)
-          value_ret = append_escaped(kafka_line_buffer,l1_domain,domain_len);
-        free(referer);
-      }
-      break;
-
-#if 0 /* SOCIAL_MEDIA */
       case CISCO_HTTP_USER_AGENT_OS:
       {
         rb_keyval_list_t * iter;
@@ -1967,8 +1916,6 @@ size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
           value_ret = sprintbuf(kafka_line_buffer,"%s%s",buf,url);
         }
         break;
-#endif
-#endif
       default:
         if (unlikely(!templateElement->export_fn &&
                                         !templateElement->postTemplate &&
@@ -1979,91 +1926,27 @@ size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
         }
         break;
     };
+#endif
 
-    if(value_ret < 0) /* Error adding */
-    {
-      // traceEvent(TRACE_ERROR, "Cannot add value to kafka buffer.\n");
+  if(value_ret < 0) /* Error adding */ {
+    // traceEvent(TRACE_ERROR, "Cannot add value to kafka buffer.\n");
+  } else if(value_ret > 0) /* Some added */ {
+    if(templateElement->quote) {
+      value_ret+=2;
+      printbuf_memappend_fast(kafka_line_buffer,"\"",strlen("\""));
     }
-    else if(value_ret > 0) /* Some added */
-    {
-      if(templateElement->quote)
-      {
-        value_ret+=2;
-        printbuf_memappend_fast(kafka_line_buffer,"\"",strlen("\""));
-      }
-    }
-    else /*if(value_ret == 0)*/
-    {
-      kafka_line_buffer->bpos = start_bpos;
-      kafka_line_buffer->buf[kafka_line_buffer->bpos] = '\0';
-    }
+  } else /*if(value_ret == 0)*/ {
+    kafka_line_buffer->bpos = start_bpos;
+    kafka_line_buffer->buf[kafka_line_buffer->bpos] = '\0';
+  }
 
-    int i;
-    for(i=0; templateElement->postTemplate != NULL
-                            && templateElement->postTemplate[i] != NULL; ++i) {
-          printNetflowRecordWithTemplate(kafka_line_buffer,
-            templateElement->postTemplate[i], buffer, real_field_len,
-            real_field_len_offset, flowCache);
-    }
-
-    switch(templateElement->templateElementId) /* See if we can extract more information about the field */
-    {
-      // @TODO delete value_ret, not needed anymore.
-      #define print_if_template_valid(value_ret,template_elm)                                                            \
-      if(template_elm){                                                                                                  \
-        const int start_bpos = kafka_line_buffer->bpos;                                                                  \
-        const int ret = printNetflowRecordWithTemplate(kafka_line_buffer,template_elm,buffer,real_field_len,real_field_len_offset,flowCache); \
-        if(0==ret){                                                                                                      \
-          kafka_line_buffer->bpos = start_bpos;                                                                          \
-          kafka_line_buffer->buf[kafka_line_buffer->bpos] = '\0';                                                        \
-        }else{                                                                                                           \
-          value_ret+=ret;                                                                                                \
-        }                                                                                                                \
-      }
-
-      case CISCO_URL:
-        switch(buffer[real_field_len_offset+5]){
-          case 1:
-            //if(real_field_len>6 && buffer)
-            //  snprintf(url,min(sizeof(url),(unsigned)real_field_len-6+1),"%s",buffer+real_field_len_offset+6);
-            break;
-          case 2:
-            //print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_host_l1_template);
-            #if 1 /* MEDIA */
-            if(real_field_len>6)
-            {
-              //social_user_printed = 0; // <- It cannot be printed here.
-              //print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_social_media_tt_template);
-              //print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_social_user_fb_template);
-              //print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_social_user_tt_template);
-              //print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_social_user_yt_template);
-              //print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_social_user_dropbox);
-              //print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_social_media_ig_template);
-              //print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_social_media_yt_template);
-            }
-            //url[0]='\0';
-            break;
-          case 3:
-            // print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_user_agent_template);
-
-            break;
-          case 4:
-            // print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_referer_template);
-            //if(!social_user_printed)
-            //  print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_social_user_yt_referer);
-            #endif
-            break;
-          default:
-            // Do nothing
-            break;
-        }
-        break;
-        default:
-          // Do nothing
-          break;
-    };
-
-  } /* end value print if no error */
+  int i;
+  for(i=0; templateElement->postTemplate != NULL
+                          && templateElement->postTemplate[i] != NULL; ++i) {
+        printNetflowRecordWithTemplate(kafka_line_buffer,
+          templateElement->postTemplate[i], buffer, real_field_len,
+          real_field_len_offset, flowCache);
+  }
   return value_ret;
 }
 

@@ -104,7 +104,7 @@ struct eth_header {
 
 #define STANDARD_ENTERPRISE_ID                0
 #define NTOP_ENTERPRISE_ID           0x00008B30 /* IANA assignment for ntop */
-#define CISCO_ENTERPRISE_ID STANDARD_ENTERPRISE_ID /* TEMPORARY PEN */
+#define CISCO_ENTERPRISE_ID                   9
 
 #define QUOTE_OUTPUT true
 #define DONT_QUOTE_OUTPUT false

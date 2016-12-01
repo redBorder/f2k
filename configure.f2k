@@ -21,7 +21,6 @@ mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wdisabled-optimization -Wshadow"
 mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wcast-qual -Wunused -Wextra"
 
 mkl_toggle_option "Standard" WITH_LIBRDKAFKA        "--enable-librdkafka"        "librdkafka: For kafka export" "y"
-mkl_toggle_option "Standard" WITH_CISCO_URL         "--enable-ciscourl"          "Cisco URL flows decoding" "y"
 mkl_toggle_option "Standard" WITH_RBMAC_VENDOR      "--enable-rbmacvendor"       "RedBorder MACs vendor library" "y"
 mkl_toggle_option "Standard" WITH_GEOIP             "--enable-geoip"             "MaxMind (r) GeoIP library" "y"
 mkl_toggle_option "Standard" WITH_SFLOW             "--enable-sflow"             "S-FLOW Support" "n"
@@ -60,10 +59,6 @@ function checks {
     if [ "x$WITH_LIBRDKAFKA" == "xy" ]; then
         checks_librdkafka
         mkl_define_set "Magnus Edenhill librdkafka" "HAVE_LIBRDKAFKA" "1"
-    fi
-
-    if [ "x$WITH_CISCO_URL" == "xy" ]; then
-        mkl_define_set "Cisco URL flows" "HAVE_CISCO_URL" "1"
     fi
 
     if [ "x$WITH_RBMAC_VENDOR" == "xy" ]; then
