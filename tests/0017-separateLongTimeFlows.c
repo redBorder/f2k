@@ -475,28 +475,24 @@ static int prepare_test_nf9_no_timestamp_split(void **state) {
 
 int main() {
 	static const struct CMUnitTest tests[] = {
-		cmocka_unit_test_setup_teardown(testFlow,
-			prepare_test_nf5_timestamp_split, check_flow),
-		cmocka_unit_test_setup_teardown(testFlow,
-			prepare_test_nf5_timestamp_dont_split, check_flow),
+		cmocka_unit_test_setup(testFlow,
+			prepare_test_nf5_timestamp_split),
+		cmocka_unit_test_setup(testFlow,
+			prepare_test_nf5_timestamp_dont_split),
 
-		cmocka_unit_test_setup_teardown(testFlow,
-			prepare_test_nf9_no_timestamp_dont_split, check_flow),
-		cmocka_unit_test_setup_teardown(testFlow,
-			prepare_test_nf9_no_timestamp_split, check_flow),
+		cmocka_unit_test_setup(testFlow,
+			prepare_test_nf9_no_timestamp_dont_split),
+		cmocka_unit_test_setup(testFlow,
+			prepare_test_nf9_no_timestamp_split),
 
-		cmocka_unit_test_setup_teardown(testFlow,
-			prepare_test_ipfix_timestamp_uptime_dont_split,
-			check_flow),
-		cmocka_unit_test_setup_teardown(testFlow,
-			prepare_test_ipfix_timestamp_uptime_split,
-			check_flow),
-		cmocka_unit_test_setup_teardown(testFlow,
-			prepare_test_ipfix_timestamp_dont_split,
-			check_flow),
-		cmocka_unit_test_setup_teardown(testFlow,
-			prepare_test_ipfix_timestamp_split,
-			check_flow),
+		cmocka_unit_test_setup(testFlow,
+			prepare_test_ipfix_timestamp_uptime_dont_split),
+		cmocka_unit_test_setup(testFlow,
+			prepare_test_ipfix_timestamp_uptime_split),
+		cmocka_unit_test_setup(testFlow,
+			prepare_test_ipfix_timestamp_dont_split),
+		cmocka_unit_test_setup(testFlow,
+			prepare_test_ipfix_timestamp_split),
 	};
 
 	return cmocka_run_group_tests(tests, nf_test_setup, nf_test_teardown);

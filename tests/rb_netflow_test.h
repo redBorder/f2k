@@ -66,8 +66,6 @@ struct nf_test_state *prepare_tests(struct test_params *test_params,
 
 void testFlow(void **state);
 
-int check_flow(void **state);
-
 /** Try to fail every allocation in testFlow
  * @param vstate Same as testFlow
  */

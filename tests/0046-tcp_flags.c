@@ -260,12 +260,12 @@ static int prepare_test_ipfix_tcpflags_2b(void **state) {
 
 int main() {
 	const struct CMUnitTest tests[] = {
-		cmocka_unit_test_setup_teardown(testFlow,
-				prepare_test_nf5_tcpflags, check_flow),
-		cmocka_unit_test_setup_teardown(testFlow,
-				prepare_test_ipfix_tcpflags_1b, check_flow),
-		cmocka_unit_test_setup_teardown(testFlow,
-				prepare_test_ipfix_tcpflags_2b, check_flow),
+		cmocka_unit_test_setup(testFlow,
+				prepare_test_nf5_tcpflags),
+		cmocka_unit_test_setup(testFlow,
+				prepare_test_ipfix_tcpflags_1b),
+		cmocka_unit_test_setup(testFlow,
+				prepare_test_ipfix_tcpflags_2b),
 	};
 
 	return cmocka_run_group_tests(tests, nf_test_setup, nf_test_teardown);
