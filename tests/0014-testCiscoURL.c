@@ -51,28 +51,39 @@
 	CISCO_HTTP_FIELD(CISCO_HTTP_REFERER_ID, __VA_ARGS__)
 
 #define T_CISCO_URL CISCO_HTTP_URL('/', \
-		    'p',  'r',  'o',  'f',  'i',  'l',  'e',  's', \
-		    '/',  'p',  'r',  'o',  'f',  'i',  'l',  'e', \
-		    '_',  '1',  '2',  '3',  '4',  '5',  '6',  '7', \
-		    '7',  '_',  '7',  '5',  's',  'q',  '_',  '1', \
-		    '1',  '2',  '3',  '4',  '5',  '6',  '7',  '8', \
-		    '2',  '.',  'j',  'p',  'g')
+		'p',  'r',  'o',  'f',  'i',  'l',  'e',  's', \
+		'/',  'p',  'r',  'o',  'f',  'i',  'l',  'e', \
+		'_',  '1',  '2',  '3',  '4',  '5',  '6',  '7', \
+		'7',  '_',  '7',  '5',  's',  'q',  '_',  '1', \
+		'1',  '2',  '3',  '4',  '5',  '6',  '7',  '8', \
+		'2',  '.',  'j',  'p',  'g')
 
 #define T_CISCO_HOST CISCO_HTTP_HOST('i', \
-		   'm', 'a', 'g', 'e', 's', '.', 'a', 'k', \
-		   '.', 'i', 'n', 's', 't', 'a', 'g', 'r', \
-		   'a', 'm', '.', 'c', 'o', 'm')
+		'm', 'a', 'g', 'e', 's', '.', 'a', 'k', \
+		'.', 'i', 'n', 's', 't', 'a', 'g', 'r', \
+		'a', 'm', '.', 'c', 'o', 'm')
+
+#define CISCO_DOT_L2_HOST CISCO_HTTP_HOST('.', \
+		'i', 'n', 's', 't', 'a', 'g', 'r', 'a', \
+		'm', '.', 'c', 'o', 'm')
+
+#define CISCO_DOT_L1_HOST CISCO_HTTP_HOST('.', 'c', 'o', 'm')
+#define CISCO_L1_HOST CISCO_HTTP_HOST('c', 'o', 'm')
+
+#define CISCO_L2_HOST CISCO_HTTP_HOST('i', \
+		'n', 's', 't', 'a', 'g', 'r', 'a', 'm', \
+		'.', 'c', 'o', 'm')
 
 #define T_CISCO_UA CISCO_HTTP_UA('I', \
-		 'n',  's',  't',  'a',  'g',  'r',  'a',  'm', \
-		 ' ',  '4',  '.',  '2',  '.',  '3',  ' ',  '(', \
-		 'i',  'P',  'h',  'o',  'n',  'e',  '5',  ',', \
-		 '1',  ';',  ' ',  'i',  'P',  'h',  'o',  'n', \
-		 'e',  ' ',  'O',  'S',  ' ',  '7',  '_',  '0', \
-		 '_',  '2',  ';',  ' ',  'e',  'n',  '_',  'U', \
-		 'S',  ';',  ' ',  'e',  'n',  ')',  ' ',  'A', \
-		 'p',  'p',  'l',  'e',  'W',  'e',  'b',  'K', \
-		 'i',  't',  '/',  '4',  '2',  '0',  '+')
+		'n',  's',  't',  'a',  'g',  'r',  'a',  'm', \
+		' ',  '4',  '.',  '2',  '.',  '3',  ' ',  '(', \
+		'i',  'P',  'h',  'o',  'n',  'e',  '5',  ',', \
+		'1',  ';',  ' ',  'i',  'P',  'h',  'o',  'n', \
+		'e',  ' ',  'O',  'S',  ' ',  '7',  '_',  '0', \
+		'_',  '2',  ';',  ' ',  'e',  'n',  '_',  'U', \
+		'S',  ';',  ' ',  'e',  'n',  ')',  ' ',  'A', \
+		'p',  'p',  'l',  'e',  'W',  'e',  'b',  'K', \
+		'i',  't',  '/',  '4',  '2',  '0',  '+')
 
 #define T_CISCO_REFERER CISCO_HTTP_EMPTY_FIELD(CISCO_HTTP_REFERER_ID)
 
@@ -80,57 +91,117 @@
 	Regression test 1:
 	Bad h1/h2 domain detection: it detects point in next field as own field
 	(buffer overflow)
+
+	Regression test 2:
+	Bad l2 identification if only one dot: l2_d.l1_d
  */
 
-#define ENTITIES(RT,R) \
-	RT(IPV4_SRC_ADDR, 4, 0, 10, 13, 122, 44) \
-	RT(IPV4_DST_ADDR, 4, 0, 66, 220, 152, 19) \
-	RT(IP_PROTOCOL_VERSION, 1, 0, 4) \
-	RT(PROTOCOL, 1, 0, 6) \
-	RT(L4_SRC_PORT, 2, 0, UINT16_TO_UINT8_ARR(54713)) \
-	RT(L4_DST_PORT, 2, 0, UINT16_TO_UINT8_ARR(443)) \
-	RT(FLOW_END_REASON, 1, 0, 3) \
-	RT(BIFLOW_DIRECTION, 1, 0, 1) \
-	RT(FLOW_SAMPLER_ID, 1, 0, 0) \
-	RT(TRANSACTION_ID, 8, 0, 0x8f, 0x63, 0xf3, 0x40, \
+#define BASE_ENTITIES_PRE(X) \
+	X(IPV4_SRC_ADDR, 4, 0, 10, 13, 122, 44) \
+	X(IPV4_DST_ADDR, 4, 0, 66, 220, 152, 19) \
+	X(IP_PROTOCOL_VERSION, 1, 0, 4) \
+	X(PROTOCOL, 1, 0, 6) \
+	X(L4_SRC_PORT, 2, 0, UINT16_TO_UINT8_ARR(54713)) \
+	X(L4_DST_PORT, 2, 0, UINT16_TO_UINT8_ARR(443)) \
+	X(FLOW_END_REASON, 1, 0, 3) \
+	X(BIFLOW_DIRECTION, 1, 0, 1) \
+	X(FLOW_SAMPLER_ID, 1, 0, 0) \
+	X(TRANSACTION_ID, 8, 0, 0x8f, 0x63, 0xf3, 0x40, \
 				 0x00, 0x01, 0x00, 0x00) \
-	RT(APPLICATION_ID, 4, 0, FLOW_APPLICATION_ID(13, 459)) \
+	X(APPLICATION_ID, 4, 0, FLOW_APPLICATION_ID(13, 459))
+
+#define BASE_ENTITIES_POST(X, PKTS, BYTES) \
+	X(IN_BYTES, 8, 0, BYTES) \
+	X(IN_PKTS, 4, 0, PKTS) \
+	X(FIRST_SWITCHED, 4, 0, 0x0f, 0xed, 0x0a, 0xc0) \
+	X(LAST_SWITCHED, 4, 0, 0x0f, 0xee, 0x18, 0x00)
+
+#define BASE_PKTS  UINT32_TO_UINT8_ARR(31)
+#define BASE_BYTES UINT64_TO_UINT8_ARR(2744)
+#define PKTS_AS_DOTS  '.', '.', '.', '.'
+#define BYTES_AS_DOTS '.', '.', '.', '.', '.', '.', '.', '.'
+
+#define ENTITIES(RT,R) \
+	BASE_ENTITIES_PRE(RT) \
 	RT(CISCO_URL, 0xffff, 9, T_CISCO_URL) \
 	RT(CISCO_URL, 0xffff, 9, T_CISCO_HOST) \
 	RT(CISCO_URL, 0xffff, 9, T_CISCO_UA) \
 	RT(CISCO_URL, 0xffff, 9, T_CISCO_REFERER) \
-	RT(IN_BYTES, 8, 0, UINT64_TO_UINT8_ARR(2744)) \
-	RT(IN_PKTS, 4, 0, UINT32_TO_UINT8_ARR(31)) \
-	RT(FIRST_SWITCHED, 4, 0, 0x0f, 0xed, 0x0a, 0xc0) \
-	RT(LAST_SWITCHED, 4, 0, 0x0f, 0xee, 0x18, 0x00) \
+	BASE_ENTITIES_POST(RT, BASE_PKTS, BASE_BYTES) \
 	/* Regression test 1 */ \
-	R(IPV4_SRC_ADDR, 4, 0, 10, 13, 122, 44) \
-	R(IPV4_DST_ADDR, 4, 0, 66, 220, 152, 19) \
-	R(IP_PROTOCOL_VERSION, 1, 0, 4) \
-	R(PROTOCOL, 1, 0, 6) \
-	R(L4_SRC_PORT, 2, 0, UINT16_TO_UINT8_ARR(54713)) \
-	R(L4_DST_PORT, 2, 0, UINT16_TO_UINT8_ARR(443)) \
-	R(FLOW_END_REASON, 1, 0, 3) \
-	R(BIFLOW_DIRECTION, 1, 0, 1) \
-	R(FLOW_SAMPLER_ID, 1, 0, 0) \
-	R(TRANSACTION_ID, 8, 0, 0x8f, 0x63, 0xf3, 0x40, \
-				0x00, 0x01, 0x00, 0x00) \
-	R(APPLICATION_ID, 4, 0, FLOW_APPLICATION_ID(13, 459)) \
+	BASE_ENTITIES_PRE(R) \
 	R(CISCO_URL, 0xffff, 9, T_CISCO_URL) \
 	R(CISCO_URL, 0xffff, 9, T_CISCO_UA) \
 	R(CISCO_URL, 0xffff, 9, T_CISCO_REFERER) \
 	R(CISCO_URL, 0xffff, 9, T_CISCO_HOST) \
-	R(IN_BYTES, 8, 0, '.', '.', '.', '.', '.', '.', '.', '.') \
-	R(IN_PKTS, 4, 0, '.', '.', '.', '.') \
-	R(FIRST_SWITCHED, 4, 0, 0x0f, 0xed, 0x0a, 0xc0) \
-	R(LAST_SWITCHED, 4, 0, 0x0f, 0xee, 0x18, 0x00)
+	BASE_ENTITIES_POST(R, PKTS_AS_DOTS, BYTES_AS_DOTS) \
+	/* Regression test 2 */ \
+	BASE_ENTITIES_PRE(R) \
+	R(CISCO_URL, 0xffff, 9, T_CISCO_URL) \
+	R(CISCO_URL, 0xffff, 9, CISCO_L1_HOST) \
+	R(CISCO_URL, 0xffff, 9, T_CISCO_UA) \
+	R(CISCO_URL, 0xffff, 9, T_CISCO_REFERER) \
+	BASE_ENTITIES_POST(R, BASE_PKTS, BASE_BYTES) \
+	/* */ \
+	BASE_ENTITIES_PRE(R) \
+	R(CISCO_URL, 0xffff, 9, T_CISCO_URL) \
+	R(CISCO_URL, 0xffff, 9, CISCO_DOT_L1_HOST) \
+	R(CISCO_URL, 0xffff, 9, T_CISCO_UA) \
+	R(CISCO_URL, 0xffff, 9, T_CISCO_REFERER) \
+	BASE_ENTITIES_POST(R, BASE_PKTS, BASE_BYTES) \
+	/* */ \
+	BASE_ENTITIES_PRE(R) \
+	R(CISCO_URL, 0xffff, 9, T_CISCO_URL) \
+	R(CISCO_URL, 0xffff, 9, CISCO_L2_HOST) \
+	R(CISCO_URL, 0xffff, 9, T_CISCO_UA) \
+	R(CISCO_URL, 0xffff, 9, T_CISCO_REFERER) \
+	BASE_ENTITIES_POST(R, BASE_PKTS, BASE_BYTES) \
+	/* */ \
+	BASE_ENTITIES_PRE(R) \
+	R(CISCO_URL, 0xffff, 9, T_CISCO_URL) \
+	R(CISCO_URL, 0xffff, 9, CISCO_DOT_L2_HOST) \
+	R(CISCO_URL, 0xffff, 9, T_CISCO_UA) \
+	R(CISCO_URL, 0xffff, 9, T_CISCO_REFERER) \
+	BASE_ENTITIES_POST(R, BASE_PKTS, BASE_BYTES)
 
-static const struct checkdata_value checkdata_values1[] = {
-	{.key = "type", .value="netflowv10"},
-	{.key = "http_url", .value="/profiles/profile_12345677_75sq_1123456782.jpg"},
+#define CHECKDATA_BASE \
+	{.key = "type", .value="netflowv10"}, \
+	{.key = "http_url", \
+		.value="/profiles/profile_12345677_75sq_1123456782.jpg"}
+
+#define CHECKDATA_L2_BASE \
+	CHECKDATA_BASE, \
+	{.key = "http_host_l1", .value="com"}, \
+	{.key = "http_host_l2", .value="instagram.com"}
+
+#define CHECKDATA_L1_BASE \
+	CHECKDATA_BASE, \
+	{.key = "http_host_l1", .value="com"}, \
+	{.key = "http_host_l2", .value="com"}
+
+static const struct checkdata_value checkdata_values_fullhost[] = {
+	CHECKDATA_L2_BASE,
 	{.key = "http_host", .value="images.ak.instagram.com"},
-	{.key = "http_host_l1", .value="com"},
-	{.key = "http_host_l2", .value="instagram.com"},
+};
+
+static const struct checkdata_value checkdata_values_l1host[] = {
+	CHECKDATA_L1_BASE,
+	{.key = "http_host", .value="com"},
+};
+
+static const struct checkdata_value checkdata_values_dotl1host[] = {
+	CHECKDATA_L1_BASE,
+	{.key = "http_host", .value=".com"},
+};
+
+static const struct checkdata_value checkdata_values_l2host[] = {
+	CHECKDATA_L2_BASE,
+	{.key = "http_host", .value="instagram.com"},
+};
+
+static const struct checkdata_value checkdata_values_dotl2host[] = {
+	CHECKDATA_L2_BASE,
+	{.key = "http_host", .value=".instagram.com"},
 };
 
 static int prepare_test_nf10_cisco_url(void **state) {
@@ -141,7 +212,12 @@ static int prepare_test_nf10_cisco_url(void **state) {
 
 #define CHECK(checkdata) {.checks = checkdata, .size = RD_ARRAYSIZE(checkdata)}
 	static const struct checkdata sl1_checkdata[] = {
-		CHECK(checkdata_values1), CHECK(checkdata_values1)
+		CHECK(checkdata_values_fullhost),
+		CHECK(checkdata_values_fullhost),
+		CHECK(checkdata_values_l1host),
+		CHECK(checkdata_values_dotl1host),
+		CHECK(checkdata_values_l2host),
+		CHECK(checkdata_values_dotl2host),
 	};
 #undef CHECK
 

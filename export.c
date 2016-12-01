@@ -1572,35 +1572,52 @@ size_t print_http_host(struct printbuf *kafka_line_buffer,
     http_host_id,sizeof(http_host_id));
 }
 
+/**
+ * Search for first instance of a character that is not needle in the haystack.
+ * Return last character (i.e, haystack+length) if not found.
+ */
+static const char *memcchrnul(const void *vhaystack, int needle,
+    size_t length) {
+  const char *haystack = vhaystack;
+  const char *i = haystack;
+  for (i = haystack; i < haystack + length && i[0] == needle; ++i);
+  return i;
+}
+
 static size_t print_http_host_l1_0(struct printbuf *kafka_line_buffer,
     const void *host, size_t host_size, struct flowCache *flow_cache) {
   (void)flow_cache;
 
   const char *dot = memrchr(host, '.', host_size);
-  if (!dot) {
-    return 0;
-  }
+  const char *l1_host = dot ? dot : host;
 
-  const size_t l1_host_len = host_size - (dot - (const char *)host) - 1;
-  return append_escaped(kafka_line_buffer, dot + 1, l1_host_len);
+  // seek first dot(s)
+  l1_host = memcchrnul(l1_host, '.',
+    host_size - (l1_host - (const char *)host));
+
+  const size_t l1_host_len = host_size - (l1_host - (const char *)host);
+  return append_escaped(kafka_line_buffer, l1_host, l1_host_len);
 }
 
 static size_t print_http_host_l2_0(struct printbuf *kafka_line_buffer,
     const void *host, size_t host_size, struct flowCache *flow_cache) {
   (void)flow_cache;
+  const char *l2_host = host;
 
   const char *l1_dot = memrchr(host, '.', host_size);
-  if (!l1_dot) {
-    return 0;
+  if (l1_dot) {
+    const char *l2_dot = memrchr(host, '.', l1_dot - (const char *)host);
+    if (l2_dot) {
+      l2_host = l2_dot;
+    }
   }
 
-  const char *l2_dot = memrchr(host, '.', l1_dot - (const char *)host);
-  if (!l2_dot) {
-    return 0;
-  }
+  // seek first dot(s)
+  l2_host = memcchrnul(l2_host, '.',
+    host_size - (l2_host - (const char *)host));
 
-  const size_t l2_host_len = host_size - (l2_dot - (const char *)host) - 1;
-  return append_escaped(kafka_line_buffer, l2_dot + 1, l2_host_len);
+  const size_t l2_host_len = host_size - (l2_host - (const char *)host);
+  return append_escaped(kafka_line_buffer, l2_host, l2_host_len);
 }
 
 size_t print_http_host_l1(struct printbuf *kafka_line_buffer,
