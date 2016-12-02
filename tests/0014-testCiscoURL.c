@@ -168,7 +168,11 @@
 #define CHECKDATA_BASE \
 	{.key = "type", .value="netflowv10"}, \
 	{.key = "http_url", \
-		.value="/profiles/profile_12345677_75sq_1123456782.jpg"}
+		.value = "/profiles/profile_12345677_75sq_1123456782.jpg"}, \
+	{.key = "http_user_agent", \
+		.value = "Instagram 4.2.3 " \
+		       "(iPhone5,1; iPhone OS 7_0_2; en_US; en) " \
+			"AppleWebKit/420+"}
 
 static const struct checkdata_value checkdata_values_fullhost[] = {
 	CHECKDATA_BASE,
