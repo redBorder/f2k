@@ -1613,6 +1613,22 @@ size_t print_http_host(struct printbuf *kafka_line_buffer,
     http_host_id, sizeof(http_host_id));
 }
 
+static bool buffer_is_ip(const char *buf, size_t bufsiz) {
+  static const char *long_ipv6_example =
+    "0000:0000:0000:0000:0000:0000:0000:0000";
+  if (bufsiz > strlen(long_ipv6_example)) {
+    return false;
+  }
+
+  char tmp_buf[bufsiz + 1];
+  memcpy(tmp_buf, buf, bufsiz);
+  tmp_buf[bufsiz] = 0;
+
+  struct sockaddr_in6 sa;
+  return 1 == inet_pton(AF_INET,  tmp_buf, &(sa.sin6_addr))
+      || 1 == inet_pton(AF_INET6, tmp_buf, &(sa.sin6_addr));
+}
+
 /**
  * Search for first instance of a character that is not needle in the haystack.
  * Return last character (i.e, haystack+length) if not found.
@@ -1650,6 +1666,11 @@ static size_t print_http_l2_domain(struct printbuf *kafka_line_buffer,
     return print_http_l2_domain(kafka_line_buffer, hostname, no_url_size);
   }
 
+  if (buffer_is_ip(hostname, hostname_size)) {
+    // Nothing more to do!
+    return append_escaped(kafka_line_buffer, hostname, hostname_size);
+  }
+
   // Now we have a clean hostname!
   const char *l1_dot = memrchr(hostname, '.', hostname_size);
   if (l1_dot) {
@@ -1685,6 +1706,7 @@ static size_t print_http_host_l1_0(struct printbuf *kafka_line_buffer,
 
 static size_t print_http_host_l2_0(struct printbuf *kafka_line_buffer,
     const void *host, size_t host_size, struct flowCache *flow_cache) {
+  (void)flow_cache;
   return print_http_l2_domain(kafka_line_buffer, host, host_size);
 }
 
