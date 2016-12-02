@@ -17,6 +17,8 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "config.h"
+
 #include "export.h"
 #include "util.h"
 #include "rb_mac.h"
@@ -2017,9 +2019,8 @@ size_t print_target_name(struct printbuf *kafka_line_buffer,
 
 size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
     const V9V10TemplateElementId *templateElement,
-    const void *vbuffer, const size_t real_field_len,
+    const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache) {
-  const uint8_t *buffer = vbuffer;
   const int start_bpos = kafka_line_buffer->bpos;
   int value_ret=0;
   if(0!=strcmp(kafka_line_buffer->buf,"{")){
@@ -2034,8 +2035,20 @@ size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
     printbuf_memappend_fast(kafka_line_buffer,"\"",strlen("\""));
   }
 
-  if(likely(NULL!=templateElement->export_fn)){
-    value_ret = templateElement->export_fn(kafka_line_buffer,buffer,real_field_len, real_field_len_offset, flowCache); // at the moment
+  if (NULL!=templateElement->export_fn) {
+#ifdef WITH_PRINT_BOUND_CHECKS
+    // Valgrind can watch for out of bounds reads in the heap
+    const size_t copy_size = real_field_len + real_field_len_offset;
+    uint8_t *buffer_heap_copy = malloc(copy_size);
+    memcpy(buffer_heap_copy, buffer, copy_size);
+#endif
+
+    value_ret = templateElement->export_fn(kafka_line_buffer, buffer,
+      real_field_len, real_field_len_offset, flowCache);
+
+#ifdef WITH_PRINT_BOUND_CHECKS
+    free(buffer_heap_copy);
+#endif
   }
 
 

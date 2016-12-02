@@ -27,6 +27,7 @@ mkl_toggle_option "Standard" WITH_SFLOW             "--enable-sflow"            
 mkl_toggle_option "Standard" WITH_ZOOKEEPER         "--enable-zookeeper"         "Apache Zookeeper support" "y"
 mkl_toggle_option "Standard" WITH_UDNS              "--enable-udns"              "Michael Tokarev reverse-DNS support" "y"
 mkl_toggle_option "Feature"  WITH_INTEGRATION_TESTS "--enable-integration-tests" "Run integration tests" "n"
+mkl_toggle_option "Feature"  WITH_PRINT_BOUND_CHECKS "--enable-export-bounds-chks" "Checks bound in export functions (SLOW!)" "n"
 
 function checks_librdkafka {
     # Check that librdkafka is available, and allow to link it statically.
