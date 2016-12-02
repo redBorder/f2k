@@ -754,20 +754,16 @@ size_t print_ipv4_dst_addr(struct printbuf *kafka_line_buffer,
     real_field_len, real_field_offset, flowCache);
 }
 
-size_t print_ip_client_addr(struct printbuf *kafka_line_buffer,
-                            const void *buffer, const size_t real_field_len,
-                            const size_t real_field_offset,
-                            struct flowCache *flowCache) {
-
-  unused_params(buffer, real_field_len, real_field_offset);
+static size_t print_flow_cache_address(struct printbuf *kafka_line_buffer,
+    struct flowCache *flowCache,
+    const uint8_t *(*get_addr_cb)(const struct flowCache *flowCache)) {
+  assert(kafka_line_buffer);
+  assert(flowCache);
 
   static const uint8_t ipv4_mapped[12] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                           0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF};
-  if (!flowCache || !flowCache->address.src || !flowCache->address.dst) {
-    return 0;
-  }
 
-  const uint8_t *client_ip = get_direction_based_client_ip(flowCache);
+  const uint8_t *client_ip = get_addr_cb(flowCache);
   if (NULL == client_ip) {
     return 0;
   }
@@ -781,31 +777,23 @@ size_t print_ip_client_addr(struct printbuf *kafka_line_buffer,
   }
 }
 
+size_t print_ip_client_addr(struct printbuf *kafka_line_buffer,
+                            const void *buffer, const size_t real_field_len,
+                            const size_t real_field_offset,
+                            struct flowCache *flowCache) {
+  unused_params(buffer, real_field_len, real_field_offset);
+  return print_flow_cache_address(kafka_line_buffer, flowCache,
+    get_direction_based_client_ip);
+
+}
+
 size_t print_ip_target_addr(struct printbuf *kafka_line_buffer,
                             const void *buffer, const size_t real_field_len,
                             const size_t real_field_offset,
                             struct flowCache *flowCache) {
-
   unused_params(buffer, real_field_len, real_field_offset);
-
-  static const uint8_t ipv4_mapped[12] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                          0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF};
-  if (!flowCache || !flowCache->address.src || !flowCache->address.dst) {
-    return 0;
-  }
-
-  const uint8_t *target_ip = get_direction_based_target_ip(flowCache);
-  if (NULL == target_ip) {
-    return 0;
-  }
-
-  if (0 == memcmp(target_ip, ipv4_mapped, 12)) {
-    return print_ipv4_addr0(kafka_line_buffer,
-                            target_ip[15] + (target_ip[14] << 8) +
-                                (target_ip[13] << 16) + (target_ip[12] << 24));
-  } else {
-    return print_ipv6(NULL, kafka_line_buffer, target_ip, 16, 0);
-  }
+  return print_flow_cache_address(kafka_line_buffer, flowCache,
+    get_direction_based_target_ip);
 }
 
 static size_t print_mac0(struct printbuf *kafka_line_buffer,
@@ -1366,8 +1354,7 @@ size_t print_AS_ipv4(struct printbuf *kafka_line_buffer,
 static size_t print_buffer_geoip_AS_name(struct printbuf *kafka_line_buffer,char *rsp) {
   size_t written_len = 0;
 
-  if(NULL == rsp)
-    return 0;
+  assert(rsp);
 
   char *toprint = strchr(rsp,' ');
   if(toprint && *(toprint+1)!='\0')
@@ -1545,20 +1532,11 @@ size_t print_proto_name(struct printbuf *kafka_line_buffer,
 }
 
 size_t print_sensor_enrichment(struct printbuf *kafka_line_buffer,
-    const struct flowCache *flowCache)
-{
-  if(!flowCache){
-    traceEvent(TRACE_ERROR,"Not flowCache given");
-    return 0;
-  }
-
-  if(!flowCache->sensor){
-    traceEvent(TRACE_ERROR,"Not flowCache->sensor given");
-    return 0;
-  }
+    const struct flowCache *flowCache) {
+  assert_multi(flowCache, flowCache->sensor);
 
   const char *enrichment = observation_id_enrichment(flowCache->observation_id);
-  if(enrichment && enrichment[0] != '\0') {
+  if (enrichment) {
     size_t added = 0;
     added += printbuf_memappend_fast_string(kafka_line_buffer,",");
     added += printbuf_memappend_fast_string(kafka_line_buffer,enrichment);
@@ -1598,15 +1576,10 @@ static size_t cisco_private_decorator(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
+  const char *buffer_content = buffer + real_field_offset
+    + expected_identifier_length;
   const size_t buffer_len = real_field_len - expected_identifier_length;
-  if (buffer_len == 0) {
-    return 0;
-  }
-
-  return cb(kafka_line_buffer,
-    buffer + real_field_offset + expected_identifier_length,
-    real_field_len - expected_identifier_length,
-    flowCache);
+  return cb(kafka_line_buffer, buffer_content, buffer_len, flowCache);
 }
 
 static size_t cisco_private_field_append(struct printbuf *kafka_line_buffer,
@@ -2215,9 +2188,7 @@ size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
     };
 #endif
 
-  if(value_ret < 0) /* Error adding */ {
-    // traceEvent(TRACE_ERROR, "Cannot add value to kafka buffer.\n");
-  } else if(value_ret > 0) /* Some added */ {
+  if(value_ret > 0) /* Some added */ {
     if(templateElement->quote) {
       value_ret+=2;
       printbuf_memappend_fast(kafka_line_buffer,"\"",strlen("\""));
@@ -2255,9 +2226,7 @@ struct string_list *rb_separate_long_time_flow(
   const uint64_t max_intervals, uint64_t bytes, uint64_t pkts) {
 
   struct string_list *kafka_buffers_list = NULL;
-
-  if(!kafka_line_buffer)
-    return kafka_buffers_list;
+  assert(kafka_line_buffer);
 
   unsigned n_intervals_except_first = dSwitched/dInterval;
   if(n_intervals_except_first>max_intervals){
@@ -2296,7 +2265,7 @@ struct string_list *rb_separate_long_time_flow(
 
   while(current_timestamp_s <= first_timestamp + dSwitched){
     struct string_list *node = calloc(1,sizeof(struct string_list));
-    if(NULL==node){
+    if (unlikely(NULL==node)) {
       traceEvent(TRACE_ERROR,"Memory error");
       return kafka_buffers_list;
     }
@@ -2315,7 +2284,7 @@ struct string_list *rb_separate_long_time_flow(
     }else{
       /* Not last interval -> we need to clone the buffer */
       node->string = printbuf_new();
-      if(NULL == node->string){
+      if (unlikely(NULL == node->string)) {
         /* Can't allocate string: Return, at least, previous list */
         kafka_buffers_list = node->next;
         free(node);
