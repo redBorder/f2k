@@ -754,6 +754,60 @@ size_t print_ipv4_dst_addr(struct printbuf *kafka_line_buffer,
     real_field_len, real_field_offset, flowCache);
 }
 
+size_t print_ip_client_addr(struct printbuf *kafka_line_buffer,
+                            const void *buffer, const size_t real_field_len,
+                            const size_t real_field_offset,
+                            struct flowCache *flowCache) {
+
+  unused_params(buffer, real_field_len, real_field_offset);
+
+  static const uint8_t ipv4_mapped[12] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                          0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF};
+  if (!flowCache || !flowCache->address.src || !flowCache->address.dst) {
+    return 0;
+  }
+
+  const uint8_t *client_ip = get_direction_based_client_ip(flowCache);
+  if (NULL == client_ip) {
+    return 0;
+  }
+
+  if (0 == memcmp(client_ip, ipv4_mapped, 12)) {
+    return print_ipv4_addr0(kafka_line_buffer,
+                            client_ip[15] + (client_ip[14] << 8) +
+                                (client_ip[13] << 16) + (client_ip[12] << 24));
+  } else {
+    return print_ipv6(NULL, kafka_line_buffer, client_ip, 16, 0);
+  }
+}
+
+size_t print_ip_target_addr(struct printbuf *kafka_line_buffer,
+                            const void *buffer, const size_t real_field_len,
+                            const size_t real_field_offset,
+                            struct flowCache *flowCache) {
+
+  unused_params(buffer, real_field_len, real_field_offset);
+
+  static const uint8_t ipv4_mapped[12] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                          0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF};
+  if (!flowCache || !flowCache->address.src || !flowCache->address.dst) {
+    return 0;
+  }
+
+  const uint8_t *target_ip = get_direction_based_target_ip(flowCache);
+  if (NULL == target_ip) {
+    return 0;
+  }
+
+  if (0 == memcmp(target_ip, ipv4_mapped, 12)) {
+    return print_ipv4_addr0(kafka_line_buffer,
+                            target_ip[15] + (target_ip[14] << 8) +
+                                (target_ip[13] << 16) + (target_ip[12] << 24));
+  } else {
+    return print_ipv6(NULL, kafka_line_buffer, target_ip, 16, 0);
+  }
+}
+
 static size_t print_mac0(struct printbuf *kafka_line_buffer,
     const void *vbuffer) {
   const uint8_t *buffer = vbuffer;
@@ -1118,6 +1172,38 @@ size_t print_srv_port(struct printbuf *kafka_line_buffer,
 
 }
 
+size_t print_client_port(struct printbuf *kafka_line_buffer, const void *buffer,
+                         const size_t real_field_len,
+                         const size_t real_field_offset,
+                         struct flowCache *flowCache) {
+
+  assert_multi(kafka_line_buffer);
+  unused_params(buffer, real_field_len, real_field_offset);
+
+  const uint16_t client_port = get_direction_based_client_port(flowCache);
+  if (!client_port) {
+    return 0;
+  }
+
+  return print_port0(kafka_line_buffer, client_port);
+}
+
+size_t print_target_port(struct printbuf *kafka_line_buffer, const void *buffer,
+                         const size_t real_field_len,
+                         const size_t real_field_offset,
+                         struct flowCache *flowCache) {
+
+  assert_multi(kafka_line_buffer);
+  unused_params(buffer, real_field_len, real_field_offset);
+
+  const uint16_t target_port = get_direction_based_target_port(flowCache);
+  if (!target_port) {
+    return 0;
+  }
+
+  return print_port0(kafka_line_buffer, target_port);
+}
+
 /** Print and store ipv6
  * @param  dst_buf           Destination buffer to save ipv6
  * @param  kafka_line_buffer buffer to print ipv6
@@ -1127,23 +1213,25 @@ size_t print_srv_port(struct printbuf *kafka_line_buffer,
  * @param  flowCache         Flow cache
  * @return                   Bytes written in kafka_line_buffer
  */
-static size_t print_ipv6(void *vdst_buf, struct printbuf *kafka_line_buffer,
+size_t print_ipv6(void *vdst_buf, struct printbuf *kafka_line_buffer,
       const void *vbuffer, const size_t real_field_len,
       const size_t real_field_offset) {
 
   const uint8_t *buffer = (const uint8_t *)vbuffer + real_field_offset;
   uint8_t *dst_buf = vdst_buf;
   size_t i;
-  assert_multi(vdst_buf, kafka_line_buffer, buffer);
+  assert_multi(kafka_line_buffer, buffer);
 
   if (unlikely(real_field_len != 16)) {
     traceEvent(TRACE_ERROR,"IPv6 field len is not 16");
     return 0;
   }
 
-  // @TODO memcpy(dst_buf, buffer);
-  for(i=0;i<16;++i){
-    dst_buf[i] = buffer[i];
+  if (dst_buf) {
+    // @TODO memcpy(dst_buf, buffer);
+    for (i = 0; i < 16; ++i) {
+      dst_buf[i] = buffer[i];
+    }
   }
 
   for (i=0;i<8;++i) {
@@ -1480,12 +1568,23 @@ size_t print_sensor_enrichment(struct printbuf *kafka_line_buffer,
   }
 }
 
-#ifdef HAVE_CISCO_URL
+static const uint8_t http_host_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x02};
 
-static size_t print_cisco_private_buffer(struct printbuf *kafka_line_buffer,
+
+/**
+ * @param kafka_line_buffer          Buffer to print result
+ * @param vbuffer                    Buffer with data
+ * @param real_field_len             Length of attribute
+ * @param real_field_offset          Offset of attribute because of variable len
+ * @param flowCache                  Flow cache
+ * @param expected_identifier        Expected CISCO identifier
+ * @param expected_identifier_length Expected CISCO identifier length
+ */
+static size_t cisco_private_decorator(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flowCache,
-    const char *expected_identifier, size_t expected_identifier_length) {
+    const void *expected_identifier, size_t expected_identifier_length,
+    size_t (*cb)(struct printbuf *, const void *, size_t, struct flowCache *)) {
   const char *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer);
   (void)flowCache;
@@ -1499,60 +1598,199 @@ static size_t print_cisco_private_buffer(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  return append_escaped(kafka_line_buffer,buffer+real_field_offset+6,
-                                                        real_field_len-6);
+  const size_t buffer_len = real_field_len - expected_identifier_length;
+  if (buffer_len == 0) {
+    return 0;
+  }
 
+  return cb(kafka_line_buffer,
+    buffer + real_field_offset + expected_identifier_length,
+    real_field_len - expected_identifier_length,
+    flowCache);
+}
+
+static size_t cisco_private_field_append(struct printbuf *kafka_line_buffer,
+    const void *vbuffer, size_t vbuffer_size, struct flowCache *flow_cache) {
+  (void)flow_cache;
+  const char *buffer = vbuffer;
+  return append_escaped(kafka_line_buffer, buffer, vbuffer_size);
+}
+
+static size_t print_cisco_private_buffer(struct printbuf *kafka_line_buffer,
+    const void *vbuffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache,
+    const uint8_t *expected_identifier, size_t expected_identifier_length) {
+  return cisco_private_decorator(kafka_line_buffer, vbuffer, real_field_len,
+    real_field_offset, flowCache, expected_identifier,
+    expected_identifier_length, cisco_private_field_append);
 }
 
 size_t print_http_url(struct printbuf *kafka_line_buffer,
   const void *buffer,const size_t real_field_len,
   const size_t real_field_offset,struct flowCache *flowCache) {
 
-  static const char http_url_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x01};
+  static const uint8_t http_url_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x01};
   return print_cisco_private_buffer(kafka_line_buffer,
-    buffer,real_field_len,real_field_offset,flowCache,
-    http_url_id,sizeof(http_url_id));
+    buffer, real_field_len, real_field_offset, flowCache,
+    http_url_id, sizeof(http_url_id));
+}
+
+static void save_cisco_http_private_field(const void *buffer, size_t buffer_len,
+    const char **str, size_t *len) {
+  *str = buffer;
+  *len = buffer_len;
+}
+
+static size_t save_cisco_http_host0(struct printbuf *kafka_line_buffer,
+    const void *buffer, size_t buffer_size, struct flowCache *flow_cache) {
+  (void)kafka_line_buffer;
+  assert_multi(buffer, flow_cache);
+
+  /// @todo use sized_buffer
+  save_cisco_http_private_field(buffer, buffer_size, &flow_cache->http_host.str,
+    &flow_cache->http_host.str_size);
+  return 0;
+}
+
+static size_t save_cisco_http_referer0(struct printbuf *kafka_line_buffer,
+    const void *buffer, size_t buffer_size, struct flowCache *flow_cache) {
+    (void)kafka_line_buffer;
+  assert_multi(buffer, flow_cache);
+
+  /// @todo use sized_buffer
+  save_cisco_http_private_field(buffer, buffer_size,
+    &flow_cache->http_referer.str, &flow_cache->http_referer.str_size);
+  return 0;
+}
+
+static size_t save_cisco_https_common_name0(struct printbuf *kafka_line_buffer,
+    const void *buffer, size_t buffer_size, struct flowCache *flow_cache) {
+    (void)kafka_line_buffer;
+  assert_multi(buffer, flow_cache);
+
+  /// @todo use sized_buffer
+  save_cisco_http_private_field(buffer, buffer_size,
+    &flow_cache->ssl_common_name.str, &flow_cache->ssl_common_name.str_size);
+  return 0;
 }
 
 size_t print_http_host(struct printbuf *kafka_line_buffer,
-  const void *buffer,const size_t real_field_len,
-  const size_t real_field_offset,struct flowCache *flowCache) {
+  const void *buffer, const size_t real_field_len,
+  const size_t real_field_offset, struct flowCache *flowCache) {
 
-  static const char http_host_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x02};
+  cisco_private_decorator(kafka_line_buffer, buffer, real_field_len,
+    real_field_offset, flowCache, http_host_id, sizeof(http_host_id),
+    save_cisco_http_host0);
+
   return print_cisco_private_buffer(kafka_line_buffer,
-    buffer,real_field_len,real_field_offset,flowCache,
-    http_host_id,sizeof(http_host_id));
+    buffer, real_field_len, real_field_offset, flowCache,
+    http_host_id, sizeof(http_host_id));
+}
+
+static bool buffer_is_ip(const char *buf, size_t bufsiz) {
+  static const char *long_ipv6_example =
+    "0000:0000:0000:0000:0000:0000:0000:0000";
+  if (bufsiz > strlen(long_ipv6_example)) {
+    return false;
+  }
+
+  char tmp_buf[bufsiz + 1];
+  memcpy(tmp_buf, buf, bufsiz);
+  tmp_buf[bufsiz] = 0;
+
+  struct sockaddr_in6 sa;
+  return 1 == inet_pton(AF_INET,  tmp_buf, &(sa.sin6_addr))
+      || 1 == inet_pton(AF_INET6, tmp_buf, &(sa.sin6_addr));
+}
+
+/**
+ * Search for first instance of a character that is not needle in the haystack.
+ * Return last character (i.e, haystack+length) if not found.
+ */
+static const char *memcchrnul(const void *vhaystack, int needle,
+    size_t length) {
+  const char *haystack = vhaystack;
+  const char *i = haystack;
+  for (i = haystack; i < haystack + length && i[0] == needle; ++i);
+  return i;
+}
+
+static size_t print_http_l2_domain(struct printbuf *kafka_line_buffer,
+    const char *hostname, size_t hostname_size) {
+  const char *l2_host = hostname;
+
+  // avoid http{,s}: protocol
+  static const char *skip_headers[] = {"http://", "https://"};
+  size_t i;
+  for (i=0; i<RD_ARRAYSIZE(skip_headers); ++i) {
+    const size_t header_len = strlen(skip_headers[i]);
+    if (hostname_size>=header_len &&
+        0 == strncmp(skip_headers[i], hostname, header_len)) {
+      const char *no_proto_domain = hostname + header_len;
+      size_t no_proto_domain_len = hostname_size - header_len;
+      return print_http_l2_domain(kafka_line_buffer, no_proto_domain,
+        no_proto_domain_len);
+    }
+  }
+
+  // avoid url on referer, now that we know we do not have https: prefix
+  const char *slash = memchr(hostname, '/', hostname_size);
+  if (slash) {
+    size_t no_url_size = slash - hostname;
+    return print_http_l2_domain(kafka_line_buffer, hostname, no_url_size);
+  }
+
+  if (buffer_is_ip(hostname, hostname_size)) {
+    // Nothing more to do!
+    return append_escaped(kafka_line_buffer, hostname, hostname_size);
+  }
+
+  // Now we have a clean hostname!
+  const char *l1_dot = memrchr(hostname, '.', hostname_size);
+  if (l1_dot) {
+    const char *l2_dot = memrchr(hostname, '.',
+      l1_dot - (const char *)hostname);
+    if (l2_dot) {
+      l2_host = l2_dot;
+    }
+  }
+
+  // seek first dot(s)
+  l2_host = memcchrnul(l2_host, '.',
+    hostname_size - (l2_host - (const char *)hostname));
+
+  const size_t l2_host_len = hostname_size - (l2_host - (const char *)hostname);
+  return append_escaped(kafka_line_buffer, l2_host, l2_host_len);
+}
+
+static size_t print_http_host_l1_0(struct printbuf *kafka_line_buffer,
+    const void *host, size_t host_size, struct flowCache *flow_cache) {
+  (void)flow_cache;
+
+  const char *dot = memrchr(host, '.', host_size);
+  const char *l1_host = dot ? dot : host;
+
+  // seek first dot(s)
+  l1_host = memcchrnul(l1_host, '.',
+    host_size - (l1_host - (const char *)host));
+
+  const size_t l1_host_len = host_size - (l1_host - (const char *)host);
+  return append_escaped(kafka_line_buffer, l1_host, l1_host_len);
+}
+
+static size_t print_http_host_l2_0(struct printbuf *kafka_line_buffer,
+    const void *host, size_t host_size, struct flowCache *flow_cache) {
+  (void)flow_cache;
+  return print_http_l2_domain(kafka_line_buffer, host, host_size);
 }
 
 size_t print_http_host_l1(struct printbuf *kafka_line_buffer,
                           const void *vbuffer, const size_t real_field_len,
                           const size_t real_field_offset,
                           struct flowCache *flowCache) {
-
-  (void)flowCache;
-  static const uint8_t http_host_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x02};
-  const char *buffer = vbuffer;
-  const char *pos = NULL;
-
-  if (real_field_len <= sizeof(http_host_id)) {
-    return 0;
-  }
-
-  if (0 !=
-      memcmp(http_host_id, &buffer[real_field_offset], sizeof(http_host_id))) {
-    return 0;
-  }
-
-  const char *host_name = buffer + real_field_offset + sizeof(http_host_id);
-
-  if (NULL == (pos = memrchr(host_name, '.', real_field_len))) {
-    return 0;
-  }
-
-  const size_t host_len =
-      real_field_len - (pos - host_name) - sizeof(http_host_id) - 1;
-
-  return append_escaped(kafka_line_buffer, pos + 1, host_len);
+  return cisco_private_decorator(kafka_line_buffer, vbuffer, real_field_len,
+    real_field_offset, flowCache, http_host_id, sizeof(http_host_id),
+    print_http_host_l1_0);
 }
 
 size_t print_http_host_l2(struct printbuf *kafka_line_buffer,
@@ -1560,67 +1798,116 @@ size_t print_http_host_l2(struct printbuf *kafka_line_buffer,
                           const size_t real_field_offset,
                           struct flowCache *flowCache) {
 
-  (void)flowCache;
-  static const uint8_t http_host_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x02};
-  const char *buffer = vbuffer;
-  const char *pos_first = NULL;
-  const char *pos_last = NULL;
+    return cisco_private_decorator(kafka_line_buffer, vbuffer, real_field_len,
+    real_field_offset, flowCache, http_host_id, sizeof(http_host_id),
+    print_http_host_l2_0);
 
-  if (real_field_len <= sizeof(http_host_id)) {
-    return 0;
+}
+
+static void extract_flowcache_host(const struct flowCache *flow_cache,
+    const char **host, size_t *host_len) {
+  if (flow_cache->http_host.str) {
+    *host     = flow_cache->http_host.str;
+    *host_len = flow_cache->http_host.str_size;
+  } else {
+    *host     = flow_cache->ssl_common_name.str;
+    *host_len = flow_cache->ssl_common_name.str_size;
   }
+}
 
-  if (0 !=
-      memcmp(http_host_id, &buffer[real_field_offset], sizeof(http_host_id))) {
-    return 0;
+static void extract_flowcache_referer(const struct flowCache *flow_cache,
+    const char **referer, size_t *referer_len) {
+  if (flow_cache->http_referer.str) {
+    *referer = flow_cache->http_referer.str;
+    *referer_len = flow_cache->http_referer.str_size;
+  } else {
+    extract_flowcache_host(flow_cache, referer, referer_len);
   }
+}
 
-  const char *host_name = buffer + real_field_offset + sizeof(http_host_id);
+size_t print_host(struct printbuf *kafka_line_buffer,
+                          const void *vbuffer, const size_t real_field_len,
+                          const size_t real_field_offset,
+                          struct flowCache *flow_cache) {
+  const char *to_print = NULL;
+  size_t to_print_size = 0;
+  unused_params(vbuffer, real_field_len, real_field_offset);
 
-  if (NULL == (pos_first = memrchr(host_name, '.', real_field_len))) {
-    return 0;
-  }
-  if (NULL == (pos_last = memrchr(host_name, '.', pos_first - host_name))) {
-    return 0;
-  }
+  extract_flowcache_host(flow_cache, &to_print, &to_print_size);
+  return append_escaped(kafka_line_buffer, to_print, to_print_size);
+}
 
-  const size_t host_len =
-      real_field_len - (pos_last - host_name) - sizeof(http_host_id) - 1;
+size_t print_referer(struct printbuf *kafka_line_buffer,
+                          const void *vbuffer, const size_t real_field_len,
+                          const size_t real_field_offset,
+                          struct flowCache *flow_cache) {
+  return flow_cache->http_referer.str ?
+    append_escaped(kafka_line_buffer, flow_cache->http_referer.str,
+      flow_cache->http_referer.str_size) :
+    print_host(kafka_line_buffer, vbuffer, real_field_len, real_field_offset,
+      flow_cache);
+}
 
-  return append_escaped(kafka_line_buffer, pos_last + 1, host_len);
+size_t print_host_l2(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  const char *host = NULL;
+  size_t host_size = 0;
+  unused_params(buffer, real_field_len, real_field_offset);
+  extract_flowcache_host(flow_cache, &host, &host_size);
+  return print_http_l2_domain(kafka_line_buffer, host, host_size);
+}
+
+size_t print_referer_l2(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  const char *referer = NULL;
+  size_t referer_size = 0;
+  unused_params(buffer, real_field_len, real_field_offset);
+  extract_flowcache_referer(flow_cache, &referer, &referer_size);
+  return print_http_l2_domain(kafka_line_buffer, referer, referer_size);
 }
 
 size_t print_http_user_agent(struct printbuf *kafka_line_buffer,
   const void *buffer,const size_t real_field_len,
   const size_t real_field_offset,struct flowCache *flowCache) {
 
-  static const char http_ua_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x03};
+  static const uint8_t http_ua_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x03};
   return print_cisco_private_buffer(kafka_line_buffer,
-    buffer,real_field_len,real_field_offset,flowCache,
-    http_ua_id,sizeof(http_ua_id));
+    buffer, real_field_len, real_field_offset, flowCache,
+    http_ua_id, sizeof(http_ua_id));
 }
 
 size_t print_http_referer(struct printbuf *kafka_line_buffer,
   const void *buffer,const size_t real_field_len,
   const size_t real_field_offset,struct flowCache *flowCache) {
 
-  static const char http_referer_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x04};
+  static const uint8_t http_referer_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x04};
+
+  cisco_private_decorator(kafka_line_buffer, buffer, real_field_len,
+    real_field_offset, flowCache, http_referer_id, sizeof(http_referer_id),
+    save_cisco_http_referer0);
+
   return print_cisco_private_buffer(kafka_line_buffer,
-    buffer,real_field_len,real_field_offset,flowCache,
-    http_referer_id,sizeof(http_referer_id));
+    buffer, real_field_len, real_field_offset, flowCache,
+    http_referer_id, sizeof(http_referer_id));
 }
 
 size_t print_https_common_name(struct printbuf *kafka_line_buffer,
   const void *buffer,const size_t real_field_len,
   const size_t real_field_offset,struct flowCache *flowCache) {
 
-  static const char https_command_name_nbar_id[] = {0x0d, 0x00, 0x01, 0xc5, 0x34, 0x01};
+  static const uint8_t https_common_name_nbar_id[] = {0x0d, 0x00, 0x01, 0xc5,
+    0x34, 0x01};
+
+  cisco_private_decorator(kafka_line_buffer, buffer, real_field_len,
+    real_field_offset, flowCache, https_common_name_nbar_id,
+    sizeof(https_common_name_nbar_id), save_cisco_https_common_name0);
+
   return print_cisco_private_buffer(kafka_line_buffer,
     buffer,real_field_len,real_field_offset,flowCache,
-    https_command_name_nbar_id,sizeof(https_command_name_nbar_id));
+    https_common_name_nbar_id,sizeof(https_common_name_nbar_id));
 }
-
-#endif /* HAVE_CISCO_URL */
 
 #ifdef HAVE_UDNS
 
@@ -1646,6 +1933,14 @@ static const uint8_t *get_src_ip(const struct flowCache *flowCache) {
 
 static const uint8_t *get_dst_ip(const struct flowCache *flowCache) {
   return (const uint8_t *)flowCache->address.dst;
+}
+
+static uint16_t get_src_port(const struct flowCache *flowCache) {
+  return flowCache->ports.src;
+}
+
+static uint16_t get_dst_port(const struct flowCache *flowCache) {
+  return flowCache->ports.dst;
 }
 
 const uint8_t *get_direction_based_client_ip(const struct flowCache *flowCache) {
@@ -1687,6 +1982,44 @@ const uint8_t *get_direction_based_target_ip(
     dst_ip : src_ip;
 }
 
+uint16_t get_direction_based_client_port(const struct flowCache *flowCache) {
+  assert(flowCache);
+
+  uint16_t ret = 0;
+  const uint16_t src_port = get_src_port(flowCache);
+  const uint16_t dst_port = get_dst_port(flowCache);
+
+  /*
+    Netflow probe point of view
+
+    (client) -> (probe) traffic => ingress -> client_mac is src mac
+    (client) <- (probe) traffic => egress  -> client_mac is dst mac
+  */
+  /// @NOTE keep in sync with get_direction_based_client_mac
+  if (flowCache->macs.direction == DIRECTION_INGRESS && src_port) {
+    ret = src_port;
+  } else if (flowCache->macs.direction == DIRECTION_EGRESS && dst_port) {
+    ret = dst_port;
+  } else if (flowCache->macs.direction == DIRECTION_INTERNAL) {
+    if (dst_port) {
+      ret = dst_port;
+    } else if (src_port) {
+      ret = src_port;
+    }
+  }
+
+  return (const uint16_t)ret;
+}
+
+uint16_t get_direction_based_target_port(const struct flowCache *flowCache) {
+  assert(flowCache);
+
+  const uint16_t src_port = get_src_port(flowCache);
+  const uint16_t dst_port = get_dst_port(flowCache);
+
+  const uint16_t client_port = get_direction_based_client_port(flowCache);
+  return (client_port == src_port) ? dst_port : src_port;
+}
 
 /// @TODO difference client/target src/dst
 size_t print_client_name(struct printbuf *kafka_line_buffer,
@@ -1714,12 +2047,6 @@ size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache) {
   const uint8_t *buffer = vbuffer;
-  #ifdef CISCO_URL
-  #if 1
-  //static __thread char url[2048] = {'\0'};
-  //static __thread int social_user_printed = 0; // useful for coordinate host+url and referer social user printing
-  #endif
-  #endif
   const int start_bpos = kafka_line_buffer->bpos;
   int value_ret=0;
   if(0!=strcmp(kafka_line_buffer->buf,"{")){
@@ -1739,51 +2066,10 @@ size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
   }
 
 
-  {
-    // @TODO Move all this .
-    const size_t bufsize = 1024;
-    char buf[bufsize];
-    buf[0] = '\0';
-
-    switch(templateElement->templateElementId)
-    {
-      case CISCO_HTTP_SOCIAL_MEDIA_YT:
-      case CISCO_HTTP_SOCIAL_USER_FB:
-      case CISCO_HTTP_SOCIAL_MEDIA_TT:
-      case CISCO_HTTP_SOCIAL_USER_TT:
-      case CISCO_HTTP_SOCIAL_MEDIA_IG:
-      case CISCO_HTTP_USER_AGENT_OS:
-        if(real_field_len < 6)
-          break;
-        snprintf(buf,min(sizeof(buf),(unsigned) real_field_len-6+1),"%s",buffer+real_field_len_offset+6);
-        break;
-      default:
-        // Do nothing
-        break;
-    };
-
-    /// @TODO send all this to template system
+  /// @TODO send all this to template system
+#if 0 /* SOCIAL_MEDIA */
     if(NULL==templateElement->export_fn) switch(templateElement->templateElementId)
     {
-#ifdef HAVE_CISCO_URL
-      case CISCO_URL:
-        // do nothing. subtask will do.
-        break;
-
-      case CISCO_HTTP_HOST_L1:
-      case CISCO_HTTP_REFERER_L1:
-      if(real_field_len > 6){
-        char * referer = malloc(sizeof(char)*(real_field_len -6 + 1));
-        snprintf(referer,real_field_len-6,"%s",buffer+real_field_len_offset+6);
-        size_t domain_len;
-        const char *l1_domain = rb_l1_domain(referer,&domain_len, readOnlyGlobals.rb_databases.domains_name_as_list);
-        if(l1_domain)
-          value_ret = append_escaped(kafka_line_buffer,l1_domain,domain_len);
-        free(referer);
-      }
-      break;
-
-#if 0 /* SOCIAL_MEDIA */
       case CISCO_HTTP_USER_AGENT_OS:
       {
         rb_keyval_list_t * iter;
@@ -1917,8 +2203,6 @@ size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
           value_ret = sprintbuf(kafka_line_buffer,"%s%s",buf,url);
         }
         break;
-#endif
-#endif
       default:
         if (unlikely(!templateElement->export_fn &&
                                         !templateElement->postTemplate &&
@@ -1929,91 +2213,27 @@ size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
         }
         break;
     };
+#endif
 
-    if(value_ret < 0) /* Error adding */
-    {
-      // traceEvent(TRACE_ERROR, "Cannot add value to kafka buffer.\n");
+  if(value_ret < 0) /* Error adding */ {
+    // traceEvent(TRACE_ERROR, "Cannot add value to kafka buffer.\n");
+  } else if(value_ret > 0) /* Some added */ {
+    if(templateElement->quote) {
+      value_ret+=2;
+      printbuf_memappend_fast(kafka_line_buffer,"\"",strlen("\""));
     }
-    else if(value_ret > 0) /* Some added */
-    {
-      if(templateElement->quote)
-      {
-        value_ret+=2;
-        printbuf_memappend_fast(kafka_line_buffer,"\"",strlen("\""));
-      }
-    }
-    else /*if(value_ret == 0)*/
-    {
-      kafka_line_buffer->bpos = start_bpos;
-      kafka_line_buffer->buf[kafka_line_buffer->bpos] = '\0';
-    }
+  } else /*if(value_ret == 0)*/ {
+    kafka_line_buffer->bpos = start_bpos;
+    kafka_line_buffer->buf[kafka_line_buffer->bpos] = '\0';
+  }
 
-    int i;
-    for(i=0; templateElement->postTemplate != NULL
-                            && templateElement->postTemplate[i] != NULL; ++i) {
-          printNetflowRecordWithTemplate(kafka_line_buffer,
-            templateElement->postTemplate[i], buffer, real_field_len,
-            real_field_len_offset, flowCache);
-    }
-
-    switch(templateElement->templateElementId) /* See if we can extract more information about the field */
-    {
-      // @TODO delete value_ret, not needed anymore.
-      #define print_if_template_valid(value_ret,template_elm)                                                            \
-      if(template_elm){                                                                                                  \
-        const int start_bpos = kafka_line_buffer->bpos;                                                                  \
-        const int ret = printNetflowRecordWithTemplate(kafka_line_buffer,template_elm,buffer,real_field_len,real_field_len_offset,flowCache); \
-        if(0==ret){                                                                                                      \
-          kafka_line_buffer->bpos = start_bpos;                                                                          \
-          kafka_line_buffer->buf[kafka_line_buffer->bpos] = '\0';                                                        \
-        }else{                                                                                                           \
-          value_ret+=ret;                                                                                                \
-        }                                                                                                                \
-      }
-
-      case CISCO_URL:
-        switch(buffer[real_field_len_offset+5]){
-          case 1:
-            //if(real_field_len>6 && buffer)
-            //  snprintf(url,min(sizeof(url),(unsigned)real_field_len-6+1),"%s",buffer+real_field_len_offset+6);
-            break;
-          case 2:
-            //print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_host_l1_template);
-            #if 1 /* MEDIA */
-            if(real_field_len>6)
-            {
-              //social_user_printed = 0; // <- It cannot be printed here.
-              //print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_social_media_tt_template);
-              //print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_social_user_fb_template);
-              //print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_social_user_tt_template);
-              //print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_social_user_yt_template);
-              //print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_social_user_dropbox);
-              //print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_social_media_ig_template);
-              //print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_social_media_yt_template);
-            }
-            //url[0]='\0';
-            break;
-          case 3:
-            // print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_user_agent_template);
-
-            break;
-          case 4:
-            // print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_referer_template);
-            //if(!social_user_printed)
-            //  print_if_template_valid(value_ret,readOnlyGlobals.rb_cached_templates.http_social_user_yt_referer);
-            #endif
-            break;
-          default:
-            // Do nothing
-            break;
-        }
-        break;
-        default:
-          // Do nothing
-          break;
-    };
-
-  } /* end value print if no error */
+  int i;
+  for(i=0; templateElement->postTemplate != NULL
+                          && templateElement->postTemplate[i] != NULL; ++i) {
+        printNetflowRecordWithTemplate(kafka_line_buffer,
+          templateElement->postTemplate[i], buffer, real_field_len,
+          real_field_len_offset, flowCache);
+  }
   return value_ret;
 }
 

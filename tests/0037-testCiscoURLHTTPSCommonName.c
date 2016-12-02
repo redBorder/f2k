@@ -183,8 +183,7 @@ static int prepare_test_nf10_cisco_https(void **state) {
 
 int main() {
 	const struct CMUnitTest tests[] = {
-		cmocka_unit_test_setup_teardown(testFlow,
-				prepare_test_nf10_cisco_https, check_flow),
+		cmocka_unit_test_setup(testFlow, prepare_test_nf10_cisco_https),
 	};
 
 	return cmocka_run_group_tests(tests, nf_test_setup, nf_test_teardown);

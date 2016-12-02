@@ -41,6 +41,11 @@ struct flowCache {
     uint16_t src,dst;
   }ports;
 
+  struct {
+    size_t str_size;
+    const char *str;
+  } http_referer, http_host, ssl_common_name;
+
   struct{
     uint8_t src[16],dst[16];
 #ifdef HAVE_UDNS
@@ -210,6 +215,14 @@ size_t print_ipv4_dst_addr(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
 
+size_t print_ip_client_addr(struct printbuf * kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_len_offset, struct flowCache *flowCache);
+
+size_t print_ip_target_addr(struct printbuf * kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_len_offset, struct flowCache *flowCache);
+
 size_t print_proto_name(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
@@ -241,6 +254,20 @@ size_t print_dst_port(struct printbuf * kafka_line_buffer,
 size_t print_srv_port(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
+
+size_t print_ipv6(void *vdst_buf, struct printbuf *kafka_line_buffer,
+                  const void *vbuffer, const size_t real_field_len,
+                  const size_t real_field_offset);
+
+size_t print_client_port(struct printbuf *kafka_line_buffer, const void *buffer,
+                         const size_t real_field_len,
+                         const size_t real_field_len_offset,
+                         struct flowCache *flowCache);
+
+size_t print_target_port(struct printbuf *kafka_line_buffer, const void *buffer,
+                         const size_t real_field_len,
+                         const size_t real_field_len_offset,
+                         struct flowCache *flowCache);
 
 size_t print_ipv6_src_addr(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
@@ -309,8 +336,6 @@ size_t print_sensor_enrichment(struct printbuf *kafka_line_buffer,
 
 #endif /* HAVE_GEOIP */
 
-#ifdef HAVE_CISCO_URL
-
 size_t print_http_url(struct printbuf *kafka_line_buffer,
   const void *buffer, const size_t real_field_len,
   const size_t real_field_len_offset,struct flowCache *flowCache);
@@ -334,12 +359,27 @@ size_t print_https_common_name(struct printbuf *kafka_line_buffer,
   const void *buffer, const size_t real_field_len,
   const size_t real_field_len_offset,struct flowCache *flowCache);
 
-#endif /* CISCO_URL */
+size_t print_host(struct printbuf *kafka_line_buffer,
+  const void *vbuffer, const size_t real_field_len,
+  const size_t real_field_offset, struct flowCache *flowCache);
+size_t print_referer(struct printbuf *kafka_line_buffer,
+  const void *vbuffer, const size_t real_field_len,
+  const size_t real_field_offset, struct flowCache *flow_cache);
+
+size_t print_host_l2(struct printbuf *kafka_line_buffer,
+  const void *vbuffer, const size_t real_field_len,
+  const size_t real_field_offset, struct flowCache *flowCache);
+size_t print_referer_l2(struct printbuf *kafka_line_buffer,
+  const void *vbuffer, const size_t real_field_len,
+  const size_t real_field_offset, struct flowCache *flow_cache);
 
 #ifdef HAVE_UDNS
 
 const uint8_t *get_direction_based_client_ip(const struct flowCache *flowCache);
 const uint8_t *get_direction_based_target_ip(const struct flowCache *flowCache);
+
+uint16_t get_direction_based_client_port(const struct flowCache *flowCache);
+uint16_t get_direction_based_target_port(const struct flowCache *flowCache);
 
 size_t print_client_name(struct printbuf *kafka_line_buffer,
   const void *buffer, const size_t real_field_len,

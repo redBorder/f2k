@@ -386,8 +386,7 @@ static int prepare_test_nf5_home_nets(void **state) {
 
 int main() {
 	const struct CMUnitTest tests[] = {
-		cmocka_unit_test_setup_teardown(testFlow,
-					prepare_test_nf5_home_nets, check_flow),
+		cmocka_unit_test_setup(testFlow, prepare_test_nf5_home_nets),
 	};
 
 	return cmocka_run_group_tests(tests, nf_test_setup, nf_test_teardown);

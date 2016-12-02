@@ -396,15 +396,14 @@ static void check_string_list(struct string_list *sl,
 	// Have we consumed all string list messages?
 	assert_null(iter);
 	assert_true(i == checkdata_size);
-
-	if (sl) {
-		free_string_list(sl);
-	}
 }
 
-int check_flow(void **state) {
+/** Checks flow return string
+ * @todo No need for re-scan all string list in response
+ * @param  state Test state
+ */
+static void check_flow(struct nf_test_state *st) {
 	size_t record_idx;
-	struct nf_test_state *st = *state;
 	assert_true(st->magic == NF_TEST_STATE_MAGIC);
 
 	for (record_idx = 0; record_idx < st->params.records_size;
@@ -413,9 +412,21 @@ int check_flow(void **state) {
 				st->params.records[record_idx].checkdata,
 				st->params.records[record_idx].checkdata_size);
 	}
+}
 
-	free(st);
-	return 0;
+static void free_state_returned_string_lists(struct nf_test_state *state) {
+        size_t i = 0;
+        for (i = 0; i < state->params.records_size; ++i) {
+                struct string_list *list = state->ret.sl[i];
+                state->ret.sl[i] = NULL;
+                while (list) {
+                        struct string_list *aux = list;
+                        list = list->next;
+
+                        printbuf_free(aux->string);
+                        free(aux);
+                }
+        }
 }
 
 void testFlow(void **state) {
@@ -477,21 +488,10 @@ void testFlow(void **state) {
   }
 
   collect_worker_done(worker);
-}
 
-static void free_state_returned_string_lists(struct nf_test_state *state) {
-	size_t i = 0;
-	for (i = 0; i < state->params.records_size; ++i) {
-		struct string_list *list = state->ret.sl[i];
-		state->ret.sl[i] = NULL;
-		while (list) {
-			struct string_list *aux = list;
-			list = list->next;
-
-			printbuf_free(aux->string);
-			free(aux);
-		}
-	}
+  check_flow(st);
+  free_state_returned_string_lists(st);
+  free(st);
 }
 
 void mem_test(void **vstate) {
@@ -499,7 +499,6 @@ void mem_test(void **vstate) {
   struct nf_test_state *state = *vstate;
   do {
     mem_wrap_fail_in = i++;
-    testFlow(vstate);
     free_state_returned_string_lists(state);
   } while (0 == mem_wrap_fail_in);
   mem_wrap_fail_in = 0;

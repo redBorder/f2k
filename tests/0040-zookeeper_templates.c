@@ -201,9 +201,9 @@ static void skip_test() { skip(); }
 int main() {
 #ifdef TESTS_ZK_HOST
   const struct CMUnitTest tests[] = {
-      cmocka_unit_test_setup_teardown(testFlow, prepare_test_nf_template_save,
+      cmocka_unit_test_setup(testFlow, prepare_test_nf_template_save,
                                       check_flow),
-      cmocka_unit_test_setup_teardown(testFlow, prepare_test_nf_template_load,
+      cmocka_unit_test_setup(testFlow, prepare_test_nf_template_load,
                                       check_flow),
   };
   return cmocka_run_group_tests(tests, nf_test_setup, nf_test_teardown);

@@ -210,12 +210,10 @@ static int prepare_test_fallback_first_switch(void **state) {
 
 int main() {
 	const struct CMUnitTest tests[] = {
-		cmocka_unit_test_setup_teardown(testFlow,
-			prepare_test_fallback_first_switch_separate_long_flows,
-			check_flow),
-		cmocka_unit_test_setup_teardown(testFlow,
-			prepare_test_fallback_first_switch,
-			check_flow),
+		cmocka_unit_test_setup(testFlow,
+			prepare_test_fallback_first_switch_separate_long_flows),
+		cmocka_unit_test_setup(testFlow,
+			prepare_test_fallback_first_switch),
 	};
 
 	return cmocka_run_group_tests(tests, nf_test_setup, nf_test_teardown);
