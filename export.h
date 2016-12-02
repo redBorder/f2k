@@ -43,7 +43,7 @@ struct flowCache {
   struct {
     size_t str_size;
     const char *str;
-  } http_referer, http_host, ssl_host;
+  } http_referer, http_host, ssl_common_name;
 
   struct{
     uint8_t src[16],dst[16];
@@ -335,6 +335,20 @@ size_t print_http_referer(struct printbuf *kafka_line_buffer,
 size_t print_https_common_name(struct printbuf *kafka_line_buffer,
   const void *buffer, const size_t real_field_len,
   const size_t real_field_len_offset,struct flowCache *flowCache);
+
+size_t print_host(struct printbuf *kafka_line_buffer,
+  const void *vbuffer, const size_t real_field_len,
+  const size_t real_field_offset, struct flowCache *flowCache);
+size_t print_referer(struct printbuf *kafka_line_buffer,
+  const void *vbuffer, const size_t real_field_len,
+  const size_t real_field_offset, struct flowCache *flow_cache);
+
+size_t print_host_l2(struct printbuf *kafka_line_buffer,
+  const void *vbuffer, const size_t real_field_len,
+  const size_t real_field_offset, struct flowCache *flowCache);
+size_t print_referer_l2(struct printbuf *kafka_line_buffer,
+  const void *vbuffer, const size_t real_field_len,
+  const size_t real_field_offset, struct flowCache *flow_cache);
 
 #ifdef HAVE_UDNS
 

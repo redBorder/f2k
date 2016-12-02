@@ -1235,6 +1235,10 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
 
     guessDirection(flowCache);
     printNetflowRecordWithTemplate(kafka_line_buffer,
+      TEMPLATE_OF(HOST), NULL, 0, 0, flowCache);
+    printNetflowRecordWithTemplate(kafka_line_buffer,
+      TEMPLATE_OF(REFERER), NULL, 0, 0, flowCache);
+    printNetflowRecordWithTemplate(kafka_line_buffer,
       TEMPLATE_OF(PRINT_DIRECTION), NULL, 0, 0, flowCache);
     printNetflowRecordWithTemplate(kafka_line_buffer,
       TEMPLATE_OF(CLIENT_MAC_BASED_ON_DIRECTION), NULL, 0, 0, flowCache);
