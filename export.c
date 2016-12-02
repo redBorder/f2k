@@ -1625,6 +1625,49 @@ static const char *memcchrnul(const void *vhaystack, int needle,
   return i;
 }
 
+static size_t print_http_l2_domain(struct printbuf *kafka_line_buffer,
+    const char *hostname, size_t hostname_size) {
+  const char *l2_host = hostname;
+
+  // avoid http{,s}: protocol
+  static const char *skip_headers[] = {"http://", "https://"};
+  size_t i;
+  for (i=0; i<RD_ARRAYSIZE(skip_headers); ++i) {
+    const size_t header_len = strlen(skip_headers[i]);
+    if (hostname_size>=header_len &&
+        0 == strncmp(skip_headers[i], hostname, header_len)) {
+      const char *no_proto_domain = hostname + header_len;
+      size_t no_proto_domain_len = hostname_size - header_len;
+      return print_http_l2_domain(kafka_line_buffer, no_proto_domain,
+        no_proto_domain_len);
+    }
+  }
+
+  // avoid url on referer, now that we know we do not have https: prefix
+  const char *slash = memchr(hostname, '/', hostname_size);
+  if (slash) {
+    size_t no_url_size = slash - hostname;
+    return print_http_l2_domain(kafka_line_buffer, hostname, no_url_size);
+  }
+
+  // Now we have a clean hostname!
+  const char *l1_dot = memrchr(hostname, '.', hostname_size);
+  if (l1_dot) {
+    const char *l2_dot = memrchr(hostname, '.',
+      l1_dot - (const char *)hostname);
+    if (l2_dot) {
+      l2_host = l2_dot;
+    }
+  }
+
+  // seek first dot(s)
+  l2_host = memcchrnul(l2_host, '.',
+    hostname_size - (l2_host - (const char *)hostname));
+
+  const size_t l2_host_len = hostname_size - (l2_host - (const char *)hostname);
+  return append_escaped(kafka_line_buffer, l2_host, l2_host_len);
+}
+
 static size_t print_http_host_l1_0(struct printbuf *kafka_line_buffer,
     const void *host, size_t host_size, struct flowCache *flow_cache) {
   (void)flow_cache;
@@ -1642,23 +1685,7 @@ static size_t print_http_host_l1_0(struct printbuf *kafka_line_buffer,
 
 static size_t print_http_host_l2_0(struct printbuf *kafka_line_buffer,
     const void *host, size_t host_size, struct flowCache *flow_cache) {
-  (void)flow_cache;
-  const char *l2_host = host;
-
-  const char *l1_dot = memrchr(host, '.', host_size);
-  if (l1_dot) {
-    const char *l2_dot = memrchr(host, '.', l1_dot - (const char *)host);
-    if (l2_dot) {
-      l2_host = l2_dot;
-    }
-  }
-
-  // seek first dot(s)
-  l2_host = memcchrnul(l2_host, '.',
-    host_size - (l2_host - (const char *)host));
-
-  const size_t l2_host_len = host_size - (l2_host - (const char *)host);
-  return append_escaped(kafka_line_buffer, l2_host, l2_host_len);
+  return print_http_l2_domain(kafka_line_buffer, host, host_size);
 }
 
 size_t print_http_host_l1(struct printbuf *kafka_line_buffer,
@@ -1723,27 +1750,6 @@ size_t print_referer(struct printbuf *kafka_line_buffer,
       flow_cache->http_referer.str_size) :
     print_host(kafka_line_buffer, vbuffer, real_field_len, real_field_offset,
       flow_cache);
-}
-
-static size_t print_http_l2_domain(struct printbuf *kafka_line_buffer,
-    const char *hostname, size_t hostname_size) {
-  const char *l2_host = hostname;
-
-  const char *l1_dot = memrchr(hostname, '.', hostname_size);
-  if (l1_dot) {
-    const char *l2_dot = memrchr(hostname, '.',
-      l1_dot - (const char *)hostname);
-    if (l2_dot) {
-      l2_host = l2_dot;
-    }
-  }
-
-  // seek first dot(s)
-  l2_host = memcchrnul(l2_host, '.',
-    hostname_size - (l2_host - (const char *)hostname));
-
-  const size_t l2_host_len = hostname_size - (l2_host - (const char *)hostname);
-  return append_escaped(kafka_line_buffer, l2_host, l2_host_len);
 }
 
 size_t print_host_l2(struct printbuf *kafka_line_buffer,

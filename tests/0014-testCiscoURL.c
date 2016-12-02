@@ -72,9 +72,22 @@
 #define CISCO_DOT_L1_HOST CISCO_HTTP_HOST('.', 'c', 'o', 'm')
 #define CISCO_L1_HOST CISCO_HTTP_HOST('c', 'o', 'm')
 
-#define CISCO_L2_HOST CISCO_HTTP_HOST('i', \
+#define CISCO_L2_HOST0 'i', \
 		'n', 's', 't', 'a', 'g', 'r', 'a', 'm', \
-		'.', 'c', 'o', 'm')
+		'.', 'c', 'o', 'm'
+
+#define HTTP_PROTO 'h','t','t','p',':','/','/'
+#define HTTPS_PROTO 'h','t','t','p','s',':','/','/'
+#define EXAMPLE_URL '/','i','n','d','e','x','.','p','h','p'
+
+#define T_CISCO_L2_HOST CISCO_HTTP_HOST(CISCO_L2_HOST0)
+#define CISCO_L2_HOST_H CISCO_HTTP_HOST(HTTP_PROTO, CISCO_L2_HOST0)
+#define CISCO_L2_HOST_HS CISCO_HTTP_HOST(HTTPS_PROTO, CISCO_L2_HOST0)
+#define CISCO_L2_HOST_U CISCO_HTTP_HOST(CISCO_L2_HOST0, EXAMPLE_URL)
+#define CISCO_L2_HOST_HU CISCO_HTTP_HOST(HTTP_PROTO, CISCO_L2_HOST0, \
+	EXAMPLE_URL)
+#define CISCO_L2_HOST_HSU CISCO_HTTP_HOST(HTTPS_PROTO, CISCO_L2_HOST0, \
+	EXAMPLE_URL)
 
 #define T_CISCO_UA CISCO_HTTP_UA('I', \
 		'n',  's',  't',  'a',  'g',  'r',  'a',  'm', \
@@ -90,15 +103,24 @@
 #define T_CISCO_REFERER0 \
 	'w','w','w','.','e','l','m','u','n','d','o','.','e','s'
 #define T_CISCO_REFERER CISCO_HTTP_REFERER(T_CISCO_REFERER0)
+#define T_CISCO_REFERER_H CISCO_HTTP_REFERER(HTTP_PROTO, T_CISCO_REFERER0)
+#define T_CISCO_REFERER_HS CISCO_HTTP_REFERER(HTTPS_PROTO, T_CISCO_REFERER0)
+#define T_CISCO_REFERER_U CISCO_HTTP_REFERER(T_CISCO_REFERER0, EXAMPLE_URL)
+#define T_CISCO_REFERER_HU CISCO_HTTP_REFERER(HTTP_PROTO, T_CISCO_REFERER0, \
+	EXAMPLE_URL)
+#define T_CISCO_REFERER_HSU CISCO_HTTP_REFERER(HTTPS_PROTO, T_CISCO_REFERER0, \
+	EXAMPLE_URL)
 
-#define T_CISCO_REFERER_H CISCO_HTTP_REFERER('h', 't','t','p',':','/','/', \
-		T_CISCO_REFERER0)
-
-/// @todo join both
-#define T_CISCO_SSL_CN CISCO_SSL_CN( \
-	'w','w','w','.','e','x','a','m','p','l','e','.','c','o','m')
-#define T_CISCO_SSL_CN_H CISCO_SSL_CN('h','t','t','p','s',':','/','/', \
-	'w','w','w','.','e','x','a','m','p','l','e','.','c','o','m')
+#define T_CISCO_SSL_CN0 \
+	'w','w','w','.','e','x','a','m','p','l','e','.','c','o','m'
+#define T_CISCO_SSL_CN CISCO_SSL_CN(T_CISCO_SSL_CN0)
+#define T_CISCO_SSL_CN_H CISCO_SSL_CN(HTTP_PROTO, T_CISCO_SSL_CN0)
+#define T_CISCO_SSL_CN_HS CISCO_SSL_CN(HTTPS_PROTO, T_CISCO_SSL_CN0)
+#define T_CISCO_SSL_CN_U CISCO_SSL_CN(T_CISCO_SSL_CN0, EXAMPLE_URL)
+#define T_CISCO_SSL_CN_HU CISCO_SSL_CN(HTTP_PROTO, T_CISCO_SSL_CN0, \
+	EXAMPLE_URL)
+#define T_CISCO_SSL_CN_HSU CISCO_SSL_CN(HTTPS_PROTO, T_CISCO_SSL_CN0, \
+	EXAMPLE_URL)
 
 #define EMPTY_CISCO_SSL_CN CISCO_DPI_EMPTY_FIELD(CISCO_SSL_CN_ID)
 #define EMPTY_CISCO_HOST CISCO_DPI_EMPTY_FIELD(CISCO_HTTP_HOST_ID)
@@ -157,7 +179,7 @@
 	BASE_ENTITIES(R, T_CISCO_URL, CISCO_DOT_L1_HOST, T_CISCO_UA, \
 		EMPTY_CISCO_REFERER, EMPTY_CISCO_SSL_CN, BASE_BYTES, \
 		BASE_PKTS) \
-	BASE_ENTITIES(R, T_CISCO_URL, CISCO_L2_HOST, T_CISCO_UA, \
+	BASE_ENTITIES(R, T_CISCO_URL, T_CISCO_L2_HOST, T_CISCO_UA, \
 		EMPTY_CISCO_REFERER, EMPTY_CISCO_SSL_CN, BASE_BYTES, \
 		BASE_PKTS) \
 	BASE_ENTITIES(R, T_CISCO_URL, CISCO_DOT_L2_HOST, T_CISCO_UA, \
@@ -340,6 +362,58 @@ static const struct checkdata_value checkdata_values_hrd_111[] = {
 	{.key = "referer_l2",        .value = "elmundo.es"},
 };
 
+/*
+                 3RD TEST: HTTPS://xxxx/ or ip host/referer/url
+ */
+
+#define PROTO_URL_ENTITIES(RT, R) \
+	/* http: entries*/ \
+	BASE_ENTITIES(RT, T_CISCO_URL, CISCO_L2_HOST_H, T_CISCO_UA, \
+		T_CISCO_REFERER_H, T_CISCO_SSL_CN_H, BASE_BYTES, \
+		BASE_PKTS) \
+	/* https: entries*/ \
+	BASE_ENTITIES(R, T_CISCO_URL, CISCO_L2_HOST_HS, T_CISCO_UA, \
+		T_CISCO_REFERER_HS, T_CISCO_SSL_CN_HS, BASE_BYTES, \
+		BASE_PKTS) \
+	/* host/url entries*/ \
+	BASE_ENTITIES(R, T_CISCO_URL, CISCO_L2_HOST_U, T_CISCO_UA, \
+		T_CISCO_REFERER_U, T_CISCO_SSL_CN_U, BASE_BYTES, \
+		BASE_PKTS) \
+	/* http: xxx/url entries*/ \
+	BASE_ENTITIES(R, T_CISCO_URL, CISCO_L2_HOST_HU, T_CISCO_UA, \
+		T_CISCO_REFERER_HU, T_CISCO_SSL_CN_HU, BASE_BYTES, \
+		BASE_PKTS) \
+	/* https: xxx/url entries*/ \
+	BASE_ENTITIES(R, T_CISCO_URL, CISCO_L2_HOST_HSU, T_CISCO_UA, \
+		T_CISCO_REFERER_HSU, T_CISCO_SSL_CN_HSU, BASE_BYTES, \
+		BASE_PKTS)
+
+#define PROTO_URL_CHECKDATA(PRE, POST) {\
+	{.key = "host",          .value = PRE "instagram.com" POST}, \
+	{.key = "host_l2_domain",    .value = "instagram.com"}, \
+	{.key = "referer",           .value = PRE "www.elmundo.es" POST}, \
+	{.key = "referer_l2",        .value = "elmundo.es"}, \
+	{.key = "https_common_name", .value = PRE "www.example.com" POST}, \
+	{.key = "http_host",     .value = PRE "instagram.com" POST}, \
+	{.key = "http_host_l2",      .value = "instagram.com"}, \
+	{.key = "http_referer",      .value = PRE "www.elmundo.es" POST}, \
+}
+
+static const struct checkdata_value proto_url_checkdata_values_h[] =
+	PROTO_URL_CHECKDATA("http://",);
+
+static const struct checkdata_value proto_url_checkdata_values_hs[] =
+	PROTO_URL_CHECKDATA("https://",);
+
+static const struct checkdata_value proto_url_checkdata_values_u[] =
+	PROTO_URL_CHECKDATA(,"/index.php");
+
+static const struct checkdata_value proto_url_checkdata_values_hu[] =
+	PROTO_URL_CHECKDATA("http://","/index.php");
+
+static const struct checkdata_value proto_url_checkdata_values_hsu[] =
+	PROTO_URL_CHECKDATA("https://","/index.php");
+
 static int prepare_test_nf10_cisco_url(void **state) {
 	static const IPFIX_TEMPLATE(v10Template, TEST_IPFIX_FLOW_HEADER,
 		IPFIX_TEMPLATE_ID, L2_ENTITIES);
@@ -348,6 +422,8 @@ static int prepare_test_nf10_cisco_url(void **state) {
 		IPFIX_TEMPLATE_ID, L2_ENTITIES);
 	static const IPFIX_FLOW(hrd_flow, TEST_IPFIX_FLOW_HEADER,
 		IPFIX_TEMPLATE_ID, HOST_REFERER_ENTITIES);
+	static const IPFIX_FLOW(https_url_flow, TEST_IPFIX_FLOW_HEADER,
+		IPFIX_TEMPLATE_ID, PROTO_URL_ENTITIES);
 
 #define CHECK(checkdata) {.checks = checkdata, .size = RD_ARRAYSIZE(checkdata)}
 	static const struct checkdata sl1_checkdata[] = {
@@ -369,6 +445,14 @@ static int prepare_test_nf10_cisco_url(void **state) {
 		CHECK(checkdata_values_hrd_110),
 		CHECK(checkdata_values_hrd_111),
 	};
+
+	static const struct checkdata https_url_flow_checkdata[] = {
+		CHECK(proto_url_checkdata_values_h),
+		CHECK(proto_url_checkdata_values_hs),
+		CHECK(proto_url_checkdata_values_u),
+		CHECK(proto_url_checkdata_values_hu),
+		CHECK(proto_url_checkdata_values_hsu),
+	};
 #undef CHECK
 
 #define TEST(mrecord, mrecord_size, checks, checks_size, ...) { \
@@ -388,6 +472,9 @@ static int prepare_test_nf10_cisco_url(void **state) {
 		TEST(&hrd_flow, sizeof(hrd_flow),
 			host_domain_checkdata,
 			RD_ARRAYSIZE(host_domain_checkdata),),
+		TEST(&https_url_flow, sizeof(https_url_flow),
+			https_url_flow_checkdata,
+			RD_ARRAYSIZE(https_url_flow_checkdata),),
 	};
 
 	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
