@@ -26,7 +26,6 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
-static int test_nf9(void **state) {
 #define FLOW_HEADER \
 	.sys_uptime = constexpr_be32toh(12345), \
 	.unix_secs = constexpr_be32toh(1382364130), \
@@ -40,38 +39,32 @@ static int test_nf9(void **state) {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
 	0x00
 
-#define NF9_ENTITIES(RT, R) \
-	RT(STA_MAC_ADDRESS, 6, 0, 0xb8, 0x17, 0xc2, 0x28, 0xb0, 0xc7) \
-	RT(STA_IPV4_ADDRESS, 4, 0, 10, 13, 94, 223) \
-	RT(APPLICATION_ID, 4, 0, FLOW_APPLICATION_ID(13, 453)) \
-	RT(WLAN_SSID, 33, 0, T_WLAN_SSID) \
-	RT(DIRECTION, 1, 0, 0) \
-	RT(IN_BYTES, 8, 0, UINT64_TO_UINT8_ARR(7603)) \
-	RT(IN_PKTS, 8, 0, UINT64_TO_UINT8_ARR(263)) \
-	RT(PADDING_OCTETS /*It was 98*/, 1, 0, 0) \
-	RT(PADDING_OCTETS /*It was 195*/, 1, 0, 0) \
-	RT(WAP_MAC_ADDRESS, 6, 0, 0x58, 0xbf, 0xea, 0x01, 0x5b, 0x40)
+// First flow
+#define NF9_ENTITIES_BASE(X, T_BYTES, T_PKTS) \
+	X(STA_MAC_ADDRESS, 6, 0, 0xb8, 0x17, 0xc2, 0x28, 0xb0, 0xc7) \
+	X(STA_IPV4_ADDRESS, 4, 0, 10, 13, 94, 223) \
+	X(APPLICATION_ID, 4, 0, FLOW_APPLICATION_ID(13, 453)) \
+	X(WLAN_SSID, 33, 0, T_WLAN_SSID) \
+	X(DIRECTION, 1, 0, 0) \
+	X(IN_BYTES, 8, 0, UINT64_TO_UINT8_ARR(T_BYTES)) \
+	X(IN_PKTS, 8, 0, UINT64_TO_UINT8_ARR(T_PKTS)) \
+	X(PADDING_OCTETS /*It was 98*/, 1, 0, 0) \
+	X(PADDING_OCTETS /*It was 195*/, 1, 0, 0) \
+	X(WAP_MAC_ADDRESS, 6, 0, 0x58, 0xbf, 0xea, 0x01, 0x5b, 0x40)
 
-	static const NF9_TEMPLATE(v9Template, FLOW_HEADER, TEMPLATE_ID,
-		NF9_ENTITIES);
+#define NF9_CHECKDATA(T_BYTES, T_PKTS) { \
+	{.key="type", .value="netflowv9"}, \
+	{.key="client_mac", .value="b8:17:c2:28:b0:c7"}, \
+	{.key="src", .value="10.13.94.223"}, \
+	/* {.key="application_id", .value="13:453"}, */ \
+	{.key="wireless_id", .value="local-wifi"}, \
+	{.key="direction", .value="ingress"}, \
+	{.key="sensor_ip", .value="4.3.2.1"}, \
+	{.key="bytes", .value=T_BYTES}, {.key="pkts", .value=T_PKTS}}
 
-	static const NF9_FLOW(v9Flow, FLOW_HEADER, TEMPLATE_ID, NF9_ENTITIES);
-
-	static const struct checkdata_value checkdata_values[] = {
-		{.key = "type", .value="netflowv9",},
-		{.key = "client_mac", .value="b8:17:c2:28:b0:c7",},
-		{.key = "src", .value="10.13.94.223",},
-		{.key = "application_id", .value="13:453",},
-		{.key = "wireless_id", .value="local-wifi",},
-		{.key = "direction", .value="ingress",},
-		{.key = "sensor_ip", .value="4.3.2.1",},
-		{.key = "bytes", .value="7603",},
-		{.key = "packets", .value="263"},
-	};
-
-	static const struct checkdata checkdata = {
-		.size = 1, .checks = checkdata_values
-	};
+static int test_nf9_0(void **state, const void *template, size_t template_size,
+		const void *flow, size_t flow_size,
+		const struct checkdata *checkdata, size_t checkdata_size) {
 
 #define TEST(config_path, mrecord, mrecord_size, mcheckdata, mcheckdata_sz) {  \
 		.config_json_path = config_path,                               \
@@ -90,19 +83,68 @@ static int test_nf9(void **state) {
 
 	struct test_params test_params[] = {
 		TEST_TEMPLATE_FLOW(
-			"./tests/0000-testFlowV5.json",
-			&v9Template, sizeof(v9Template),
-			&v9Flow, sizeof(v9Flow),
-			&checkdata, 1),
+			"./tests/0000-testFlowV5.json", template, template_size,
+			flow, flow_size, checkdata, checkdata_size),
 	};
 
 	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
 	return *state == NULL;
 }
 
+/// Test 1-flow nf9 packet
+static int test_nf9_1(void **state) {
+#define NF9_ENTITIES(RT, R) NF9_ENTITIES_BASE(RT, 7603, 263)
+
+	static const NF9_TEMPLATE(v9Template, FLOW_HEADER, TEMPLATE_ID,
+		NF9_ENTITIES);
+	static const NF9_FLOW(v9Flow, FLOW_HEADER, TEMPLATE_ID, NF9_ENTITIES);
+
+#undef NF9_ENTITIES
+
+	static const struct checkdata_value checkdata_values[] =
+		NF9_CHECKDATA("7603", "263");
+
+	static const struct checkdata checkdata = {
+		.size = RD_ARRAYSIZE(checkdata_values),
+		.checks = checkdata_values
+	};
+
+	return test_nf9_0(state, &v9Template, sizeof(v9Template),
+		&v9Flow, sizeof(v9Flow), &checkdata, 1);
+}
+
+/// Test 2-flow nf9 packet
+static int test_nf9_2(void **state) {
+#define NF9_ENTITIES(RT, R) \
+		NF9_ENTITIES_BASE(RT, 7603, 263) \
+		NF9_ENTITIES_BASE(R, 7604, 264) \
+
+	static const NF9_TEMPLATE(v9Template, FLOW_HEADER, TEMPLATE_ID,
+		NF9_ENTITIES);
+	static const NF9_FLOW(v9Flow, FLOW_HEADER, TEMPLATE_ID, NF9_ENTITIES);
+#undef NF9_ENTITIES
+
+	static const struct checkdata_value checkdata_values_1[] =
+		NF9_CHECKDATA("7603", "263");
+	static const struct checkdata_value checkdata_values_2[] =
+		NF9_CHECKDATA("7604", "264");
+
+#define CHECKS(values) {.size = RD_ARRAYSIZE(values), .checks = values}
+	static const struct checkdata checkdata[] = {
+		CHECKS(checkdata_values_1),
+		CHECKS(checkdata_values_2),
+	};
+#undef CHECKS
+
+	return test_nf9_0(state, &v9Template, sizeof(v9Template),
+		&v9Flow, sizeof(v9Flow),
+		checkdata, RD_ARRAYSIZE(checkdata));
+}
+
 int main() {
 	const struct CMUnitTest tests[] = {
-		cmocka_unit_test_setup(testFlow, test_nf9),
+		cmocka_unit_test_setup(testFlow, test_nf9_1),
+		cmocka_unit_test_setup(testFlow, test_nf9_2),
 	};
 
 	return cmocka_run_group_tests(tests, nf_test_setup, nf_test_teardown);
