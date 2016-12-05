@@ -823,7 +823,6 @@ static void dumpFlow(size_t begin, size_t end, const uint8_t *buffer) {
 }
 
 struct sized_buffer {
-  const void *buffer_start;
   const void *buffer;
   size_t size;
 };
@@ -1091,7 +1090,6 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
         template.templateId = htons(template.templateId), template.fieldCount = (header.flowsetLen - 14)/4;
 
         const struct sized_buffer ot_buffer = {
-          .buffer_start = _buffer->buffer_start,
           .buffer = &buffer[displ],
           .size = _buffer->size - displ
         };
@@ -1722,7 +1720,6 @@ static struct string_list *dissectNetFlowV9V10Set(worker_t *worker,
   }
 
   const struct sized_buffer netflow_set_buffer = {
-    .buffer_start = _buffer->buffer_start,
     .buffer = &buffer[displ],
     .size   = fs.flowsetLen
   };
@@ -1808,7 +1805,6 @@ static struct string_list *dissectNetflowV9V10(worker_t *worker,
   }
 
   const struct sized_buffer buffer = {
-    .buffer_start = _buffer,
     .buffer = _buffer,
     .size = handle_ipfix ? min(bufferLen,numEntries) : bufferLen,
   };
