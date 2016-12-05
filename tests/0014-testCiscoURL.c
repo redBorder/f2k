@@ -133,6 +133,13 @@
 		       '0','0','0','0',':','0','0','0','0',':', \
 		       '0','0','0','0',':','f','f','0','0',':', \
 		       '0','0','4','2',':','8','3','2','9'
+#define TEST_EXPECTED_LONG "2001:0db8:0000:0000:0000:ff00:0042:8329:long"
+// Definitely not an ipv6 address because is too long!
+#define LONG_HTTP_ADDR '2','0','0','1',':','0','d','b','8',':', \
+		       '0','0','0','0',':','0','0','0','0',':', \
+		       '0','0','0','0',':','f','f','0','0',':', \
+		       '0','0','4','2',':','8','3','2','9',':', \
+		       'l','o','n','g'
 
 #define T_CISCO_IPv4_HOST CISCO_HTTP_HOST(IPv4_HTTP_ADDR)
 #define CISCO_IPv4_HOST_H CISCO_HTTP_HOST(HTTP_PROTO, IPv4_HTTP_ADDR)
@@ -142,6 +149,7 @@
 	CISCO_HTTP_HOST(HTTP_PROTO, IPv4_HTTP_ADDR, EXAMPLE_URL)
 #define CISCO_IPv4_HOST_HSU \
 	CISCO_HTTP_HOST(HTTPS_PROTO, IPv4_HTTP_ADDR, EXAMPLE_URL)
+#define CISCO_LONG_HOST CISCO_HTTP_HOST(LONG_HTTP_ADDR)
 
 #define T_CISCO_IPv6_REFERER CISCO_HTTP_REFERER(IPv6_HTTP_ADDR)
 #define CISCO_IPv6_REFERER_H CISCO_HTTP_REFERER(HTTP_PROTO, IPv6_HTTP_ADDR)
@@ -504,7 +512,12 @@ static const struct checkdata_value proto_url_checkdata_values_hsu[] =
 	/* https: xxx/url entries*/ \
 	BASE_ENTITIES(R, T_CISCO_URL, CISCO_IPv4_HOST_HSU, T_CISCO_UA, \
 		CISCO_IPv6_REFERER_HSU, EMPTY_CISCO_SSL_CN, BASE_BYTES, \
+		BASE_PKTS) \
+	/* too long one: Never should be an ipv6 */ \
+	BASE_ENTITIES(R, T_CISCO_URL, CISCO_LONG_HOST, T_CISCO_UA, \
+		EMPTY_CISCO_REFERER, EMPTY_CISCO_SSL_CN, BASE_BYTES, \
 		BASE_PKTS)
+
 
 #define PROTO_IP_CHECKDATA(PRE, POST) { \
 	{.key = "host",          .value = PRE TEST_EXPECTED_IPv4 POST}, \
@@ -534,6 +547,17 @@ static const struct checkdata_value proto_ip_checkdata_values_hu[] =
 
 static const struct checkdata_value proto_ip_checkdata_values_hsu[] =
 	PROTO_IP_CHECKDATA("https://","/index.php");
+
+static const struct checkdata_value long_no_ip_checkdata_values[] = {
+	{.key = "host",          .value = TEST_EXPECTED_LONG},
+	{.key = "host_l2_domain",    .value = TEST_EXPECTED_LONG},
+	{.key = "referer",           .value = TEST_EXPECTED_LONG},
+	{.key = "referer_l2",        .value = TEST_EXPECTED_LONG},
+	{.key = "https_common_name", .value = NULL},
+	{.key = "http_host",     .value = TEST_EXPECTED_LONG},
+	{.key = "http_host_l2",      .value = TEST_EXPECTED_LONG},
+	{.key = "http_referer",      .value = NULL},
+};
 
 /*
                                   ACTUAL TESTS
@@ -588,6 +612,7 @@ static int prepare_test_nf10_cisco_url(void **state) {
 		CHECK(proto_ip_checkdata_values_u),
 		CHECK(proto_ip_checkdata_values_hu),
 		CHECK(proto_ip_checkdata_values_hsu),
+		CHECK(long_no_ip_checkdata_values),
 	};
 #undef CHECK
 
