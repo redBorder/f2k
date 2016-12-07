@@ -1031,6 +1031,8 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
                                 size_t *readed,
                                 size_t numEntries, int handle_ipfix) {
 
+  V9TemplateHeader header;
+  bool template_done = false;
   const uint8_t *buffer = _buffer->buffer;
   const ssize_t bufferLen = (ssize_t)_buffer->size;
   const uint32_t netflow_device_ip = sensor->netflow_device_ip;
@@ -1040,7 +1042,18 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
   ssize_t displ = 0;
   V9IpfixSimpleTemplate template;
 
+  if (bufferLen <= (displ+(ssize_t)sizeof(V9TemplateHeader))) {
+    traceEvent(TRACE_ERROR,
+      "FlowSet too short to hold a template (actual:%zd, expected:%zd)",
+      bufferLen, displ+sizeof(V9TemplateHeader));
+  }
+
   uint8_t is_option_template = buffer[displ+1];
+  if(unlikely(readOnlyGlobals.enable_debug)) {
+    traceEvent(TRACE_INFO, "Found Template [displ=%zd]", displ);
+    traceEvent(TRACE_INFO,
+      "Found Template Type: %s", is_option_template ? "Option" : "Flow");
+  }
 
   /* Template */
   if(handle_ipfix && (is_option_template == 2 /* Template Flowset */)) {
@@ -1060,201 +1073,191 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
     is_option_template = 0;
   }
 
-  if(unlikely(readOnlyGlobals.enable_debug)) {
-    traceEvent(TRACE_INFO, "Found Template [displ=%zd]", displ);
-    traceEvent(TRACE_INFO, "Found Template Type: %s", is_option_template ? "Option" : "Flow");
+  memcpy(&header, &buffer[displ], sizeof(V9TemplateHeader));
+  header.templateFlowset = ntohs(header.templateFlowset), header.flowsetLen = ntohs(header.flowsetLen);
+  /* Do not change to uint: this way I can catch template length issues */
+  ssize_t stillToProcess = header.flowsetLen - sizeof(V9TemplateHeader);
+  displ += sizeof(V9TemplateHeader);
+
+  if (is_option_template) {
+    memcpy(&template.templateId, &buffer[displ], 2);
+    template.templateId = htons(template.templateId), template.fieldCount = (header.flowsetLen - 14)/4;
+
+    const struct sized_buffer ot_buffer = {
+      .buffer = &buffer[displ],
+      .size = _buffer->size - displ
+    };
+
+    dissect_option_template(sensor->sensor, netflow_device_ip,
+      observation_id, &ot_buffer,
+      handle_ipfix ? dissect_ipfix_option_template_params
+                   : dissect_nf9_option_template_params);
+
+    return 1;
   }
 
-  if(bufferLen > (displ+(ssize_t)sizeof(V9TemplateHeader))) {
-    V9TemplateHeader header;
-    bool template_done = false;
+  while((bufferLen >= (displ+stillToProcess)) && (!template_done)) {
+    size_t len = 0;
+    int fieldId;
+    bool good_template = false;
+    size_t accumulatedLen = 0;
 
-    memcpy(&header, &buffer[displ], sizeof(V9TemplateHeader));
-    header.templateFlowset = ntohs(header.templateFlowset), header.flowsetLen = ntohs(header.flowsetLen);
-    /* Do not change to uint: this way I can catch template length issues */
-    ssize_t stillToProcess = header.flowsetLen - sizeof(V9TemplateHeader);
-    displ += sizeof(V9TemplateHeader);
+    memset(&template, 0, sizeof(template));
+    template.is_option_template = is_option_template,
+    template.netflow_device_ip = netflow_device_ip;
 
-    while((bufferLen >= (displ+stillToProcess)) && (!template_done)) {
-      size_t len = 0;
-      int fieldId;
-      bool good_template = false;
-      size_t accumulatedLen = 0;
+    V9TemplateDef templateDef;
 
-      memset(&template, 0, sizeof(template));
-      template.is_option_template = is_option_template,
-      template.netflow_device_ip = netflow_device_ip;
+    memcpy(&templateDef, &buffer[displ], sizeof(V9TemplateDef));
+    displ += sizeof(V9TemplateDef), len = 0, stillToProcess -= sizeof(V9TemplateDef);
 
-      if (is_option_template) {
-        memcpy(&template.templateId, &buffer[displ], 2);
-        template.templateId = htons(template.templateId), template.fieldCount = (header.flowsetLen - 14)/4;
+    template.templateId = htons(templateDef.templateId), template.fieldCount = htons(templateDef.fieldCount);
 
-        const struct sized_buffer ot_buffer = {
-          .buffer = &buffer[displ],
-          .size = _buffer->size - displ
-        };
-
-        dissect_option_template(sensor->sensor, netflow_device_ip,
-          observation_id, &ot_buffer,
-          handle_ipfix ? dissect_ipfix_option_template_params
-                       : dissect_nf9_option_template_params);
-
-        return 1;
-      } else {
-        V9TemplateDef templateDef;
-
-        memcpy(&templateDef, &buffer[displ], sizeof(V9TemplateDef));
-        displ += sizeof(V9TemplateDef), len = 0, stillToProcess -= sizeof(V9TemplateDef);
-
-        template.templateId = htons(templateDef.templateId), template.fieldCount = htons(templateDef.fieldCount);
-      }
-
-      if (unlikely(template.fieldCount > 128)) {
-        traceEvent(TRACE_WARNING, "Too many template fields (%d): skept", template.fieldCount);
-        good_template = false;
-      } else {
-        if(handle_ipfix) {
-          fields = calloc(template.fieldCount, sizeof(V9V10TemplateField));
-          if(fields == NULL) {
-            traceEvent(TRACE_WARNING, "Not enough memory");
-            break;
-          }
-
-          if(((template.fieldCount * 4) + sizeof(FlowSet) + 4 /* templateFlowSet + FlowsetLen */) >  header.flowsetLen) {
-            traceEvent(TRACE_WARNING, "Bad length [expected=%d][real=%lu]",
-                       template.fieldCount * 4,
-                       numEntries + sizeof(FlowSet));
-          } else {
-            good_template = true;
-
-            if(bufferLen < (displ+stillToProcess)) {
-              traceEvent(TRACE_INFO,
-                "Broken flow format (bad length) [received: %zd]"
-                "[displ: %zd][stillToProcess: %zd][available: %zd]",
-                bufferLen, displ, stillToProcess, (displ+stillToProcess));
-              free(fields);
-              return 0;
-            }
-
-            /* Check the template before handling it */
-            for(fieldId=0; fieldId < template.fieldCount; fieldId++) {
-              const bool is_enterprise_specific = (buffer[displ+len] & 0x80);
-              const V9FlowSet *set = (const V9FlowSet*)&buffer[displ+len];
-
-              len += 4; /* Field Type (2) + Field Length (2) */
-
-              if(is_enterprise_specific) {
-                len += 4; /* PEN (Private Enterprise Number) */
-              }
-
-              fields[fieldId].fieldId = htons(set->templateId) & 0x7FFF;
-              fields[fieldId].fieldLen = htons(set->flowsetLen);
-              fields[fieldId].v9_template = find_template(ntohs(set->templateId) & 0x7FFF);
-
-              if(fields[fieldId].fieldLen != (uint16_t)-1) /* Variable lenght fields */
-                accumulatedLen += fields[fieldId].fieldLen;
-
-              if(unlikely(readOnlyGlobals.enable_debug))
-                traceEvent(TRACE_NORMAL, "[%d] fieldId=%d/PEN=%s/len=%d [tot=%zu]",
-                           1+fieldId, fields[fieldId].fieldId,
-                           is_enterprise_specific ? "true" : "false",
-                           fields[fieldId].fieldLen, len);
-            }
-          }
-        } else {
-          /* NetFlow */
-          fields = calloc(template.fieldCount, sizeof(V9V10TemplateField));
-          if (unlikely(!fields)) {
-            traceEvent(TRACE_WARNING, "Not enough memory");
-            break;
-          }
-
-          good_template = true;
-
-          if(unlikely(readOnlyGlobals.enable_debug))
-          {
-            const size_t bufsize = 1024;
-            char buf[bufsize];
-            traceEvent(TRACE_NORMAL, "Template [sensor=%s][id=%d] fields: %d", _intoaV4(netflow_device_ip,buf,bufsize), template.templateId, template.fieldCount);
-          }
-
-          /* Check the template before handling it */
-          for(fieldId=0;fieldId < template.fieldCount; fieldId++) {
-            const V9FlowSet *set = (const V9FlowSet*)&buffer[displ+len];
-
-            fields[fieldId].fieldId = htons(set->templateId);
-            fields[fieldId].fieldLen = htons(set->flowsetLen);
-            fields[fieldId].v9_template = find_template(ntohs(set->templateId));
-
-            len += 4; /* Field Type (2) + Field Length (2) */
-            accumulatedLen +=  fields[fieldId].fieldLen;
-
-            if(unlikely(readOnlyGlobals.enable_debug))
-              traceEvent(TRACE_NORMAL, "[%d] fieldId=%d (%s)/fieldLen=%d/totLen=%zu/templateLen=%zu [%02X %02X %02X %02X]",
-                         1+fieldId, fields[fieldId].fieldId,
-                         getStandardFieldId(fields[fieldId].fieldId), fields[fieldId].fieldLen,
-                         accumulatedLen, len,
-                         buffer[displ+len-4] & 0xFF,
-                         buffer[displ+len-3] & 0xFF,
-                         buffer[displ+len-2] & 0xFF,
-                         buffer[displ+len-1] & 0xFF);
-          }
-        }
-      }
-
-      if(accumulatedLen > 1500) {
-        good_template = false;
-      }
-
-      if (likely(good_template)) {
-        worker->stats.num_good_templates_received++;
-
-        struct flowSetV9Ipfix *new_template = calloc(1, sizeof(*new_template));
-        if (unlikely(!new_template)) {
+    if (unlikely(template.fieldCount > 128)) {
+      traceEvent(TRACE_WARNING, "Too many template fields (%d): skept", template.fieldCount);
+      good_template = false;
+    } else {
+      if(handle_ipfix) {
+        fields = calloc(template.fieldCount, sizeof(V9V10TemplateField));
+        if(fields == NULL) {
           traceEvent(TRACE_WARNING, "Not enough memory");
-          free(fields);
           break;
         }
 
-        /// @TODO save the fields directly in a new malloced template.
-        new_template->templateInfo.templateId = template.templateId;
-        new_template->templateInfo.fieldCount = template.fieldCount;
-        new_template->templateInfo.is_option_template = template.is_option_template;
-        new_template->templateInfo.netflow_device_ip = netflow_device_ip;
-        new_template->templateInfo.observation_domain_id = observation_domain_id;
-        new_template->fields                  = fields;
+        if(((template.fieldCount * 4) + sizeof(FlowSet) + 4 /* templateFlowSet + FlowsetLen */) >  header.flowsetLen) {
+          traceEvent(TRACE_WARNING, "Bad length [expected=%d][real=%lu]",
+                     template.fieldCount * 4,
+                     numEntries + sizeof(FlowSet));
+        } else {
+          good_template = true;
 
-        // Save template for future use
-        if(readOnlyGlobals.templates_database_path && strlen(readOnlyGlobals.templates_database_path) > 0)
-          saveGoodTemplateInFile(new_template);
+          if(bufferLen < (displ+stillToProcess)) {
+            traceEvent(TRACE_INFO,
+              "Broken flow format (bad length) [received: %zd]"
+              "[displ: %zd][stillToProcess: %zd][available: %zd]",
+              bufferLen, displ, stillToProcess, (displ+stillToProcess));
+            free(fields);
+            return 0;
+          }
+
+          /* Check the template before handling it */
+          for(fieldId=0; fieldId < template.fieldCount; fieldId++) {
+            const bool is_enterprise_specific = (buffer[displ+len] & 0x80);
+            const V9FlowSet *set = (const V9FlowSet*)&buffer[displ+len];
+
+            len += 4; /* Field Type (2) + Field Length (2) */
+
+            if(is_enterprise_specific) {
+              len += 4; /* PEN (Private Enterprise Number) */
+            }
+
+            fields[fieldId].fieldId = htons(set->templateId) & 0x7FFF;
+            fields[fieldId].fieldLen = htons(set->flowsetLen);
+            fields[fieldId].v9_template = find_template(ntohs(set->templateId) & 0x7FFF);
+
+            if(fields[fieldId].fieldLen != (uint16_t)-1) /* Variable lenght fields */
+              accumulatedLen += fields[fieldId].fieldLen;
+
+            if(unlikely(readOnlyGlobals.enable_debug))
+              traceEvent(TRACE_NORMAL, "[%d] fieldId=%d/PEN=%s/len=%d [tot=%zu]",
+                         1+fieldId, fields[fieldId].fieldId,
+                         is_enterprise_specific ? "true" : "false",
+                         fields[fieldId].fieldLen, len);
+          }
+        }
+      } else {
+        /* NetFlow */
+        fields = calloc(template.fieldCount, sizeof(V9V10TemplateField));
+        if (unlikely(!fields)) {
+          traceEvent(TRACE_WARNING, "Not enough memory");
+          break;
+        }
+
+        good_template = true;
+
+        if(unlikely(readOnlyGlobals.enable_debug))
+        {
+          const size_t bufsize = 1024;
+          char buf[bufsize];
+          traceEvent(TRACE_NORMAL, "Template [sensor=%s][id=%d] fields: %d", _intoaV4(netflow_device_ip,buf,bufsize), template.templateId, template.fieldCount);
+        }
+
+        /* Check the template before handling it */
+        for(fieldId=0;fieldId < template.fieldCount; fieldId++) {
+          const V9FlowSet *set = (const V9FlowSet*)&buffer[displ+len];
+
+          fields[fieldId].fieldId = htons(set->templateId);
+          fields[fieldId].fieldLen = htons(set->flowsetLen);
+          fields[fieldId].v9_template = find_template(ntohs(set->templateId));
+
+          len += 4; /* Field Type (2) + Field Length (2) */
+          accumulatedLen +=  fields[fieldId].fieldLen;
+
+          if(unlikely(readOnlyGlobals.enable_debug))
+            traceEvent(TRACE_NORMAL, "[%d] fieldId=%d (%s)/fieldLen=%d/totLen=%zu/templateLen=%zu [%02X %02X %02X %02X]",
+                       1+fieldId, fields[fieldId].fieldId,
+                       getStandardFieldId(fields[fieldId].fieldId), fields[fieldId].fieldLen,
+                       accumulatedLen, len,
+                       buffer[displ+len-4] & 0xFF,
+                       buffer[displ+len-3] & 0xFF,
+                       buffer[displ+len-2] & 0xFF,
+                       buffer[displ+len-1] & 0xFF);
+        }
+      }
+    }
+
+    if(accumulatedLen > 1500) {
+      good_template = false;
+    }
+
+    if (likely(good_template)) {
+      worker->stats.num_good_templates_received++;
+
+      struct flowSetV9Ipfix *new_template = calloc(1, sizeof(*new_template));
+      if (unlikely(!new_template)) {
+        traceEvent(TRACE_WARNING, "Not enough memory");
+        free(fields);
+        break;
+      }
+
+      /// @TODO save the fields directly in a new malloced template.
+      new_template->templateInfo.templateId = template.templateId;
+      new_template->templateInfo.fieldCount = template.fieldCount;
+      new_template->templateInfo.is_option_template = template.is_option_template;
+      new_template->templateInfo.netflow_device_ip = netflow_device_ip;
+      new_template->templateInfo.observation_domain_id = observation_domain_id;
+      new_template->fields                  = fields;
+
+      // Save template for future use
+      if(readOnlyGlobals.templates_database_path && strlen(readOnlyGlobals.templates_database_path) > 0)
+        saveGoodTemplateInFile(new_template);
 #ifdef HAVE_ZOOKEEPER
-        if(readOnlyGlobals.zk.zh)
-          saveGoodTemplateInZooKeeper(readOnlyGlobals.zk.zh,new_template);
+      if(readOnlyGlobals.zk.zh)
+        saveGoodTemplateInZooKeeper(readOnlyGlobals.zk.zh,new_template);
 #endif
 
-        save_template(observation_id, new_template);
-        worker->stats.num_known_templates++;
-      } else {
-        if(unlikely(readOnlyGlobals.enable_debug))
-          traceEvent(TRACE_INFO, ">>>>> Skipping bad template [id=%d]", template.templateId);
-        worker->stats.num_bad_templates_received++;
-        free(fields);
-      }
-
-      displ += len, stillToProcess -= len;
-
+      save_template(observation_id, new_template);
+      worker->stats.num_known_templates++;
+    } else {
       if(unlikely(readOnlyGlobals.enable_debug))
-        traceEvent(TRACE_INFO,
-          "Moving %zu bytes forward: new offset is %zd [stillToProcess=%zd]",
-          len, displ, stillToProcess);
-      if(stillToProcess < 4)  {
-        /* Pad */
-        displ += stillToProcess;
-        stillToProcess = 0;
-      }
-
-      if(stillToProcess <= 0) template_done = true;
+        traceEvent(TRACE_INFO, ">>>>> Skipping bad template [id=%d]", template.templateId);
+      worker->stats.num_bad_templates_received++;
+      free(fields);
     }
+
+    displ += len, stillToProcess -= len;
+
+    if(unlikely(readOnlyGlobals.enable_debug))
+      traceEvent(TRACE_INFO,
+        "Moving %zu bytes forward: new offset is %zd [stillToProcess=%zd]",
+        len, displ, stillToProcess);
+    if(stillToProcess < 4)  {
+      /* Pad */
+      displ += stillToProcess;
+      stillToProcess = 0;
+    }
+
+    if(stillToProcess <= 0) template_done = true;
   }
 
   *readed = displ;
