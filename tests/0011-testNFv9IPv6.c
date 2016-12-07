@@ -50,7 +50,7 @@ static const struct TestV9Template v9Template = {
 
 	.flowSetHeader = {
 		/*uint16_t*/ .templateFlowset = 0x0000,
-		/*uint16_t*/ .flowsetLen = 0x3000,
+		/*uint16_t*/ .flowsetLen = 0x5000,
 	},
 
 	.templateHeader = {

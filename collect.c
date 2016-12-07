@@ -1023,15 +1023,16 @@ static void dissect_option_template(const struct sensor *sensor,
  * @param  numEntries     Number of entries (nf9) / total entries length (ipfix)
  * @param  handle_ipfix   If we are in IPFIX
  * @return                Always 1
+ * @todo transform to dissectNFV9V10TemplateSet, and make childs for option
+ * & flow template, so while loop is easier
  */
 static int dissectNetFlowV9V10Template(worker_t *worker,
                                 const struct sized_buffer *_buffer,
                                 const struct netflow_sensor *sensor,
                                 observation_id_t *observation_id,
-                                size_t *readed,
-                                size_t numEntries, int handle_ipfix) {
+                                size_t *readed, bool handle_ipfix) {
 
-  V9TemplateHeader header;
+  V9FlowSet flow_set;
   V9IpfixSimpleTemplate template;
   const uint8_t *buffer = _buffer->buffer;
   const size_t buffer_len = _buffer->size;
@@ -1072,13 +1073,15 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
     is_option_template = 0;
   }
 
-  memcpy(&header, &buffer[displ], sizeof(V9TemplateHeader));
-  header.templateFlowset = ntohs(header.templateFlowset), header.flowsetLen = ntohs(header.flowsetLen);
+  memcpy(&flow_set, &buffer[displ], sizeof(flow_set));
+  flow_set.templateId = ntohs(flow_set.templateId);
+  flow_set.flowsetLen = ntohs(flow_set.flowsetLen);
   displ += sizeof(V9TemplateHeader);
 
   if (is_option_template) {
     memcpy(&template.templateId, &buffer[displ], 2);
-    template.templateId = htons(template.templateId), template.fieldCount = (header.flowsetLen - 14)/4;
+    template.templateId = htons(template.templateId);
+    template.fieldCount = (flow_set.flowsetLen - 14)/4;
 
     const struct sized_buffer ot_buffer = {
       .buffer = &buffer[displ],
@@ -1094,8 +1097,6 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
   }
 
   while (displ < buffer_len) {
-    size_t len = 0;
-    int fieldId;
     bool good_template = false;
     size_t accumulatedLen = 0;
 
@@ -1104,105 +1105,80 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
     template.netflow_device_ip = netflow_device_ip;
 
     V9TemplateDef templateDef;
-
+    if (unlikely(displ + sizeof(V9TemplateDef) > buffer_len)) {
+      traceEvent(TRACE_WARNING,
+        "Received packet is not big enough to hold template (size:%zu"
+        ", expected>=%zu", buffer_len, displ + sizeof(V9TemplateDef));
+      displ = buffer_len;
+      break; /* nothing more to do */
+    }
     memcpy(&templateDef, &buffer[displ], sizeof(V9TemplateDef));
     displ += sizeof(V9TemplateDef);
 
-    template.templateId = htons(templateDef.templateId), template.fieldCount = htons(templateDef.fieldCount);
+    template.templateId = htons(templateDef.templateId);
+    template.fieldCount = htons(templateDef.fieldCount);
 
     if (unlikely(template.fieldCount > 128)) {
       traceEvent(TRACE_WARNING, "Too many template fields (%d): skept", template.fieldCount);
-      good_template = false;
+      displ = buffer_len;
+      break;
     } else {
-      if(handle_ipfix) {
-        fields = calloc(template.fieldCount, sizeof(V9V10TemplateField));
-        if(fields == NULL) {
-          traceEvent(TRACE_WARNING, "Not enough memory");
+      fields = calloc(template.fieldCount, sizeof(V9V10TemplateField));
+      if (unlikely(fields == NULL)) {
+        traceEvent(TRACE_WARNING, "Not enough memory");
+        displ = buffer_len;
+        break;
+      }
+
+      if (unlikely(readOnlyGlobals.enable_debug)) {
+        const size_t bufsize = 1024;
+        char buf[bufsize];
+        traceEvent(TRACE_NORMAL, "Template [sensor=%s][id=%d] fields: %d",
+          _intoaV4(netflow_device_ip,buf,bufsize), template.templateId,
+          template.fieldCount);
+      }
+
+      good_template = true;
+      int fieldId;
+      const size_t init_displ = displ;
+      for (fieldId=0; fieldId < template.fieldCount; fieldId++) {
+        const V9FlowSet *set = (const V9FlowSet*)&buffer[displ];
+        const bool is_enterprise_specific = handle_ipfix &&
+          (buffer[displ] & 0x80);
+        const size_t field_len = sizeof(V9FlowSet) +
+          (is_enterprise_specific ? sizeof(uint32_t) : 0);
+
+        if (unlikely(displ + field_len > buffer_len)) {
+          traceEvent(TRACE_ERROR,
+            "Template too big for size [displ=%zu][buffer_len=%zu]",
+            displ, buffer_len);
+          displ = buffer_len;
           break;
         }
 
-        if(((template.fieldCount * 4) + sizeof(FlowSet) + 4 /* templateFlowSet + FlowsetLen */) >  header.flowsetLen) {
-          traceEvent(TRACE_WARNING, "Bad length [expected=%d][real=%lu]",
-                     template.fieldCount * 4,
-                     numEntries + sizeof(FlowSet));
-        } else {
-          good_template = true;
+        fields[fieldId].fieldId = ntohs(set->templateId) & 0x7FFF;
+        fields[fieldId].fieldLen = ntohs(set->flowsetLen);
+        fields[fieldId].v9_template = find_template(fields[fieldId].fieldId);
 
-          if (buffer_len < displ) {
-            traceEvent(TRACE_INFO,
-              "Broken flow format (bad length) [received: %zd][displ: %zd]",
-              buffer_len, displ);
-            free(fields);
-            return 0;
-          }
-
-          /* Check the template before handling it */
-          for(fieldId=0; fieldId < template.fieldCount; fieldId++) {
-            const bool is_enterprise_specific = (buffer[displ+len] & 0x80);
-            const V9FlowSet *set = (const V9FlowSet*)&buffer[displ+len];
-
-            len += 4; /* Field Type (2) + Field Length (2) */
-
-            if(is_enterprise_specific) {
-              len += 4; /* PEN (Private Enterprise Number) */
-            }
-
-            fields[fieldId].fieldId = htons(set->templateId) & 0x7FFF;
-            fields[fieldId].fieldLen = htons(set->flowsetLen);
-            fields[fieldId].v9_template = find_template(ntohs(set->templateId) & 0x7FFF);
-
-            if(fields[fieldId].fieldLen != (uint16_t)-1) /* Variable lenght fields */
-              accumulatedLen += fields[fieldId].fieldLen;
-
-            if(unlikely(readOnlyGlobals.enable_debug))
-              traceEvent(TRACE_NORMAL, "[%d] fieldId=%d/PEN=%s/len=%d [tot=%zu]",
-                         1+fieldId, fields[fieldId].fieldId,
-                         is_enterprise_specific ? "true" : "false",
-                         fields[fieldId].fieldLen, len);
-          }
-        }
-      } else {
-        /* NetFlow */
-        fields = calloc(template.fieldCount, sizeof(V9V10TemplateField));
-        if (unlikely(!fields)) {
-          traceEvent(TRACE_WARNING, "Not enough memory");
-          break;
+        /* Variable lenght fields */
+        if (fields[fieldId].fieldLen != 0xffff) {
+          accumulatedLen += fields[fieldId].fieldLen;
         }
 
-        good_template = true;
-
-        if(unlikely(readOnlyGlobals.enable_debug))
-        {
-          const size_t bufsize = 1024;
-          char buf[bufsize];
-          traceEvent(TRACE_NORMAL, "Template [sensor=%s][id=%d] fields: %d", _intoaV4(netflow_device_ip,buf,bufsize), template.templateId, template.fieldCount);
+        if (unlikely(readOnlyGlobals.enable_debug)) {
+          traceEvent(TRACE_NORMAL,
+            "[%d] fieldId=%d/PEN=%s/len=%d [tot=%zu] [%02X %02X %02X %02X]",
+            1+fieldId, fields[fieldId].fieldId,
+            is_enterprise_specific ? "true" : "false",
+            fields[fieldId].fieldLen, displ - init_displ,
+            buffer[displ], buffer[displ+1], buffer[displ+2], buffer[displ+3]);
         }
 
-        /* Check the template before handling it */
-        for(fieldId=0;fieldId < template.fieldCount; fieldId++) {
-          const V9FlowSet *set = (const V9FlowSet*)&buffer[displ+len];
-
-          fields[fieldId].fieldId = htons(set->templateId);
-          fields[fieldId].fieldLen = htons(set->flowsetLen);
-          fields[fieldId].v9_template = find_template(ntohs(set->templateId));
-
-          len += 4; /* Field Type (2) + Field Length (2) */
-          accumulatedLen +=  fields[fieldId].fieldLen;
-
-          if(unlikely(readOnlyGlobals.enable_debug))
-            traceEvent(TRACE_NORMAL, "[%d] fieldId=%d (%s)/fieldLen=%d/totLen=%zu/templateLen=%zu [%02X %02X %02X %02X]",
-                       1+fieldId, fields[fieldId].fieldId,
-                       getStandardFieldId(fields[fieldId].fieldId), fields[fieldId].fieldLen,
-                       accumulatedLen, len,
-                       buffer[displ+len-4] & 0xFF,
-                       buffer[displ+len-3] & 0xFF,
-                       buffer[displ+len-2] & 0xFF,
-                       buffer[displ+len-1] & 0xFF);
-        }
+        displ += field_len;
       }
     }
 
-    if(accumulatedLen > 1500) {
+    if (unlikely(accumulatedLen > 1500)) {
       good_template = false;
     }
 
@@ -1241,15 +1217,8 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
       free(fields);
     }
 
-    displ += len;
-
-    if(unlikely(readOnlyGlobals.enable_debug))
-      traceEvent(TRACE_INFO,
-        "Moving %zu bytes forward: [displ=%zd][buffer_len=%zu]",
-        len, displ, buffer_len);
     if (buffer_len - displ < 4)  {
-      displ = buffer_len;
-      /* Pad */
+      displ = buffer_len; /* Pad */
     }
   }
 
@@ -1680,8 +1649,7 @@ static struct string_list *dissectNetFlowV9V10Set(worker_t *worker,
                               const struct netflow_sensor *_sensor,
                               observation_id_t *observation_id,
                               ssize_t *_displ,
-                              int handle_ipfix, size_t numEntries,
-                              const uint16_t flowVersion,
+                              bool handle_ipfix, const uint16_t flowVersion,
                               uint16_t flowSequence) {
   const uint8_t *buffer = _buffer->buffer;
   const ssize_t displ = (*_displ);
@@ -1726,7 +1694,7 @@ static struct string_list *dissectNetFlowV9V10Set(worker_t *worker,
   if (buffer[displ] == 0 || is_option_template) {
     size_t readed = 0;
     dissectNetFlowV9V10Template(worker, &netflow_set_buffer, _sensor,
-      observation_id, &readed, numEntries, handle_ipfix);
+      observation_id, &readed, handle_ipfix);
   } else {
     struct string_list *_kafka_string_list = NULL;
     _kafka_string_list = dissectNetFlowV9V10Flow(worker, &netflow_set_buffer,
@@ -1756,7 +1724,7 @@ static struct string_list *dissectNetflowV9V10(worker_t *worker,
 
   /* TODO do not use Netflow5Record * in this function */
   const uint16_t flowVersion = ntohs(((const NetFlow5Record *) _buffer)->flowHeader.version);
-  const int handle_ipfix = (flowVersion == 9) ? 0 : 1;
+  const bool handle_ipfix = (flowVersion == 10);
 
   if (handle_ipfix) {
     numEntries = ntohs(((const IPFIXFlowHeader *)_buffer)->len);
@@ -1808,7 +1776,7 @@ static struct string_list *dissectNetflowV9V10(worker_t *worker,
   for(i=0; (!done) && (displ < bufferLen) && (i < numEntries); i++) {
     struct string_list *_kafka_string_list = NULL;
     _kafka_string_list = dissectNetFlowV9V10Set(worker, &buffer, &sensor,
-                  observation_id, &displ, handle_ipfix, numEntries, flowVersion,
+                  observation_id, &displ, handle_ipfix, flowVersion,
                   flowSequence);
     string_list_concat(&kafka_string_list,_kafka_string_list);
   } /* for */

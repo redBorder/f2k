@@ -97,7 +97,9 @@ struct { \
 	}, .flow_set_header = { \
 		.templateFlowset = 0, \
 		.flowsetLen = \
-			constexpr_be16toh(TEMPLATE_BYTES_LENGTH(ENTITIES)), \
+			constexpr_be16toh(sizeof(V9TemplateHeader) + \
+				sizeof(V9TemplateDef) + \
+				TEMPLATE_BYTES_LENGTH(ENTITIES)), \
 	}, .template_header = { \
 		.templateId = constexpr_be16toh(TEMPLATE_ID), \
 		.fieldCount = \

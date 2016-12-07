@@ -50,12 +50,12 @@ static const struct TestV9Template v9Template = {
 
 	.flowSetHeader = {
 		/*uint16_t*/ .templateFlowset = 0x0000,
-		/*uint16_t*/ .flowsetLen = 0x3000,
+		/*uint16_t*/ .flowsetLen = 0x5000,
 	},
 
 	.templateHeader = {
 		/*uint16_t*/ .templateId = 0x0201, /*258*/
-		/*uint16_t*/ .fieldCount = 0x1200,
+		/*uint16_t*/ .fieldCount = 0x1800,
 	},
 
 	.templateSet = { /* all uint16_t*/
