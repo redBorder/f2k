@@ -1032,20 +1032,19 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
                                 size_t numEntries, int handle_ipfix) {
 
   V9TemplateHeader header;
-  bool template_done = false;
+  V9IpfixSimpleTemplate template;
   const uint8_t *buffer = _buffer->buffer;
-  const ssize_t bufferLen = (ssize_t)_buffer->size;
+  const size_t buffer_len = _buffer->size;
   const uint32_t netflow_device_ip = sensor->netflow_device_ip;
   V9V10TemplateField *fields = NULL;
   uint32_t observation_domain_id = 0;
 
-  ssize_t displ = 0;
-  V9IpfixSimpleTemplate template;
+  size_t displ = 0;
 
-  if (bufferLen <= (displ+(ssize_t)sizeof(V9TemplateHeader))) {
+  if (buffer_len <= sizeof(V9TemplateHeader)) {
     traceEvent(TRACE_ERROR,
       "FlowSet too short to hold a template (actual:%zd, expected:%zd)",
-      bufferLen, displ+sizeof(V9TemplateHeader));
+      buffer_len, sizeof(V9TemplateHeader));
   }
 
   uint8_t is_option_template = buffer[displ+1];
@@ -1075,8 +1074,6 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
 
   memcpy(&header, &buffer[displ], sizeof(V9TemplateHeader));
   header.templateFlowset = ntohs(header.templateFlowset), header.flowsetLen = ntohs(header.flowsetLen);
-  /* Do not change to uint: this way I can catch template length issues */
-  ssize_t stillToProcess = header.flowsetLen - sizeof(V9TemplateHeader);
   displ += sizeof(V9TemplateHeader);
 
   if (is_option_template) {
@@ -1096,7 +1093,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
     return 1;
   }
 
-  while((bufferLen >= (displ+stillToProcess)) && (!template_done)) {
+  while (displ < buffer_len) {
     size_t len = 0;
     int fieldId;
     bool good_template = false;
@@ -1109,7 +1106,7 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
     V9TemplateDef templateDef;
 
     memcpy(&templateDef, &buffer[displ], sizeof(V9TemplateDef));
-    displ += sizeof(V9TemplateDef), len = 0, stillToProcess -= sizeof(V9TemplateDef);
+    displ += sizeof(V9TemplateDef);
 
     template.templateId = htons(templateDef.templateId), template.fieldCount = htons(templateDef.fieldCount);
 
@@ -1131,11 +1128,10 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
         } else {
           good_template = true;
 
-          if(bufferLen < (displ+stillToProcess)) {
+          if (buffer_len < displ) {
             traceEvent(TRACE_INFO,
-              "Broken flow format (bad length) [received: %zd]"
-              "[displ: %zd][stillToProcess: %zd][available: %zd]",
-              bufferLen, displ, stillToProcess, (displ+stillToProcess));
+              "Broken flow format (bad length) [received: %zd][displ: %zd]",
+              buffer_len, displ);
             free(fields);
             return 0;
           }
@@ -1245,19 +1241,16 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
       free(fields);
     }
 
-    displ += len, stillToProcess -= len;
+    displ += len;
 
     if(unlikely(readOnlyGlobals.enable_debug))
       traceEvent(TRACE_INFO,
-        "Moving %zu bytes forward: new offset is %zd [stillToProcess=%zd]",
-        len, displ, stillToProcess);
-    if(stillToProcess < 4)  {
+        "Moving %zu bytes forward: [displ=%zd][buffer_len=%zu]",
+        len, displ, buffer_len);
+    if (buffer_len - displ < 4)  {
+      displ = buffer_len;
       /* Pad */
-      displ += stillToProcess;
-      stillToProcess = 0;
     }
-
-    if(stillToProcess <= 0) template_done = true;
   }
 
   *readed = displ;
