@@ -143,42 +143,38 @@ char *serialize_template(const struct flowSetV9Ipfix *new_template,size_t *_new_
   return buf;
 }
 
-struct flowSetV9Ipfix *deserialize_template(const char *buf,size_t bufsize) {
+struct flowSetV9Ipfix *deserialize_template(const char *buf, size_t bufsize) {
+  const struct flowSetV9Ipfix *buf_template = (const void *)buf;
   size_t i;
-  if(bufsize < sizeof(V9IpfixSimpleTemplate))
-    traceEvent(TRACE_ERROR,"Buffer size %zu can't hold a template",bufsize);
+  if (unlikely(bufsize < sizeof(V9IpfixSimpleTemplate) +
+      buf_template->templateInfo.fieldCount * sizeof(buf_template->fields[0])))
+      {
+    traceEvent(TRACE_ERROR,
+      "Buffer size %zu can't hold a %"PRIu16" fields template", bufsize,
+      buf_template->templateInfo.fieldCount);
+  }
 
-  struct flowSetV9Ipfix *template = calloc(1,sizeof(*template));
-  if(template == NULL){
+  struct flowSetV9Ipfix *template = calloc(1, sizeof(*template) +
+    buf_template->templateInfo.fieldCount * sizeof(buf_template->fields[0]));
+  if (unlikely(template == NULL)) {
     traceEvent(TRACE_ERROR,"Can't allocate template");
     return NULL;
   }
 
-  memcpy(&template->templateInfo,buf,sizeof(template->templateInfo));
-  template->fields = calloc(template->templateInfo.fieldCount,sizeof(template->fields[0]));
-  if(NULL == template->fields) {
-    traceEvent(TRACE_ERROR,"Can't allocate template fields");
-    free(template);
-    return NULL;
-  }
-
+  memcpy(&template->templateInfo, buf, sizeof(template->templateInfo));
+  template->fields = (void *)&template[1];
   const char *cursor = buf + sizeof(template->templateInfo);
   for(i=0;
         i<template->templateInfo.fieldCount && (size_t)(cursor - buf) < bufsize;
         ++i) {
     memcpy(&template->fields[i], cursor, sizeof(template->fields[i]));
-    template->fields[i].v9_template = find_template(template->fields[i].fieldId);
     cursor += sizeof(template->fields[i]);
   }
 
-  if(i < template->templateInfo.fieldCount) {
-    traceEvent(TRACE_ERROR,
-      "Insufficent buffer to extract all fields of template: Expected %d,"
-      " got %zu",
-      template->templateInfo.fieldCount,i);
+  if((size_t)(cursor - buf) < bufsize) {
+    traceEvent(TRACE_WARNING,
+      "There is still buffer to process (%zu bytes)", bufsize - (cursor - buf));
   }
-  if((size_t)(cursor - buf) < bufsize)
-    traceEvent(TRACE_WARNING,"There is still buffer to process (%zu bytes)",bufsize - (cursor - buf));
 
   return template;
 }

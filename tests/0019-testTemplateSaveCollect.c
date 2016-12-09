@@ -38,7 +38,7 @@ struct TestV10Template{
 	IPFIXFlowHeader flowHeader;
 	IPFIXSet flowSetHeader;
 	V9TemplateDef templateHeader; /* It's the same */
-	const uint8_t templateBuffer[144];
+	const uint8_t templateBuffer[92];
 };
 
 struct TestV10Flow{
@@ -63,7 +63,7 @@ static const struct TestV10Template v10Template = {
 
 	.templateHeader = {
 		/*uint16_t*/ .templateId = 0x0301, /*259*/
-		/*uint16_t*/ .fieldCount = 0x1700,
+		/*uint16_t*/ .fieldCount = 0x1300,
 	},
 
 	.templateBuffer = {
@@ -212,7 +212,7 @@ static int prepare_test_nf_template_save0(void **state,
 	};
 
 	*state = prepare_tests(&test_params, 1);
-	readOnlyGlobals.enable_debug = 1;
+	readOnlyGlobals.enable_debug = true;
 	return *state == NULL;
 }
 

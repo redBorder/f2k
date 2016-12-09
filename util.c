@@ -1635,13 +1635,8 @@ static int saveTemplateInFilef(const FlowSetV9Ipfix *template,FILE *f)
   return 1;
 }
 
-static V9V10TemplateField *loadTemplateFieldsFromFile(size_t fieldCount,FILE *f)
-{
-  V9V10TemplateField *fields = calloc(fieldCount, sizeof(V9V10TemplateField));
-  if(fields == NULL) {
-    traceEvent(TRACE_WARNING, "Not enough memory");
-    return NULL;
-  }
+static bool loadTemplateFieldsFromFile(size_t fieldCount,
+    V9V10TemplateField *fields, FILE *f) {
 
   unsigned int i;
   for(i=0;fields && i<fieldCount;++i)
@@ -1668,16 +1663,6 @@ static V9V10TemplateField *loadTemplateFieldsFromFile(size_t fieldCount,FILE *f)
       }
     }
 
-    if(fields)
-    {
-      fields[i].v9_template = find_template(fields[i].fieldId);
-      if(NULL == fields[i].v9_template) {
-        traceEvent(TRACE_ERROR,
-          "loadTemplate(): [field %d/%zu] Cannot locate template element id=%d",
-          i, fieldCount,fields[i].fieldId);
-      }
-    }
-
     if (unlikely(fields && readOnlyGlobals.enable_debug))
     {
       traceEvent(TRACE_NORMAL,
@@ -1697,41 +1682,42 @@ static FlowSetV9Ipfix *loadTemplateFromFile(FILE *f)
     return NULL;
   }
 
-  FlowSetV9Ipfix *template = calloc(1,sizeof(*template));
-  if(NULL==template)
-  {
-    traceEvent(TRACE_ERROR,"Memory error");
+  size_t data_readed = 0;
+
+  V9IpfixSimpleTemplate template_info;
+  data_readed = fread(&template_info, sizeof(template_info), 1, f);
+  if(data_readed != 1 || ferror(f)) {
+    traceEvent(TRACE_ERROR,"Error reading template info");
     return NULL;
   }
 
-  size_t data_readed = 0;
-
-  V9IpfixSimpleTemplate *templateInfo = &template->templateInfo;
-  data_readed = fread(templateInfo,sizeof(*templateInfo),1,f);
-  if(data_readed != 1 || ferror(f))
-  {
-    traceEvent(TRACE_ERROR,"Error reading template info");
-    free(template);return NULL;
+  FlowSetV9Ipfix *template = calloc(1, sizeof(*template) +
+    template_info.fieldCount*sizeof(template->fields[0]));
+  if (unlikely(NULL==template)) {
+    traceEvent(TRACE_ERROR,"Memory error");
+    return NULL;
   }
-  else
-  {
-    if(unlikely(readOnlyGlobals.enable_debug))
-    {
-      char buf[1024];
-      /* V9TemplateDef */
-      traceEvent(TRACE_NORMAL, "loadTemplate(): [templateId=%d][fieldCount=%d]",
-        templateInfo->templateId, templateInfo->fieldCount);
-      traceEvent(TRACE_NORMAL, "loadTemplate(): [netflow_device_ip=%s][observation_domain_id=%d]",
-        _intoaV4(templateInfo->netflow_device_ip,buf,sizeof(buf)), templateInfo->observation_domain_id);
-      traceEvent(TRACE_NORMAL, "loadTemplate(): [isOptionTemplate=%d]",
-        templateInfo->is_option_template);
-    }
+  memcpy(&template->templateInfo, &template_info, sizeof(template_info));
+  template->fields = (void *)&template[1];
+
+  if(unlikely(readOnlyGlobals.enable_debug)) {
+    char buf[1024];
+    /* V9TemplateDef */
+    traceEvent(TRACE_NORMAL, "loadTemplate(): [templateId=%d][fieldCount=%d]",
+      template_info.templateId, template_info.fieldCount);
+    traceEvent(TRACE_NORMAL,
+      "loadTemplate(): [netflow_device_ip=%s][observation_domain_id=%d]",
+      _intoaV4(template_info.netflow_device_ip, buf, sizeof(buf)),
+      template_info.observation_domain_id);
+    traceEvent(TRACE_NORMAL, "loadTemplate(): [isOptionTemplate=%d]",
+      template_info.is_option_template);
   }
 
-  template->fields = loadTemplateFieldsFromFile(templateInfo->fieldCount,f);
-  if(NULL==template->fields)
-  {
-    free(template);template=NULL;
+  const bool fields_rc = loadTemplateFieldsFromFile(template_info.fieldCount,
+    template->fields, f);
+  if (!fields_rc) {
+    free(template);
+    template=NULL;
   }
 
   return template;

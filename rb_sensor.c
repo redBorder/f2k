@@ -227,7 +227,6 @@ uint32_t observation_id_num(const observation_id_t *observation_id) {
 }
 
 static void free_v9_ipfix_template(struct flowSetV9Ipfix *template) {
-	free(template->fields);
 	free(template);
 }
 
@@ -1268,13 +1267,44 @@ const struct flowSetV9Ipfix *find_observation_id_template(
   return find_observation_id_template0(observation_id, template_id);
 }
 
+static bool template_equal(const FlowSetV9Ipfix *template1,
+    const FlowSetV9Ipfix *template2) {
+  const bool info_equal = template1->templateInfo.templateId ==
+      template2->templateInfo.templateId &&
+    template1->templateInfo.fieldCount ==
+      template2->templateInfo.fieldCount &&
+    template1->templateInfo.scope_field_len ==
+      template2->templateInfo.scope_field_len &&
+    template1->templateInfo.is_option_template ==
+      template2->templateInfo.is_option_template;
+
+  if (!info_equal) {
+    return false;
+  }
+
+  size_t i;
+  for (i=0; i<template1->templateInfo.fieldCount; ++i) {
+    const bool field_equal =
+      template1->fields[i].fieldId == template2->fields[i].fieldId &&
+      template1->fields[i].fieldLen == template2->fields[i].fieldLen;
+
+    if (!field_equal) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 void save_template(observation_id_t *observation_id,
-		struct flowSetV9Ipfix *template) {
+		const struct flowSetV9Ipfix *template) {
 	const V9IpfixSimpleTemplate *templateInfo = &template->templateInfo;
 	const uint16_t template_id = templateInfo->templateId;
 
 	struct flowSetV9Ipfix *prev_template = find_observation_id_template0(
   		observation_id, template_id);
+  const bool replace_template = !prev_template ||
+    !template_equal(prev_template, template);
 
 	if (unlikely(readOnlyGlobals.enable_debug)) {
 		char buf[BUFSIZ];
@@ -1283,31 +1313,68 @@ void save_template(observation_id_t *observation_id,
 
 		traceEvent(TRACE_INFO, "%s [sensor=%s][observation_id=%"PRIu32
 			"][id=%d]",
-			prev_template ? ">>>>> Redefined existing template " :
-		    		">>>>> Found new flow template definition",
+			replace_template ? ">>>>> Redefined existing template " :
+		  prev_template ? ">>>>> Same as previous template" :
+        ">>>>> Found new flow template definition",
 			_intoaV4(netflow_device_ip, buf, sizeof(buf)),
 			observation_id_num(observation_id), template_id);
 	}
 
-	if(prev_template) {
-		if(templateInfo->templateId >= 512) {
+	if (!replace_template) {
+		return;
+	}
+
+	if (prev_template) {
+		if (templateInfo->templateId >= 512) {
 			LIST_REMOVE(prev_template, entry);
 		}
 
 		free_v9_ipfix_template(prev_template);
 	}
 
-	if(templateInfo->templateId < 512) {
+  struct flowSetV9Ipfix *new_template = NULL;
+  rd_calloc_struct(&new_template, sizeof(*new_template),
+    template->templateInfo.fieldCount*sizeof(template->fields[0]),
+      template->fields, &new_template->fields,
+    RD_MEM_END_TOKEN);
+
+  if (unlikely(!new_template)) {
+    traceEvent(TRACE_WARNING, "Not enough memory");
+    return;
+  }
+
+  new_template->templateInfo.templateId = template->templateInfo.templateId;
+  new_template->templateInfo.fieldCount = template->templateInfo.fieldCount;
+  new_template->templateInfo.is_option_template =
+    template->templateInfo.is_option_template;
+  new_template->templateInfo.netflow_device_ip =
+    template->templateInfo.netflow_device_ip;
+  new_template->templateInfo.observation_domain_id =
+    template->templateInfo.observation_domain_id;
+
+  if (!template->templateInfo.is_option_template) {
+    uint16_t fieldId;
+    for (fieldId=0; fieldId<new_template->templateInfo.fieldCount; ++fieldId) {
+      const uint16_t entity_id = new_template->fields[fieldId].fieldId;
+      new_template->fields[fieldId].v9_template = find_template(entity_id);
+    }
+  }
+
+
+	if (templateInfo->templateId < 512) {
 		observation_id->up_to_512_templates[templateInfo->templateId]
-			= template;
+			= new_template;
 	} else {
-		LIST_INSERT_HEAD(&observation_id->over_512_templates, template,
-			entry);
+		LIST_INSERT_HEAD(&observation_id->over_512_templates,
+			new_template, entry);
 	}
 
-  if(unlikely(readOnlyGlobals.enable_debug))
-  traceEvent(TRACE_INFO, ">>>>> Defined flow template [id=%d][fieldCount=%d]",
-       template->templateInfo.templateId, template->templateInfo.fieldCount);
+	if (unlikely(readOnlyGlobals.enable_debug)) {
+		traceEvent(TRACE_INFO,
+			">>>>> Defined flow template [id=%d][fieldCount=%d]",
+			template->templateInfo.templateId,
+			template->templateInfo.fieldCount);
+	}
 }
 
 void save_template_async(struct sensor *sensor,

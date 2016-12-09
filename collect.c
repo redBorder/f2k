@@ -993,24 +993,136 @@ static void dissect_option_template(const struct sensor *sensor,
     }
   }
 
-  V9V10TemplateField *save_fields = malloc(num_entries * sizeof(*save_fields));
-  if (unlikely(NULL == save_fields)) {
-    traceEvent(TRACE_ERROR, "Not enough memory to allocate fields");
-    return;
+  new_template.fields = fields;
+  save_template(observation_id, &new_template);
+}
+
+/**  Dissect a flow template
+ * @param  worker            Worker thread dissecting template
+ * @param  sbuffer           Sized buffer that contains template
+ * @param  observation_id    Template observation id
+ * @param  netflow_device_ip Template origin IP (Debug purposes)
+ * @param  handle_ipfix      True if IPFIX template
+ * @return                   Template processed size
+ */
+static size_t dissect_flow_template(worker_t *worker,
+                                const struct sized_buffer *sbuffer,
+                                observation_id_t *observation_id,
+                                uint32_t netflow_device_ip,
+                                bool handle_ipfix) {
+
+  size_t displ = 0;
+  const char *buffer = sbuffer->buffer;
+  const V9TemplateDef *v9_template = (const void *)buffer;
+  const size_t buffer_len = sbuffer->size;
+
+  size_t accumulatedLen = 0;
+
+  if (unlikely(displ + sizeof(V9TemplateDef) > buffer_len)) {
+    traceEvent(TRACE_WARNING,
+      "Received packet is not big enough to hold template (size:%zu"
+      ", expected>=%zu", buffer_len, displ + sizeof(V9TemplateDef));
+    // goto bad_template;
   }
-  memcpy(save_fields, fields, num_entries * sizeof(*save_fields));
 
-  FlowSetV9Ipfix *save_templ = malloc(sizeof(*save_templ));
-  if (unlikely(NULL == save_fields)) {
-    traceEvent(TRACE_ERROR, "Not enough memory to allocate template");
-    free(save_fields);
-    return;
+  const uint16_t field_count = ntohs(v9_template->fieldCount);
+  if (unlikely(field_count > 128)) {
+    traceEvent(TRACE_WARNING, "Too many template fields (%"PRIu16"): skipping",
+      field_count);
+    goto bad_template;
   }
-  memcpy(save_templ, &new_template, sizeof(new_template));
-  save_templ->fields = save_fields;
 
-  save_template(observation_id, save_templ);
+  {
+    // Nested scope make fields outside of bad_template scope
+    V9V10TemplateField fields[field_count];
+    const FlowSetV9Ipfix template = {
+      .templateInfo = {
+        .templateId = ntohs(v9_template->templateId),
+        .fieldCount = field_count,
 
+        // @todo is this field needed?
+        .netflow_device_ip = netflow_device_ip,
+        .observation_domain_id = observation_id_num(observation_id),
+      },
+
+      .fields = fields,
+    };
+
+    // Setting cursor in fields
+    displ += sizeof(V9TemplateDef);
+
+    if (unlikely(readOnlyGlobals.enable_debug)) {
+      const size_t bufsize = 1024;
+      char buf[bufsize];
+      traceEvent(TRACE_NORMAL, "Template [sensor=%s][id=%d] fields: %d",
+        _intoaV4(netflow_device_ip, buf, bufsize),
+        template.templateInfo.templateId,
+        template.templateInfo.fieldCount);
+    }
+
+    int fieldId;
+    for (fieldId=0; fieldId < field_count; fieldId++) {
+      const V9FlowSet *set = (const V9FlowSet*)&buffer[displ];
+      const bool is_enterprise_specific = handle_ipfix &&
+        (buffer[displ] & 0x80);
+      const size_t field_len = sizeof(V9FlowSet) +
+        (is_enterprise_specific ? sizeof(uint32_t) : 0);
+
+      if (unlikely(displ + field_len > buffer_len)) {
+        traceEvent(TRACE_ERROR,
+          "Template too big for size [displ=%zu][buffer_len=%zu]",
+          displ, buffer_len);
+        goto bad_template;
+      }
+
+      fields[fieldId].fieldId = ntohs(set->templateId) & 0x7FFF;
+      fields[fieldId].fieldLen = ntohs(set->flowsetLen);
+
+      /* Variable lenght fields */
+      if (fields[fieldId].fieldLen != 0xffff) {
+        accumulatedLen += fields[fieldId].fieldLen;
+      }
+
+      if (unlikely(readOnlyGlobals.enable_debug)) {
+        traceEvent(TRACE_NORMAL,
+          "[%d] fieldId=%d/PEN=%s/len=%d [tot=%zu] [%02X %02X %02X %02X]",
+          1+fieldId, fields[fieldId].fieldId,
+          is_enterprise_specific ? "true" : "false",
+          fields[fieldId].fieldLen, displ - sizeof(V9TemplateDef),
+          buffer[displ], buffer[displ+1], buffer[displ+2], buffer[displ+3]);
+      }
+
+      displ += field_len;
+    }
+
+    if (unlikely(accumulatedLen > 1500)) {
+      traceEvent(TRACE_ERROR, "High template accumulated length (%zu)",
+        accumulatedLen);
+      goto bad_template;
+    }
+
+    worker->stats.num_good_templates_received++;
+
+    // Save template for future use
+    if(readOnlyGlobals.templates_database_path && strlen(readOnlyGlobals.templates_database_path) > 0)
+      saveGoodTemplateInFile(&template);
+#ifdef HAVE_ZOOKEEPER
+    if(readOnlyGlobals.zk.zh)
+      saveGoodTemplateInZooKeeper(readOnlyGlobals.zk.zh, &template);
+#endif
+
+    save_template(observation_id, &template);
+
+    if (buffer_len - displ < 4)  {
+      displ = buffer_len; /* Pad */
+    }
+  }
+
+  return displ;
+
+bad_template:
+  worker->stats.num_bad_templates_received++;
+  return buffer_len;
 }
 
 /**
@@ -1023,22 +1135,18 @@ static void dissect_option_template(const struct sensor *sensor,
  * @param  numEntries     Number of entries (nf9) / total entries length (ipfix)
  * @param  handle_ipfix   If we are in IPFIX
  * @return                Always 1
- * @todo transform to dissectNFV9V10TemplateSet, and make childs for option
- * & flow template, so while loop is easier
  */
-static int dissectNetFlowV9V10Template(worker_t *worker,
+static int dissectNetFlowV9V10TemplateSet(worker_t *worker,
                                 const struct sized_buffer *_buffer,
                                 const struct netflow_sensor *sensor,
                                 observation_id_t *observation_id,
-                                size_t *readed, bool handle_ipfix) {
+                                bool handle_ipfix) {
 
   V9FlowSet flow_set;
   V9IpfixSimpleTemplate template;
   const uint8_t *buffer = _buffer->buffer;
   const size_t buffer_len = _buffer->size;
   const uint32_t netflow_device_ip = sensor->netflow_device_ip;
-  V9V10TemplateField *fields = NULL;
-  uint32_t observation_domain_id = 0;
 
   size_t displ = 0;
 
@@ -1094,135 +1202,18 @@ static int dissectNetFlowV9V10Template(worker_t *worker,
                    : dissect_nf9_option_template_params);
 
     return 1;
-  }
+  } else {
+    /* Process all templates in the set */
+    while (displ < buffer_len) {
+      const struct sized_buffer flow_template_buffer = {
+        .buffer = &buffer[displ],
+        .size   = _buffer->size - displ,
+      };
 
-  while (displ < buffer_len) {
-    bool good_template = false;
-    size_t accumulatedLen = 0;
-
-    memset(&template, 0, sizeof(template));
-    template.is_option_template = is_option_template,
-    template.netflow_device_ip = netflow_device_ip;
-
-    V9TemplateDef templateDef;
-    if (unlikely(displ + sizeof(V9TemplateDef) > buffer_len)) {
-      traceEvent(TRACE_WARNING,
-        "Received packet is not big enough to hold template (size:%zu"
-        ", expected>=%zu", buffer_len, displ + sizeof(V9TemplateDef));
-      displ = buffer_len;
-      break; /* nothing more to do */
-    }
-    memcpy(&templateDef, &buffer[displ], sizeof(V9TemplateDef));
-    displ += sizeof(V9TemplateDef);
-
-    template.templateId = htons(templateDef.templateId);
-    template.fieldCount = htons(templateDef.fieldCount);
-
-    if (unlikely(template.fieldCount > 128)) {
-      traceEvent(TRACE_WARNING, "Too many template fields (%d): skept", template.fieldCount);
-      displ = buffer_len;
-      break;
-    } else {
-      fields = calloc(template.fieldCount, sizeof(V9V10TemplateField));
-      if (unlikely(fields == NULL)) {
-        traceEvent(TRACE_WARNING, "Not enough memory");
-        displ = buffer_len;
-        break;
-      }
-
-      if (unlikely(readOnlyGlobals.enable_debug)) {
-        const size_t bufsize = 1024;
-        char buf[bufsize];
-        traceEvent(TRACE_NORMAL, "Template [sensor=%s][id=%d] fields: %d",
-          _intoaV4(netflow_device_ip,buf,bufsize), template.templateId,
-          template.fieldCount);
-      }
-
-      good_template = true;
-      int fieldId;
-      const size_t init_displ = displ;
-      for (fieldId=0; fieldId < template.fieldCount; fieldId++) {
-        const V9FlowSet *set = (const V9FlowSet*)&buffer[displ];
-        const bool is_enterprise_specific = handle_ipfix &&
-          (buffer[displ] & 0x80);
-        const size_t field_len = sizeof(V9FlowSet) +
-          (is_enterprise_specific ? sizeof(uint32_t) : 0);
-
-        if (unlikely(displ + field_len > buffer_len)) {
-          traceEvent(TRACE_ERROR,
-            "Template too big for size [displ=%zu][buffer_len=%zu]",
-            displ, buffer_len);
-          displ = buffer_len;
-          break;
-        }
-
-        fields[fieldId].fieldId = ntohs(set->templateId) & 0x7FFF;
-        fields[fieldId].fieldLen = ntohs(set->flowsetLen);
-        fields[fieldId].v9_template = find_template(fields[fieldId].fieldId);
-
-        /* Variable lenght fields */
-        if (fields[fieldId].fieldLen != 0xffff) {
-          accumulatedLen += fields[fieldId].fieldLen;
-        }
-
-        if (unlikely(readOnlyGlobals.enable_debug)) {
-          traceEvent(TRACE_NORMAL,
-            "[%d] fieldId=%d/PEN=%s/len=%d [tot=%zu] [%02X %02X %02X %02X]",
-            1+fieldId, fields[fieldId].fieldId,
-            is_enterprise_specific ? "true" : "false",
-            fields[fieldId].fieldLen, displ - init_displ,
-            buffer[displ], buffer[displ+1], buffer[displ+2], buffer[displ+3]);
-        }
-
-        displ += field_len;
-      }
-    }
-
-    if (unlikely(accumulatedLen > 1500)) {
-      good_template = false;
-    }
-
-    if (likely(good_template)) {
-      worker->stats.num_good_templates_received++;
-
-      struct flowSetV9Ipfix *new_template = calloc(1, sizeof(*new_template));
-      if (unlikely(!new_template)) {
-        traceEvent(TRACE_WARNING, "Not enough memory");
-        free(fields);
-        break;
-      }
-
-      /// @TODO save the fields directly in a new malloced template.
-      new_template->templateInfo.templateId = template.templateId;
-      new_template->templateInfo.fieldCount = template.fieldCount;
-      new_template->templateInfo.is_option_template = template.is_option_template;
-      new_template->templateInfo.netflow_device_ip = netflow_device_ip;
-      new_template->templateInfo.observation_domain_id = observation_domain_id;
-      new_template->fields                  = fields;
-
-      // Save template for future use
-      if(readOnlyGlobals.templates_database_path && strlen(readOnlyGlobals.templates_database_path) > 0)
-        saveGoodTemplateInFile(new_template);
-#ifdef HAVE_ZOOKEEPER
-      if(readOnlyGlobals.zk.zh)
-        saveGoodTemplateInZooKeeper(readOnlyGlobals.zk.zh,new_template);
-#endif
-
-      save_template(observation_id, new_template);
-      worker->stats.num_known_templates++;
-    } else {
-      if(unlikely(readOnlyGlobals.enable_debug))
-        traceEvent(TRACE_INFO, ">>>>> Skipping bad template [id=%d]", template.templateId);
-      worker->stats.num_bad_templates_received++;
-      free(fields);
-    }
-
-    if (buffer_len - displ < 4)  {
-      displ = buffer_len; /* Pad */
+      displ += dissect_flow_template(worker, &flow_template_buffer,
+        observation_id, netflow_device_ip, handle_ipfix);
     }
   }
-
-  *readed = displ;
 
   return 1;
 }
@@ -1692,9 +1683,8 @@ static struct string_list *dissectNetFlowV9V10Set(worker_t *worker,
 
   /* @TODO pass here buffer[displ] instead of all buffer */
   if (buffer[displ] == 0 || is_option_template) {
-    size_t readed = 0;
-    dissectNetFlowV9V10Template(worker, &netflow_set_buffer, _sensor,
-      observation_id, &readed, handle_ipfix);
+    dissectNetFlowV9V10TemplateSet(worker, &netflow_set_buffer, _sensor,
+      observation_id, handle_ipfix);
   } else {
     struct string_list *_kafka_string_list = NULL;
     _kafka_string_list = dissectNetFlowV9V10Flow(worker, &netflow_set_buffer,
@@ -1866,6 +1856,7 @@ static void pop_all_templates(template_queue_t *template_queue) {
 
     save_template(qtemplate->observation_id, qtemplate->template);
     observation_id_decref(qtemplate->observation_id);
+    free(qtemplate->template);
     free(qtemplate);
   }
 }

@@ -159,7 +159,8 @@ struct flowSetV9Ipfix;
  * @note This function is not thread safe! If you want to add a template to
  * sensor, for example via file or zookeeper, please use save_template_async
  */
-void save_template(observation_id_t *observation_id, struct flowSetV9Ipfix *template);
+void save_template(observation_id_t *observation_id,
+  const struct flowSetV9Ipfix *template);
 
 /** Save template in sensor
  * @param template Template to add

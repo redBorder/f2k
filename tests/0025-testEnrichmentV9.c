@@ -55,7 +55,7 @@ static const struct TestV9Template v9Template = {
 
 	.templateHeader = {
 		/*uint16_t*/ .templateId = 0x0201, /*258*/
-		/*uint16_t*/ .fieldCount = 0x1800,
+		/*uint16_t*/ .fieldCount = constexpr_be16toh(18),
 	},
 
 	.templateSet = { /* all uint16_t*/
