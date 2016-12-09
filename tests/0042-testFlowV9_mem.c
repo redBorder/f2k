@@ -29,7 +29,6 @@
 
 /* WFII-startwithtemplate pcap */
 
-/// @todo template+flow in the same message
 /// @todo Extract in its own header, (the current problem is end buffer size?)
 struct TestV9Template{
 	V9FlowHeader flowHeader;

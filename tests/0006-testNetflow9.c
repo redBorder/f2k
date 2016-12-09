@@ -26,6 +26,7 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
+static const char t_config_path[] = "./tests/0000-testFlowV5.json";
 #define FLOW_HEADER \
 	.sys_uptime = constexpr_be32toh(12345), \
 	.unix_secs = constexpr_be32toh(1382364130), \
@@ -66,25 +67,21 @@ static int test_nf9_0(void **state, const void *template, size_t template_size,
 		const void *flow, size_t flow_size,
 		const struct checkdata *checkdata, size_t checkdata_size) {
 
-#define TEST(config_path, mrecord, mrecord_size, mcheckdata, mcheckdata_sz) {  \
-		.config_json_path = config_path,                               \
-		.host_list_path = NULL,                                        \
-		.netflow_src_ip = 0x04030201,                                  \
-		.record = mrecord,                                             \
-		.record_size = mrecord_size,                                   \
-		.checkdata = mcheckdata,                                       \
-		.checkdata_size = mcheckdata_sz                                \
-	}
+#define TEST(mrecord, mrecord_size, mcheckdata, mcheckdata_sz, ...) {          \
+		.host_list_path = NULL, .netflow_src_ip = 0x04030201,          \
+		.record = mrecord, .record_size = mrecord_size,                \
+		.checkdata = mcheckdata, .checkdata_size = mcheckdata_sz,      \
+		__VA_ARGS__}
 
-#define TEST_TEMPLATE_FLOW(config_path, template, template_size,               \
-				flow, flow_size, mcheckdata, mcheckdata_sz)    \
-	TEST(config_path, template, template_size, NULL, 0),                   \
-	TEST(NULL, flow, flow_size, mcheckdata, mcheckdata_sz)
+#define TEST_TEMPLATE_FLOW(template, template_size, flow, flow_size,           \
+		mcheckdata, mcheckdata_sz, ...)                                \
+	TEST(template, template_size, NULL, 0, __VA_ARGS__),                   \
+	TEST(flow, flow_size, mcheckdata, mcheckdata_sz,)
 
 	struct test_params test_params[] = {
-		TEST_TEMPLATE_FLOW(
-			"./tests/0000-testFlowV5.json", template, template_size,
-			flow, flow_size, checkdata, checkdata_size),
+		TEST_TEMPLATE_FLOW(template, template_size,
+			flow, flow_size, checkdata, checkdata_size,
+			.config_json_path = t_config_path),
 	};
 
 	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
@@ -141,10 +138,33 @@ static int test_nf9_2(void **state) {
 		checkdata, RD_ARRAYSIZE(checkdata));
 }
 
+static int test_nf9_template_flow(void **state) {
+#define NF9_ENTITIES(RT, R) NF9_ENTITIES_BASE(RT, 7603, 263)
+	static const NF9_TEMPLATE_FLOW(flow, FLOW_HEADER, TEMPLATE_ID,
+		NF9_ENTITIES);
+
+	static const struct checkdata_value checkdata_values[] =
+		NF9_CHECKDATA("7603", "263");
+
+	static const struct checkdata checkdata = {
+		.size = RD_ARRAYSIZE(checkdata_values),
+		.checks = checkdata_values
+	};
+
+	static const struct test_params test_params[] = {
+		TEST(&flow, sizeof(flow), &checkdata, 1,
+			.config_json_path = t_config_path),
+	};
+
+	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
+	return *state == NULL;
+}
+
 int main() {
 	const struct CMUnitTest tests[] = {
 		cmocka_unit_test_setup(testFlow, test_nf9_1),
 		cmocka_unit_test_setup(testFlow, test_nf9_2),
+		cmocka_unit_test_setup(testFlow, test_nf9_template_flow),
 	};
 
 	return cmocka_run_group_tests(tests, nf_test_setup, nf_test_teardown);

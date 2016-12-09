@@ -60,7 +60,7 @@ struct nf_test_state {
 	} ret;
 };
 
-struct nf_test_state *prepare_tests(struct test_params *test_params,
+struct nf_test_state *prepare_tests(const struct test_params *test_params,
 						size_t test_params_size);
 
 void testFlow(void **state);

@@ -27,7 +27,6 @@
 
 #include <cmocka.h>
 
-/// @todo template+flow in the same message
 struct TestV10Template {
   IPFIXFlowHeader flowHeader;
   IPFIXSet flowSetHeader;

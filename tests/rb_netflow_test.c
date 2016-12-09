@@ -179,7 +179,7 @@ int nf_test_teardown(void **state) {
   return 0;
 }
 
-struct nf_test_state *prepare_tests(struct test_params *test_params,
+struct nf_test_state *prepare_tests(const struct test_params *test_params,
 						size_t test_params_size) {
 	struct string_list *sl[test_params_size];
 	memset(sl, 0, test_params_size*sizeof(sl[0]));

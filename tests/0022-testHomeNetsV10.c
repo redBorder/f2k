@@ -24,7 +24,6 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
-/// @todo template+flow in the same message
 struct TestV10Template{
 	IPFIXFlowHeader flowHeader;
 	IPFIXSet flowSetHeader;
@@ -32,7 +31,6 @@ struct TestV10Template{
 	const uint8_t templateBuffer[92];
 };
 
-/// @todo template+flow in the same message
 struct TestV10Template_v6{
 	IPFIXFlowHeader flowHeader;
 	IPFIXSet flowSetHeader;

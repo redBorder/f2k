@@ -29,7 +29,6 @@
 
 /* WFII-startwithtemplate pcap */
 
-/// @todo template+flow in the same message
 /// @todo Extract in its own header, (the current problem is end buffer size?)
 /// template with too many fields
 static const struct {

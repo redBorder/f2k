@@ -33,7 +33,6 @@ static char tempdir_path[sizeof(template_save_path)];
 	@test Extracting client mac based on flow direction
 */
 
-/// @todo template+flow in the same message
 struct TestV10Template{
 	IPFIXFlowHeader flowHeader;
 	IPFIXSet flowSetHeader;
