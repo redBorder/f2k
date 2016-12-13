@@ -267,10 +267,6 @@ size_t print_dst_port(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
 
-size_t print_srv_port(struct printbuf * kafka_line_buffer,
-    const void *buffer, const size_t real_field_len,
-    const size_t real_field_len_offset, struct flowCache *flowCache);
-
 size_t print_ipv6(void *vdst_buf, struct printbuf *kafka_line_buffer,
                   const void *vbuffer, const size_t real_field_len,
                   const size_t real_field_offset);

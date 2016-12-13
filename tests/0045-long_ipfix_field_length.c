@@ -185,7 +185,6 @@ static const struct checkdata_value checkdata_values1[] = {
 	{.key="l4_proto", .value="6"},
 	{.key="src_port", .value="54713"},
 	{.key="dst_port", .value="80"},
-	{.key="srv_port", .value="80"},
 	{.key="flow_end_reason", .value="end of flow"},
 	{.key="biflow_direction", .value="initiator"},
 	{.key="application_id_name", .value="3:80"},

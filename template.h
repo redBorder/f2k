@@ -109,7 +109,7 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, PROTOCOL_MAP,PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "PROTOCOL_MAP", "l4_proto_name", "", "IP protocol name", print_proto_name, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, SRC_TOS, 5, DONT_QUOTE_OUTPUT, "SRC_TOS", "tos", "ipClassOfService", "Type of service byte", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, TCP_FLAGS, 6, QUOTE_OUTPUT, "TCP_FLAGS", "tcp_flags", "tcpControlBits", "Cumulative of all flow TCP flags", print_tcp_flags, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, L4_SRC_PORT, 7, DONT_QUOTE_OUTPUT, "L4_SRC_PORT", "src_port", "src_port", "IPv4 source port",print_src_port,C(L4_SRV_PORT))\
+	X(STANDARD_ENTERPRISE_ID, L4_SRC_PORT, 7, DONT_QUOTE_OUTPUT, "L4_SRC_PORT", "src_port", "src_port", "IPv4 source port",print_src_port,NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, L4_SRC_PORT_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "L4_SRC_PORT_MAP", "src_port_name", "", "Layer 4 source port symbolic name", NO_FN,NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_ADDR, 8, QUOTE_OUTPUT, "IPV4_SRC_ADDR", "src", "sourceIPv4Address", "IPv4 source address" , print_ipv4_src_addr, C(IPV4_SRC_NET, IPV4_SRC_ASNUM, SRC_IP_COUNTRY))\
 	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_ASNUM,PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "IPV4_SRC_ASNUM", "src_as", "sourceIPv4Address", "IPv4 source address",print_AS_ipv4, C(IPV4_SRC_ASNUM_NAME))\
@@ -121,10 +121,8 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, INPUT_SNMP, 10, DONT_QUOTE_OUTPUT, "INPUT_SNMP", "input_snmp", "ingressInterface", "Input interface SNMP idx",print_number, C(INPUT_SNMP_NAME, INPUT_SNMP_DESCRIPTION))\
 	X(STANDARD_ENTERPRISE_ID, INPUT_SNMP_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "INPUT_SNMP_NAME", "input_snmp_name", "ingressInterfaceName", "Input interface SNMP name",print_interface_name, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, INPUT_SNMP_DESCRIPTION, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "INPUT_SNMP_DESCRIPTION", "input_snmp_description", "ingressInterfaceDescription", "Input interface SNMP description",print_interface_description, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, L4_DST_PORT, 11, DONT_QUOTE_OUTPUT, "L4_DST_PORT", "dst_port", "destinationTransportPort", "IPv4 destination port",print_dst_port,C(L4_SRV_PORT))\
+	X(STANDARD_ENTERPRISE_ID, L4_DST_PORT, 11, DONT_QUOTE_OUTPUT, "L4_DST_PORT", "dst_port", "destinationTransportPort", "IPv4 destination port",print_dst_port,NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, L4_DST_PORT_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "L4_DST_PORT_MAP", "dst_port_name", "", "Layer 4 destination port symbolic name", NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, L4_SRV_PORT, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "L4_SRV_PORT", "srv_port", "", "Layer 4 server port", print_srv_port, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, L4_SRV_PORT_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "L4_SRV_PORT_MAP", "srv_port_name", "", "Layer 4 server port symbolic name", NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV4_DST_ADDR, 12, QUOTE_OUTPUT, "IPV4_DST_ADDR", "dst", "destinationIPv4Address", "IPv4 destination address", print_ipv4_dst_addr, C(IPV4_DST_NET, IPV4_DST_ASNUM, DST_IP_COUNTRY))\
 	X(STANDARD_ENTERPRISE_ID, IPV4_DST_ASNUM, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "IPV4_DST_ASNUM", "dst_as", "destinationIPv4AddressAsNumber", "IPv4 destination address Autonomous System number",print_AS_ipv4,IPV4_DST_ASNUM_NAME)\
 	X(STANDARD_ENTERPRISE_ID, IPV4_DST_ASNUM_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_DST_ASNUM_NAME", "dst_as_name", "destinationIPv4AddressAsNumber", "IPv4 destination address Autonomous System name",print_AS_ipv4_name, NO_CHILDS)\

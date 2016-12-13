@@ -1251,19 +1251,6 @@ size_t print_dst_port(struct printbuf *kafka_line_buffer,
     buffer, real_field_len, real_field_offset, flowCache);
 }
 
-size_t print_srv_port(struct printbuf *kafka_line_buffer,
-    const void *buffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
-  assert_multi(kafka_line_buffer);
-  unused_params(buffer, real_field_len, real_field_offset);
-
-  if(flowCache->ports.src && flowCache->ports.dst)
-    return print_port0(kafka_line_buffer,min(flowCache->ports.src,flowCache->ports.dst));
-  else
-    return 0;
-
-}
-
 size_t print_client_port(struct printbuf *kafka_line_buffer, const void *buffer,
                          const size_t real_field_len,
                          const size_t real_field_offset,

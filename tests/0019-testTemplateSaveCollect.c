@@ -240,7 +240,6 @@ static int prepare_test_nf_template_load(void **state) {
 		{.key="l4_proto", .value = "6"},
 		{.key="src_port", .value = "54713"},
 		{.key="dst_port", .value = "443"},
-		{.key="srv_port", .value = "443"},
 		{.key="biflow_direction", .value = "initiator"},
 		{.key="sensor_name", .value = "FlowTest"},
 		{.key="sensor_ip", .value = "4.3.2.1"},
