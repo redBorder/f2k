@@ -215,27 +215,27 @@ size_t print_ipv4_dst_addr(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
 
-size_t print_ip_client_addr(struct printbuf * kafka_line_buffer,
+size_t print_lan_addr(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
 
-size_t print_ip_target_addr(struct printbuf * kafka_line_buffer,
+size_t print_wan_addr(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
 
-size_t print_ip_client_addr_net(struct printbuf *kafka_line_buffer,
+size_t print_lan_addr_net(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
 
-size_t print_ip_client_addr_net_name(struct printbuf *kafka_line_buffer,
+size_t print_lan_addr_net_name(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
 
-size_t print_ip_target_addr_net(struct printbuf *kafka_line_buffer,
+size_t print_wan_addr_net(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
 
-size_t print_ip_target_addr_net_name(struct printbuf *kafka_line_buffer,
+size_t print_wan_addr_net_name(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
 
@@ -271,15 +271,15 @@ size_t print_ipv6(void *vdst_buf, struct printbuf *kafka_line_buffer,
                   const void *vbuffer, const size_t real_field_len,
                   const size_t real_field_offset);
 
-size_t print_client_port(struct printbuf *kafka_line_buffer, const void *buffer,
-                         const size_t real_field_len,
-                         const size_t real_field_len_offset,
-                         struct flowCache *flowCache);
+size_t print_lan_port(struct printbuf *kafka_line_buffer, const void *buffer,
+                      const size_t real_field_len,
+                      const size_t real_field_len_offset,
+                      struct flowCache *flowCache);
 
-size_t print_target_port(struct printbuf *kafka_line_buffer, const void *buffer,
-                         const size_t real_field_len,
-                         const size_t real_field_len_offset,
-                         struct flowCache *flowCache);
+size_t print_wan_port(struct printbuf *kafka_line_buffer, const void *buffer,
+                      const size_t real_field_len,
+                      const size_t real_field_len_offset,
+                      struct flowCache *flowCache);
 
 size_t print_ipv6_src_addr(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,

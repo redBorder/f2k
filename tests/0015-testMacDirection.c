@@ -166,20 +166,20 @@
   R(DIRECTION, 1, 0, 0x01)
 
 #define CHECKDATA(direction, client_mac, \
-  client_ip, client_ip_net, client_ip_net_name, \
-  target_ip, target_ip_net, target_ip_net_name, \
-  client_port, target_port) \
+  lan_ip, lan_ip_net, lan_ip_net_name, \
+  wan_ip, wan_ip_net, wan_ip_net_name, \
+  lan_port, wan_port) \
     {.size=10, .checks = (struct checkdata_value[]) { \
         {.key = "direction", .value=direction}, \
         {.key = "client_mac", .value=client_mac}, \
-        {.key = "client_ip", .value=client_ip}, \
-        {.key = "client_ip_net", .value = client_ip_net}, \
-        {.key = "client_ip_net_name", .value = client_ip_net_name}, \
-        {.key = "target_ip", .value=target_ip}, \
-        {.key = "target_ip_net", .value = target_ip_net}, \
-        {.key = "target_ip_net_name", .value = target_ip_net_name}, \
-        {.key = "client_port", .value=client_port}, \
-        {.key = "target_port", .value=target_port}}}
+        {.key = "lan_ip", .value=lan_ip}, \
+        {.key = "lan_ip_net", .value = lan_ip_net}, \
+        {.key = "lan_ip_net_name", .value = lan_ip_net_name}, \
+        {.key = "wan_ip", .value=wan_ip}, \
+        {.key = "wan_ip_net", .value = wan_ip_net}, \
+        {.key = "wan_ip_net_name", .value = wan_ip_net_name}, \
+        {.key = "lan_port", .value=lan_port}, \
+        {.key = "wan_port", .value=wan_port}}}
 
 static const struct checkdata checkdata_span_true_v4[] = {
 	CHECKDATA("ingress", "00:24:14:01:02:03",

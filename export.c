@@ -841,7 +841,7 @@ static size_t print_flow_cache_net_name(struct printbuf *kafka_line_buffer,
     print_net_name_v6);
 }
 
-size_t print_ip_client_addr(struct printbuf *kafka_line_buffer,
+size_t print_lan_addr(struct printbuf *kafka_line_buffer,
                             const void *buffer, const size_t real_field_len,
                             const size_t real_field_offset,
                             struct flowCache *flowCache) {
@@ -851,7 +851,7 @@ size_t print_ip_client_addr(struct printbuf *kafka_line_buffer,
 
 }
 
-size_t print_ip_client_addr_net(struct printbuf *kafka_line_buffer,
+size_t print_lan_addr_net(struct printbuf *kafka_line_buffer,
                             const void *buffer, const size_t real_field_len,
                             const size_t real_field_offset,
                             struct flowCache *flowCache) {
@@ -861,7 +861,7 @@ size_t print_ip_client_addr_net(struct printbuf *kafka_line_buffer,
     get_direction_based_client_ip, print_flow_cache_net);
 }
 
-size_t print_ip_target_addr_net(struct printbuf *kafka_line_buffer,
+size_t print_wan_addr_net(struct printbuf *kafka_line_buffer,
                             const void *buffer, const size_t real_field_len,
                             const size_t real_field_offset,
                             struct flowCache *flowCache) {
@@ -871,7 +871,7 @@ size_t print_ip_target_addr_net(struct printbuf *kafka_line_buffer,
     get_direction_based_target_ip, print_flow_cache_net);
 }
 
-size_t print_ip_client_addr_net_name(struct printbuf *kafka_line_buffer,
+size_t print_lan_addr_net_name(struct printbuf *kafka_line_buffer,
                             const void *buffer, const size_t real_field_len,
                             const size_t real_field_offset,
                             struct flowCache *flowCache) {
@@ -881,7 +881,7 @@ size_t print_ip_client_addr_net_name(struct printbuf *kafka_line_buffer,
     get_direction_based_client_ip, print_flow_cache_net_name);
 }
 
-size_t print_ip_target_addr_net_name(struct printbuf *kafka_line_buffer,
+size_t print_wan_addr_net_name(struct printbuf *kafka_line_buffer,
                             const void *buffer, const size_t real_field_len,
                             const size_t real_field_offset,
                             struct flowCache *flowCache) {
@@ -891,7 +891,7 @@ size_t print_ip_target_addr_net_name(struct printbuf *kafka_line_buffer,
     get_direction_based_target_ip, print_flow_cache_net_name);
 }
 
-size_t print_ip_target_addr(struct printbuf *kafka_line_buffer,
+size_t print_wan_addr(struct printbuf *kafka_line_buffer,
                             const void *buffer, const size_t real_field_len,
                             const size_t real_field_offset,
                             struct flowCache *flowCache) {
@@ -1251,7 +1251,7 @@ size_t print_dst_port(struct printbuf *kafka_line_buffer,
     buffer, real_field_len, real_field_offset, flowCache);
 }
 
-size_t print_client_port(struct printbuf *kafka_line_buffer, const void *buffer,
+size_t print_lan_port(struct printbuf *kafka_line_buffer, const void *buffer,
                          const size_t real_field_len,
                          const size_t real_field_offset,
                          struct flowCache *flowCache) {
@@ -1267,7 +1267,7 @@ size_t print_client_port(struct printbuf *kafka_line_buffer, const void *buffer,
   return print_port0(kafka_line_buffer, client_port);
 }
 
-size_t print_target_port(struct printbuf *kafka_line_buffer, const void *buffer,
+size_t print_wan_port(struct printbuf *kafka_line_buffer, const void *buffer,
                          const size_t real_field_len,
                          const size_t real_field_offset,
                          struct flowCache *flowCache) {
