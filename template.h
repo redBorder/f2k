@@ -106,7 +106,6 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, PRINT_IN_PKTS, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "IN_PKTS", "pkts", "packetDeltaCount", "Incoming flow packets (src->dst)", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, FLOWS,3, DONT_QUOTE_OUTPUT, "FLOWS", "flows", "<reserved>", "Number of flows", NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, PROTOCOL,4, DONT_QUOTE_OUTPUT, "PROTOCOL", "l4_proto", "protocolIdentifier", "IP protocol byte",print_number , NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, PROTOCOL_MAP,PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "PROTOCOL_MAP", "l4_proto_name", "", "IP protocol name", print_proto_name, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, SRC_TOS, 5, DONT_QUOTE_OUTPUT, "SRC_TOS", "tos", "ipClassOfService", "Type of service byte", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, TCP_FLAGS, 6, QUOTE_OUTPUT, "TCP_FLAGS", "tcp_flags", "tcpControlBits", "Cumulative of all flow TCP flags", print_tcp_flags, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, L4_SRC_PORT, 7, DONT_QUOTE_OUTPUT, "L4_SRC_PORT", "src_port", "src_port", "IPv4 source port",print_src_port,NO_CHILDS)\
@@ -179,8 +178,6 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, OUT_SRC_MAC_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "OUT_SRC_MAC_MAP", "out_src_mac_name", "sourceMacAddress", "Name of Source MAC Address after observation point",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, SRC_VLAN, 58, DONT_QUOTE_OUTPUT, "CISCO_SRC_VLAN", "cisco_src_vlan", "preVlanId", "Source VLAN", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, DST_VLAN, 59, DONT_QUOTE_OUTPUT, "CISCO_DST_VLAN", "cisco_dst_vlan", "postVlanId", "Destination VLAN", print_number, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, DST_VLAN_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "CISCO_DST_VLAN_MAP", "cisco_dst_vlan_name", "postVlanId_map", "Destination VLAN name",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, SRC_VLAN_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "CISCO_SRC_VLAN_MAP", "cisco_src_vlan_name", "preVlanId_map", "Source VLAN name",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, DOT_1Q_VLANID, 243, DONT_QUOTE_OUTPUT, "SRC_VLAN", "src_vlan", "preVlanId", "Source VLAN", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, POST_DOT_1Q_VLANID, 254, DONT_QUOTE_OUTPUT, "DST_VLAN", "dst_vlan", "postVlanId", "Destination VLAN", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, DOT_1Q_VLANID_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "SRC_VLAN_MAP", "src_vlan_name", "preVlanId_map", "Source VLAN name",NO_FN, NO_CHILDS)\

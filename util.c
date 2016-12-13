@@ -49,9 +49,6 @@ extern char *strtok_r(char *, const char *, char **);
 #define GEOIP_DIR_SYSTEM_TEMPLATE PREFIX "/f2k/%s"
 #endif
 
-static char *proto_mapping[0xFF] = { NULL };
-static char *vlan_mapping[0xFFFF] = { NULL };
-
 /* ************************************ */
 
 void traceEvent(const int eventTraceLevel, const char* file,
@@ -275,104 +272,6 @@ uint64_t net2number(const void *vbuffer, const uint16_t real_field_len) {
     }
     return 0;
   };
-}
-
-/* ******************************************** */
-
-void load_vlan_mapping(){
-  if(readOnlyGlobals.rb_databases.hosts_database_path){
-    char * vlanPath = calloc(strlen(readOnlyGlobals.rb_databases.hosts_database_path) + strlen("/vlans") + 1,sizeof(char));
-    char * vlanName=NULL;
-    char buf[2048];
-    strcat(vlanPath,readOnlyGlobals.rb_databases.hosts_database_path);
-    strcat(vlanPath,"/vlans");
-    FILE * fvlans = fopen(vlanPath,"r");
-    if(fvlans==NULL){
-      traceEvent(TRACE_WARNING, "Cannot open %s for vlans",vlanPath);
-    }else{
-      char *strtok_aux = NULL;
-      while(NULL!=fgets(buf,2048,fvlans)){
-        vlanName = strtok_r(buf," \t", &strtok_aux);
-        char * vlanNumber = strtok_r(NULL, " \t", &strtok_aux);
-        const int i = strtol(vlanNumber,NULL,10);
-        if(errno == EINVAL)
-          traceEvent(TRACE_WARNING,"Cannot parse number %s in file %s. Skipping.",vlanNumber,vlanPath);
-        else if(vlan_mapping[i])
-          traceEvent(TRACE_WARNING,"VLAN number %s was previously setted with value %s. Skipping.",
-            vlanNumber,vlan_mapping[i]);
-        else
-          vlan_mapping[i] = strdup(vlanName);
-      }
-      fclose(fvlans);
-    }
-    free(vlanPath);
-  }
-}
-
-/* ****************************************** */
-
-/* Warning: keep it sync with unload_mapping()! */
-void unload_vlan_mapping(){
-  int i;
-  for(i=0; i<0xFFFF; i++) if(vlan_mapping[i]) free(vlan_mapping[i]);
-  memset(vlan_mapping,0,sizeof(char *)*0xFFFF);
-}
-
-void load_mappings() {
-  struct protoent *pe;
-
-  /* ******************** */
-
-  while((pe = getprotoent()) != NULL) {
-    if(proto_mapping[pe->p_proto] == NULL) {
-      proto_mapping[pe->p_proto] = strdup(pe->p_name);
-      // traceEvent(TRACE_INFO, "[%d][%s]", pe->p_proto, pe->p_name);
-    }
-  }
-
-  endprotoent();
-
-  load_vlan_mapping();
-}
-
-/* ******************************************** */
-
-void unload_mappings() {
-  int i;
-
-  for(i=0; i<0xFFFF; i++){
-    if(vlan_mapping[i])
-      free(vlan_mapping[i]);
-  }
-  for(i=0; i<0xFF; i++)   if(proto_mapping[i]) free(proto_mapping[i]);
-}
-
-/* ******************************************** */
-
-/* FIX: improve performance */
-const char* proto2name(uint8_t proto) {
-#if 0
-  struct protoent *svt;
-
-  if(proto == 6)       return("tcp");
-  else if(proto == 17) return("udp");
-  else if(proto == 1)  return("icmp");
-  else if(proto == 2)  return("igmp");
-  else if((svt = getprotobynumber(proto)) != NULL)
-    return(svt->p_name);
-  else {
-    static char the_proto[8];
-
-    snprintf(the_proto, sizeof(the_proto), "%d", proto);
-    return(the_proto);
-  }
-#else
-  if(proto_mapping[proto] != NULL) {
-    // traceEvent(TRACE_INFO, "[%d][%s]", proto, proto_mapping[proto]);
-    return(proto_mapping[proto]);
-  } else
-    return("unknown");
-#endif
 }
 
 /* ******************************************** */
@@ -1096,16 +995,6 @@ void check_if_reload(/*const int templateElementId,*/struct rb_databases * rb_da
 
     parseHostsList(rb_databases->hosts_database_path);
     rb_databases->reload_hosts_database = rb_databases->reload_nets_database = 0;
-    pthread_rwlock_unlock(&rb_databases->mutex);
-  }
-  if(unlikely(rb_databases->reload_vlans_database))
-  {
-    if(unlikely(readOnlyGlobals.enable_debug))
-      traceEvent(TRACE_NORMAL,"reloading vlans_database");
-    pthread_rwlock_wrlock(&rb_databases->mutex);
-    unload_vlan_mapping();
-    load_vlan_mapping();
-    rb_databases->reload_vlans_database = 0;
     pthread_rwlock_unlock(&rb_databases->mutex);
   }
 

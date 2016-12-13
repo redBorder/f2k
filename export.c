@@ -1593,28 +1593,6 @@ size_t print_country6_code(struct printbuf *kafka_line_buffer,
 
 #endif /* HAVE_GEOIP */
 
-size_t print_proto_name(struct printbuf *kafka_line_buffer,
-    const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
-  const uint8_t *buffer = vbuffer;
-  assert_multi(kafka_line_buffer, buffer);
-  (void)flowCache;
-
-  if (unlikely(real_field_len!=2)) {
-    traceEvent(TRACE_ERROR,"protocol length %zu != 2.", real_field_len);
-    return 0;
-  }
-
-  const uint16_t proto = net2number(buffer + real_field_offset, 2);
-
-  const char *proto_map = proto2name(proto);
-  if (proto_map) {
-    return printbuf_memappend_fast_string(kafka_line_buffer, proto_map);
-  } else {
-    return printbuf_memappend_fast_n10(kafka_line_buffer, proto);
-  }
-}
-
 size_t print_sensor_enrichment(struct printbuf *kafka_line_buffer,
     const struct flowCache *flowCache) {
   assert_multi(flowCache, flowCache->sensor);

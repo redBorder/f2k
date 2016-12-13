@@ -1693,8 +1693,6 @@ static void shutdown_f2k(void) {
   // ntop_sleep(1);
   traceEvent(TRACE_INFO, "Freeing memory...\n");
 
-  unload_mappings();
-
   if(readOnlyGlobals.pcapPtr) {
     printPcapStats(readOnlyGlobals.pcapPtr);
     term_pcap(&readOnlyGlobals.pcapPtr);
@@ -2255,8 +2253,6 @@ int main(int argc, char *argv[]) {
 
   init_globals();
 
-  setprotoent(1); setservent(1); /* Improve protocol/port lookup performance */
-
   argc_ = argc;
   argv_ = (char**)argv;
   if(parseOptions(argc, argv, 0) == -1) exit(0);
@@ -2352,8 +2348,6 @@ int main(int argc, char *argv[]) {
     }
     dropPrivileges();
   }
-
-  load_mappings();
 
   dumpLogEvent(probe_started, severity_info, "nProbe started");
 

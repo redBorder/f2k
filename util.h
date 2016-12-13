@@ -152,9 +152,6 @@ uint32_t str2addr(char *address);
 char* etheraddr_string(const uint8_t *ep, char *buf);
 void fixTemplateToIPFIX(void);
 size_t append_escaped(struct printbuf *buffer,const char *string,size_t string_len);
-const char* proto2name(uint8_t proto);
-void load_mappings(void);
-void unload_mappings(void);
 
 void loadApplProtocols(void);
 uint16_t port2ApplProtocol(uint8_t proto, uint16_t port);
