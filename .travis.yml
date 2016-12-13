@@ -15,7 +15,6 @@ services:
   - docker
 
 install:
-  - sudo apt-get install -y docker-engine
   - pip install --user cpp-coveralls
 
 script:
@@ -30,8 +29,6 @@ after_success:
   - docker run -v $(pwd):/app redborder/build-dockerfiles:f2k make clean
   - docker run -v $(pwd):/app redborder/build-dockerfiles:f2k ./configure --enable-coverage
   - docker run -v $(pwd):/app -e CFLAGS=-w --link kafka --net test redborder/build-dockerfiles:f2k make coverage
-  - docker run -v $(pwd):/app redborder/build-dockerfiles:f2k lcov --remove tests/coverage.info 'tests/*' '/usr/*' --output-file tests/coverage.info
-  - docker run -v $(pwd):/app redborder/build-dockerfiles:f2k lcov --list tests/coverage.info
   - coveralls --exclude /usr/lib --exclude tests --gcov-options '\-lp'
 
 before_deploy:
