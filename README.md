@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/redBorder/f2k.svg?branch=master)](https://travis-ci.org/redBorder/f2k)
+[![Coverage Status](https://coveralls.io/repos/github/redBorder/f2k/badge.svg?branch=master)](https://coveralls.io/github/redBorder/f2k?branch=master)
 
 # Flow 2 Kafka (f2k)
 
