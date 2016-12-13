@@ -20,14 +20,15 @@ mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wmissing-declarations"
 mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wdisabled-optimization -Wshadow"
 mkl_mkvar_append CPPFLAGS CPPFLAGS "-Wcast-qual -Wunused -Wextra"
 
-mkl_toggle_option "Standard" WITH_LIBRDKAFKA        "--enable-librdkafka"        "librdkafka: For kafka export" "y"
-mkl_toggle_option "Standard" WITH_RBMAC_VENDOR      "--enable-rbmacvendor"       "RedBorder MACs vendor library" "y"
-mkl_toggle_option "Standard" WITH_GEOIP             "--enable-geoip"             "MaxMind (r) GeoIP library" "y"
-mkl_toggle_option "Standard" WITH_SFLOW             "--enable-sflow"             "S-FLOW Support" "n"
-mkl_toggle_option "Standard" WITH_ZOOKEEPER         "--enable-zookeeper"         "Apache Zookeeper support" "y"
-mkl_toggle_option "Standard" WITH_UDNS              "--enable-udns"              "Michael Tokarev reverse-DNS support" "y"
-mkl_toggle_option "Feature"  WITH_INTEGRATION_TESTS "--enable-integration-tests" "Run integration tests" "n"
+mkl_toggle_option "Standard" WITH_LIBRDKAFKA        "--enable-librdkafka"          "librdkafka: For kafka export" "y"
+mkl_toggle_option "Standard" WITH_RBMAC_VENDOR      "--enable-rbmacvendor"         "RedBorder MACs vendor library" "y"
+mkl_toggle_option "Standard" WITH_GEOIP             "--enable-geoip"               "MaxMind (r) GeoIP library" "y"
+mkl_toggle_option "Standard" WITH_SFLOW             "--enable-sflow"               "S-FLOW Support" "n"
+mkl_toggle_option "Standard" WITH_ZOOKEEPER         "--enable-zookeeper"           "Apache Zookeeper support" "y"
+mkl_toggle_option "Standard" WITH_UDNS              "--enable-udns"                "Michael Tokarev reverse-DNS support" "y"
+mkl_toggle_option "Feature"  WITH_INTEGRATION_TESTS "--enable-integration-tests"   "Run integration tests" "n"
 mkl_toggle_option "Feature"  WITH_PRINT_BOUND_CHECKS "--enable-export-bounds-chks" "Checks bound in export functions (SLOW!)" "n"
+mkl_toggle_option "Feature"  WITH_COVERAGE           "--enable-coverage"           "Coverage build" "n"
 
 function checks_librdkafka {
     # Check that librdkafka is available, and allow to link it statically.
@@ -131,4 +132,13 @@ function checks {
     mkl_lib_check pf_ring HAVE_PF_RING disable CC "-lpfring" \
         "#include <pfring.h>
          void *f();void *f(){return pfring_open;}"
+
+    if [[ "x$WITHOUT_OPTIMIZATION" != "xy" || "x$WITH_COVERAGE" != "xy" ]]; then
+      mkl_mkvar_append CPPFLAGS CPPFLAGS "-DNDEBUG"
+    fi
+
+    if [[ "x$WITH_COVERAGE" != "xn" ]]; then
+      mkl_mkvar_append CPPFLAGS CPPFLAGS "--coverage"
+      mkl_mkvar_append LDFLAGS LDFLAGS "--coverage"
+    fi
 }
