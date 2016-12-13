@@ -108,7 +108,7 @@ for FILE in $*; do
     for i in $(seq 1 $MEM_ERRORS); do
       # Display error
       TEXT="$(valgrind_xml_error_text $MEM_XML $i)"
-      printf "\t\e[31m • %s\e[0m\n" "$TEXT"
+      printf "\t\e[33m • %s\e[0m\n" "$TEXT"
 
       # Count bytes lost due to this error
       BYTES="$(xml-printf '%s' $MEM_XML ://error[$i]/xwhat/leakedbytes 2>/dev/null)"
@@ -130,13 +130,13 @@ for FILE in $*; do
     for i in $(seq 1 $HELGRIND_ERRORS); do
       # Display helgrind error
       TEXT="$(valgrind_xml_error_text $HELGRIND_XML $i)"
-      printf "\t\e[31m • \e[1m[HELGRIND] \e[0;31m%s\e[0m\n" "$TEXT"
+      printf "\t\e[33m • \e[1m[HELGRIND] \e[0;33m%s\e[0m\n" "$TEXT"
     done
 
     for i in $(seq 1 $DRD_ERRORS); do
       # Display drd error
       TEXT="$(valgrind_xml_error_text $DRD_XML $i)"
-      printf "\t\e[31m • \e[1m[DRD] \e[0;31m%s\e[0m\n" "$TEXT"
+      printf "\t\e[33m • \e[1m[DRD] \e[0;33m%s\e[0m\n" "$TEXT"
     done
     printf "\t\e[1m---------------------------------------------------------------------------------------------\e[0m\n"
   fi
