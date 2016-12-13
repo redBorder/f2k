@@ -136,14 +136,19 @@ COV_VALGRIND ?= valgrind
 COV_GCOV ?= gcov
 COV_LCOV ?= lcov
 
-coverage: check_coverage $(TESTS)
-	( for test in $(TESTS); do ./$$test; done )
-	$(COV_LCOV) --gcov-tool=$(COV_GCOV) -q \
-                --rc lcov_branch_coverage=1 --capture \
-                --directory ./ --output-file ${COVERAGE_INFO}
+coverage: check_coverage $(TESTS) checks
+	@$(COV_LCOV) --gcov-tool=$(COV_GCOV) -q \
+                --rc lcov_branch_coverage=1 \
+								--capture \
+                --directory ./ --output-file ${COVERAGE_INFO} >/dev/null 2>&1
+	@$(COV_LCOV) --remove coverage.info '/app/tests/*' 'include/*' \
+								--rc lcov_branch_coverage=1 \
+								--compat-libtool \
+								--output-file coverage.info >/dev/null 2>&1
+	@$(COV_LCOV) --list --rc lcov_branch_coverage=1 coverage.info
+
+coverage-html: coverage
 	genhtml --branch-coverage ${COVERAGE_INFO} --output-directory \
 				${COVERAGE_OUTPUT_DIRECTORY} > coverage.out
-	# ./display_coverage.sh
 
 -include $(DEPS)
-#
