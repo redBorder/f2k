@@ -1114,13 +1114,12 @@ static size_t print_engine_id_name0(struct printbuf *kafka_line_buffer,const uin
   pthread_rwlock_rdlock(&readOnlyGlobals.rb_databases.mutex);
   // @TODO change it to an array!
   const NumNameAssoc * node =  numInList(engine_id,readOnlyGlobals.rb_databases.engines_name_as_list);
-  pthread_rwlock_unlock(&readOnlyGlobals.rb_databases.mutex);
+  const size_t ret = node ?
+    printbuf_memappend_fast_string(kafka_line_buffer,node->name) :
+    print_engine_id(kafka_line_buffer,engine_id);
 
-  if(node){
-    return printbuf_memappend_fast_string(kafka_line_buffer,node->name);
-  }else{
-    return print_engine_id(kafka_line_buffer,engine_id);
-  }
+  pthread_rwlock_unlock(&readOnlyGlobals.rb_databases.mutex);
+  return ret;
 }
 
 size_t print_engine_id_name(struct printbuf *kafka_line_buffer,
