@@ -1095,13 +1095,14 @@ size_t print_mac_vendor(struct printbuf *kafka_line_buffer,
   return print_mac_vendor0(kafka_line_buffer, buffer + real_field_offset);
 }
 
-static size_t print_engine_id0(struct printbuf *kafka_line_buffer,const uint8_t engine_id){
+static size_t print_engine_id(struct printbuf *kafka_line_buffer,
+                              const uint8_t engine_id) {
   assert(kafka_line_buffer);
 
-  if(engine_id == 0)
+  if (engine_id == 0)
     return 0;
 
-  return printbuf_memappend_fast_n10(kafka_line_buffer,engine_id);
+  return printbuf_memappend_fast_n10(kafka_line_buffer, engine_id);
 }
 
 static size_t print_engine_id_name0(struct printbuf *kafka_line_buffer,const uint8_t engine_id){
@@ -1118,18 +1119,8 @@ static size_t print_engine_id_name0(struct printbuf *kafka_line_buffer,const uin
   if(node){
     return printbuf_memappend_fast_string(kafka_line_buffer,node->name);
   }else{
-    return print_engine_id0(kafka_line_buffer,engine_id);
+    return print_engine_id(kafka_line_buffer,engine_id);
   }
-}
-
-size_t print_engine_id(struct printbuf *kafka_line_buffer,
-    const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
-  const uint8_t *buffer = vbuffer;
-  assert_multi(kafka_line_buffer, buffer);
-  unused_params(flowCache, real_field_len);
-
-  return print_engine_id0(kafka_line_buffer,buffer[real_field_offset]);
 }
 
 size_t print_engine_id_name(struct printbuf *kafka_line_buffer,
