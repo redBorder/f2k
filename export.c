@@ -1160,7 +1160,7 @@ static size_t print_application_id0(struct printbuf *kafka_line_buffer,
     return 0;
 
   size_t bytes_printed = 0;
-  bytes_printed += printbuf_memappend_fast_n10(kafka_line_buffer,major_proto);
+  bytes_printed += print_engine_id_name0(kafka_line_buffer,major_proto);
   printbuf_memappend_fast(kafka_line_buffer,":",1);
   bytes_printed += 1;
   bytes_printed += printbuf_memappend_fast_n10(kafka_line_buffer,minor_proto);

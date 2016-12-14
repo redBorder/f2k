@@ -64,6 +64,28 @@
 	R(PKTS, 8, 0, UINT64_TO_UINT8_ARR(263)) \
 	R(98, 1, 0, 0) \
 	R(195, 1, 0, 0) \
+	R(WAP_MAC_ADDRESS, 6, 0, 0x58, 0xbf, 0xea, 0x01, 0x5b, 0x40) \
+		/* ****************************** */ \
+	R(STA_MAC_ADDRESS, 6, 0, 0x00, 0x05, 0x69, 0x28, 0xb0, 0xc7) \
+	R(STA_IPV4_ADDRESS, 4, 0, 10, 13, 94, 223) \
+	R(APPLICATION_ID, 4, 0, FLOW_APPLICATION_ID(3, 1990)) \
+	R(WLAN_SSID, 33, 0,  WLAN_SSID_CHARS) \
+	R(DIRECTION, 1, 0, 0) \
+	R(BYTES, 8, 0, UINT64_TO_UINT8_ARR(7603)) \
+	R(PKTS, 8, 0, UINT64_TO_UINT8_ARR(263)) \
+	R(98, 1, 0, 0) \
+	R(195, 1, 0, 0) \
+	R(WAP_MAC_ADDRESS, 6, 0, 0x58, 0xbf, 0xea, 0x01, 0x5b, 0x40) \
+		/* ****************************** */ \
+	R(STA_MAC_ADDRESS, 6, 0, 0x00, 0x05, 0x69, 0x28, 0xb0, 0xc7) \
+	R(STA_IPV4_ADDRESS, 4, 0, 10, 13, 94, 223) \
+	R(APPLICATION_ID, 4, 0, FLOW_APPLICATION_ID(245, 1990)) \
+	R(WLAN_SSID, 33, 0,  WLAN_SSID_CHARS) \
+	R(DIRECTION, 1, 0, 0) \
+	R(BYTES, 8, 0, UINT64_TO_UINT8_ARR(7603)) \
+	R(PKTS, 8, 0, UINT64_TO_UINT8_ARR(263)) \
+	R(98, 1, 0, 0) \
+	R(195, 1, 0, 0) \
 	R(WAP_MAC_ADDRESS, 6, 0, 0x58, 0xbf, 0xea, 0x01, 0x5b, 0x40)
 
 #define SSL_APPLICATION_NAME \
@@ -127,8 +149,6 @@
 
 
 #define CHECKDATA_BASE(mapplication_name, mengine_name) { \
-	{.key = "application_id", .value = NULL}, \
-	{.key = "engine_id", .value = NULL}, \
 	{.key = "application_id_name", .value = mapplication_name}, \
 	{.key = "engine_id_name", .value = mengine_name}}
 
@@ -141,6 +161,12 @@ static const struct checkdata_value checkdata3[] = CHECKDATA_BASE("dns",
 
 static const struct checkdata_value checkdata4[] = CHECKDATA_BASE("pssl",
 								"PANA-L7");
+
+static const struct checkdata_value checkdata5[] = CHECKDATA_BASE("IANA-L4:1990",
+								"IANA-L4");
+
+static const struct checkdata_value checkdata6[] = CHECKDATA_BASE("245:1990",
+								"245");
 
 static int prepare_test_nf9_appid_enrichment(void **state) {
 
@@ -177,12 +203,16 @@ static int prepare_test_nf9_appid_enrichment(void **state) {
 		CHECK(checkdata1),
 		CHECK(checkdata2),
 		CHECK(checkdata3),
+		CHECK(checkdata5),
+		CHECK(checkdata6),
 	};
 
 	static const struct checkdata post_checkdata[] = {
 		CHECK(checkdata1),
 		CHECK(checkdata4),
 		CHECK(checkdata3),
+		CHECK(checkdata5),
+		CHECK(checkdata6),
 	};
 #undef CHECK
 
