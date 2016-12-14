@@ -1798,34 +1798,10 @@ static size_t print_http_l2_domain(struct printbuf *kafka_line_buffer,
   return append_escaped(kafka_line_buffer, l2_host, l2_host_len);
 }
 
-static size_t print_http_host_l1_0(struct printbuf *kafka_line_buffer,
-    const void *host, size_t host_size, struct flowCache *flow_cache) {
-  (void)flow_cache;
-
-  const char *dot = memrchr(host, '.', host_size);
-  const char *l1_host = dot ? dot : host;
-
-  // seek first dot(s)
-  l1_host = memcchrnul(l1_host, '.',
-    host_size - (l1_host - (const char *)host));
-
-  const size_t l1_host_len = host_size - (l1_host - (const char *)host);
-  return append_escaped(kafka_line_buffer, l1_host, l1_host_len);
-}
-
 static size_t print_http_host_l2_0(struct printbuf *kafka_line_buffer,
     const void *host, size_t host_size, struct flowCache *flow_cache) {
   (void)flow_cache;
   return print_http_l2_domain(kafka_line_buffer, host, host_size);
-}
-
-size_t print_http_host_l1(struct printbuf *kafka_line_buffer,
-                          const void *vbuffer, const size_t real_field_len,
-                          const size_t real_field_offset,
-                          struct flowCache *flowCache) {
-  return cisco_private_decorator(kafka_line_buffer, vbuffer, real_field_len,
-    real_field_offset, flowCache, http_host_id, sizeof(http_host_id),
-    print_http_host_l1_0);
 }
 
 size_t print_http_host_l2(struct printbuf *kafka_line_buffer,

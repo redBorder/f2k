@@ -354,9 +354,6 @@ size_t print_http_url(struct printbuf *kafka_line_buffer,
 size_t print_http_host(struct printbuf *kafka_line_buffer,
   const void *buffer, const size_t real_field_len,
   const size_t real_field_len_offset,struct flowCache *flowCache);
-size_t print_http_host_l1(struct printbuf *kafka_line_buffer,
-  const void *buffer, const size_t real_field_len,
-  const size_t real_field_offset, struct flowCache *flowCache);
 size_t print_http_host_l2(struct printbuf *kafka_line_buffer,
   const void *buffer, const size_t real_field_len,
   const size_t real_field_offset, struct flowCache *flowCache);
