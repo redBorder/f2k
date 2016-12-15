@@ -24,6 +24,8 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
+#ifdef HAVE_GEOIP
+
 static const char CONFIG_FILE_PATH[] = "./tests/0004-testGeoIp-databases.json";
 
 static const NetFlow5Record record1 = {
@@ -121,33 +123,33 @@ static const NetFlow5Record record1 = {
 
 static const struct checkdata_value checkdata_values1[] = {
 	{.key="src", .value="192.168.1.1"},
-	{.key="src_as", .value = NULL},
+	/* {.key="src_as", .value = NULL}, */
 	{.key="src_country_code", .value = NULL},
 	{.key="src_as_name", .value = NULL},
 	{.key="dst", .value="192.168.1.2"},
-	{.key="dst_as", .value = NULL},
+	/* {.key="dst_as", .value = NULL}, */
 	{.key="dst_country_code", .value = NULL},
 	{.key="dst_as_name", .value = NULL},
 };
 
 static const struct checkdata_value checkdata_values2[] = {
 	{.key="src", .value="8.8.8.8"},
-	{.key="src_as", .value="15169"},
+	/* {.key="src_as", .value="15169"}, */
 	{.key="src_country_code", .value="US"},
 	{.key="src_as_name", .value = "Google Inc."},
 	{.key="dst", .value="192.168.1.2"},
-	{.key="dst_as", .value = NULL},
+	/* {.key="dst_as", .value = NULL}, */
 	{.key="dst_country_code", .value = NULL},
 	{.key="dst_as_name", .value = NULL},
 };
 
 static const struct checkdata_value checkdata_values3[] = {
 	{.key="src", .value="192.168.1.2"},
-	{.key="src_as", .value = NULL},
+	/* {.key="src_as", .value = NULL}, */
 	{.key="src_country_code", .value = NULL},
 	{.key="src_as_name", .value = NULL},
 	{.key="dst", .value="83.56.40.199"},
-	{.key="dst_as", .value="3352"},
+	/* {.key="dst_as", .value="3352"}, */
 	{.key="dst_country_code", .value="ES"},
 	{.key="dst_as_name", .value = "Telefonica De Espana"},
 };
@@ -173,9 +175,17 @@ static int prepare_test_geoip(void **state) {
 	return *state == NULL;
 }
 
+#else /* HAVE_GEOIP */
+static void skip_test() { skip(); }
+#endif
+
 int main() {
 	const struct CMUnitTest tests[] = {
+#ifdef HAVE_GEOIP
 		cmocka_unit_test_setup(testFlow, prepare_test_geoip),
+#else
+		cmocka_unit_test(skip_test),
+#endif
 	};
 
 	return cmocka_run_group_tests(tests, nf_test_setup, nf_test_teardown);

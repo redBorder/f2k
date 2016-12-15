@@ -36,6 +36,9 @@
 
 #define TP_INITIALIZERS {NULL}
 
+#define CONCAT0(A,B) A##B
+#define CONCAT(A,B) CONCAT0(A,B)
+
 /*
   "Recursive" macro call
  */
@@ -55,9 +58,14 @@
 
 /* ************************** */
 
+// Only apply TEMPLATE_OF if provided 1 parameter. In other case, expand to
+// nothing
+#define T_CHILD_1(n) TEMPLATE_OF(n),
+#define T_CHILD_0()
+#define T_CHILD(...) CONCAT(T_CHILD_,NUM_ARGS(__VA_ARGS__))(__VA_ARGS__)
+
 #define T_MKCHILDREN(...) (const V9V10TemplateElementId *[]) {                 \
                                           APPLY_ALL(T_CHILD, __VA_ARGS__) NULL }
-#define T_CHILD(n) TEMPLATE_OF(n),
 
 const V9V10TemplateElementId ver9_templates[] = {
 #define X(ENTERPRISE_ID, ID_STR, ID, JSON_QUOTE, NAME, \

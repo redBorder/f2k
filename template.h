@@ -40,18 +40,24 @@ const char* getStandardFieldId(size_t id);
 
 #ifdef HAVE_GEOIP
 #define X_GEO_IP \
-	X(NTOP_ENTERPRISE_ID, SRC_IP_COUNTRY, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "SRC_IP_COUNTRY", "src_country_code", "", "Country where the src IP is located",print_country_code,NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, SRC_IP_COUNTRY_LONG, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "SRC_IP_COUNTRY_LONG", "src_country", "", "Country where the src IP is located (long format)",NO_FN,NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, SRC_IP_CITY, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "SRC_IP_CITY", "src_city", "", "City where the src IP is located",NO_FN,NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, DST_IP_COUNTRY, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DST_IP_COUNTRY", "dst_country_code", "", "Country where the dst IP is located",print_country_code,NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, DST_IP_COUNTRY_LONG, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DST_IP_COUNTRY_LONG", "dst_country", "", "Country where the dst IP is located (long format)",NO_FN,NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, DST_IP_CITY, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DST_IP_CITY", "dst_city", "", "City where the dst IP is located",NO_FN,NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, IPV6_SRC_IP_COUNTRY, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_SRC_IP_COUNTRY", "src_country_code", "", "Country where the src IP is located (IPv6)",print_country6_code, NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, IPV6_SRC_IP_COUNTRY_LONG, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_SRC_IP_COUNTRY_LONG", "src_country", "", "Country where the src IP is located (long format) (IPv6)",NO_FN,NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, IPV6_DST_IP_COUNTRY, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_DST_IP_COUNTRY", "dst_country_code", "", "Country where the dst IP is located (IPv6)",print_country6_code, NO_CHILDS)\
-	X(NTOP_ENTERPRISE_ID, IPV6_DST_IP_COUNTRY_LONG, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_DST_IP_COUNTRY_LONG", "dst_country", "", "Country where the dst IP is located (long format) (IPv6)",NO_FN,NO_CHILDS)
+	X(STANDARD_ENTERPRISE_ID, SRC_IP_COUNTRY, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "SRC_IP_COUNTRY", "src_country_code", "", "Country where the src IP is located",print_country_code,NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, DST_IP_COUNTRY, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DST_IP_COUNTRY", "dst_country_code", "", "Country where the dst IP is located",print_country_code,NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_ASNUM_NAME,PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_SRC_ASNUM_NAME", "src_as_name", "sourceIPv4Address", "IPv4 source address Autonomous system name",print_AS_ipv4_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV4_DST_ASNUM_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_DST_ASNUM_NAME", "dst_as_name", "destinationIPv4AddressAsNumber", "IPv4 destination address Autonomous System name",print_AS_ipv4_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_IP_COUNTRY, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_SRC_IP_COUNTRY", "src_country_code", "", "Country where the src IP is located (IPv6)",print_country6_code, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV6_DST_IP_COUNTRY, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_DST_IP_COUNTRY", "dst_country_code", "", "Country where the dst IP is located (IPv6)",print_country6_code, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_AS_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_SRC_AS_NAME", "src_as_name", "SourceAsNumber", "Source IP AS", print_AS6_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV6_DST_AS_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_DST_AS_NAME", "dst_as_name", "DestinationAsNumber", "Destination IP AS", print_AS6_name, NO_CHILDS)
+#define IPV4_SRC_IP_GEO_CHILDS C(SRC_IP_COUNTRY, IPV4_SRC_ASNUM_NAME)
+#define IPV4_DST_IP_GEO_CHILDS C(DST_IP_COUNTRY, IPV4_DST_ASNUM_NAME)
+#define IPV6_SRC_IP_GEO_CHILDS C(IPV6_SRC_IP_COUNTRY, IPV6_SRC_AS_NAME)
+#define IPV6_DST_IP_GEO_CHILDS C(IPV6_DST_IP_COUNTRY, IPV6_DST_AS_NAME)
 #else
 #define X_GEO_IP
+#define IPV4_SRC_IP_GEO_CHILDS
+#define IPV4_DST_IP_GEO_CHILDS
+#define IPV6_SRC_IP_GEO_CHILDS
+#define IPV6_DST_IP_GEO_CHILDS
 #endif
 
 #ifdef SECONDS_PRECISION
@@ -109,9 +115,7 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, SRC_TOS, 5, DONT_QUOTE_OUTPUT, "SRC_TOS", "tos", "ipClassOfService", "Type of service byte", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, TCP_FLAGS, 6, QUOTE_OUTPUT, "TCP_FLAGS", "tcp_flags", "tcpControlBits", "Cumulative of all flow TCP flags", print_tcp_flags, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, L4_SRC_PORT, 7, DONT_QUOTE_OUTPUT, "L4_SRC_PORT", "src_port", "src_port", "IPv4 source port",print_src_port,NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_ADDR, 8, QUOTE_OUTPUT, "IPV4_SRC_ADDR", "src", "sourceIPv4Address", "IPv4 source address" , print_ipv4_src_addr, C(IPV4_SRC_NET, IPV4_SRC_ASNUM, SRC_IP_COUNTRY))\
-	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_ASNUM,PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "IPV4_SRC_ASNUM", "src_as", "sourceIPv4Address", "IPv4 source address",print_AS_ipv4, C(IPV4_SRC_ASNUM_NAME))\
-	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_ASNUM_NAME,PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_SRC_ASNUM_NAME", "src_as_name", "sourceIPv4Address", "IPv4 source address Autonomous system name",print_AS_ipv4_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_ADDR, 8, QUOTE_OUTPUT, "IPV4_SRC_ADDR", "src", "sourceIPv4Address", "IPv4 source address" , print_ipv4_src_addr, C(IPV4_SRC_NET, IPV4_SRC_IP_GEO_CHILDS))\
 	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_SRC_NAME", "src_name", "sourceIPv4Name", "IPv4 source name", NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_NET_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_SRC_NET_NAME", "src_net_name", "sourceIPv4NetName", "IPv4 source net name",print_net_name, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV4_SRC_NET, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_SRC_NET", "src_net", "sourceIPv4Net", "IPv4 source net name",print_net,C(IPV4_SRC_NET_NAME))\
@@ -120,9 +124,7 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, INPUT_SNMP_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "INPUT_SNMP_NAME", "input_snmp_name", "ingressInterfaceName", "Input interface SNMP name",print_interface_name, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, INPUT_SNMP_DESCRIPTION, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "INPUT_SNMP_DESCRIPTION", "input_snmp_description", "ingressInterfaceDescription", "Input interface SNMP description",print_interface_description, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, L4_DST_PORT, 11, DONT_QUOTE_OUTPUT, "L4_DST_PORT", "dst_port", "destinationTransportPort", "IPv4 destination port",print_dst_port,NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV4_DST_ADDR, 12, QUOTE_OUTPUT, "IPV4_DST_ADDR", "dst", "destinationIPv4Address", "IPv4 destination address", print_ipv4_dst_addr, C(IPV4_DST_NET, IPV4_DST_ASNUM, DST_IP_COUNTRY))\
-	X(STANDARD_ENTERPRISE_ID, IPV4_DST_ASNUM, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "IPV4_DST_ASNUM", "dst_as", "destinationIPv4AddressAsNumber", "IPv4 destination address Autonomous System number",print_AS_ipv4,IPV4_DST_ASNUM_NAME)\
-	X(STANDARD_ENTERPRISE_ID, IPV4_DST_ASNUM_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_DST_ASNUM_NAME", "dst_as_name", "destinationIPv4AddressAsNumber", "IPv4 destination address Autonomous System name",print_AS_ipv4_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IPV4_DST_ADDR, 12, QUOTE_OUTPUT, "IPV4_DST_ADDR", "dst", "destinationIPv4Address", "IPv4 destination address", print_ipv4_dst_addr, C(IPV4_DST_NET, IPV4_DST_IP_GEO_CHILDS))\
 	X(STANDARD_ENTERPRISE_ID, IPV4_DST_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_DST_NAME", "dst_name", "destinationIPv4Address", "IPv4 destination name", NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV4_DST_NET_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_DST_NET_NAME", "dst_net_name", "destinationIPv4NetName", "IPv4 destination net name", print_net_name, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV4_DST_NET, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV4_DST_NET", "dst_net", "destinationIPv4Net", "IPv4 destination net name",print_net ,C(IPV4_DST_NET_NAME))\
@@ -133,10 +135,6 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, IPV4_NEXT_HOP, 15, QUOTE_OUTPUT, "IPV4_NEXT_HOP", "ipv4_next_hop", "ipNextHopIPv4Address", "IPv4 next hop address", NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, SRC_AS, 16, DONT_QUOTE_OUTPUT, "SRC_AS", "prev_as", "bgpSourceAsNumber", "Source BGP AS",print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, DST_AS, 17, DONT_QUOTE_OUTPUT, "DST_AS", "next_as", "bgpDestinationAsNumber", "Destination BGP AS",print_number, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_AS, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "IPV6_SRC_AS", "src_as", "bgpSourceAsNumber", "Source BGP AS" , print_AS6, C(IPV6_SRC_AS_NAME))\
-	X(STANDARD_ENTERPRISE_ID, IPV6_DST_AS, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "IPV6_DST_AS", "dst_as", "bgpDestinationAsNumber", "Destination BGP AS", print_AS6, C(IPV6_DST_AS_NAME))\
-	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_AS_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_SRC_AS_NAME", "src_as_name", "bgpSourceAsNumber", "Source BGP AS", print_AS6_name, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV6_DST_AS_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_DST_AS_NAME", "dst_as_name", "bgpDestinationAsNumber", "Destination BGP AS", print_AS6_name, NO_CHILDS)\
 	/*X(STANDARD_ENTERPRISE_ID, BGP_IPV4_NEXT_HOP, 18, DONT_QUOTE_OUTPUT, "BGP_IPV4_NEXT_HOP", "bgp_ipv4_next_hop", "bgpNexthopIPv4Address", "")*/\
 	/*X(STANDARD_ENTERPRISE_ID, MUL_DST_PKTS, 19, DONT_QUOTE_OUTPUT, "MUL_DST_PKTS", "mul_dst_pkts", "postMCastPacketDeltaCount", "")*/\
 	/*X(STANDARD_ENTERPRISE_ID, MUL_DST_BYTES, 20, DONT_QUOTE_OUTPUT, "MUL_DST_BYTES", "mul_dst_bytes", "postMCastOctetDeltaCount", "")*/\
@@ -147,11 +145,10 @@ const char* getStandardFieldId(size_t id);
 	X_SECONDS_PRECISION \
 	X(STANDARD_ENTERPRISE_ID, OUT_BYTES, 23, DONT_QUOTE_OUTPUT, "OUT_BYTES", "out_bytes", "postOctetDeltaCount", "Outgoing flow bytes (dst->src)",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, OUT_PKTS, 24, DONT_QUOTE_OUTPUT, "OUT_PKTS", "out_pkts", "postPacketDeltaCount", "Outgoing flow packets (dst->src)",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_ADDR, 27, QUOTE_OUTPUT, "IPV6_SRC_ADDR", "src", "sourceIPv6Address", "IPv6 source address" ,print_ipv6_src_addr, C(IPV6_SRC_NET,IPV6_SRC_IP_COUNTRY, IPV6_SRC_AS))\
-	X(STANDARD_ENTERPRISE_ID, IPV6_DST_ADDR, 28, QUOTE_OUTPUT, "IPV6_DST_ADDR", "dst", "destinationIPv6Address", "IPv6 destination address" ,print_ipv6_dst_addr, C(IPV6_DST_NET,IPV6_SRC_IP_COUNTRY, IPV6_SRC_AS))\
+	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_ADDR, 27, QUOTE_OUTPUT, "IPV6_SRC_ADDR", "src", "sourceIPv6Address", "IPv6 source address" ,print_ipv6_src_addr, C(IPV6_SRC_NET, IPV6_SRC_IP_GEO_CHILDS))\
+	X(STANDARD_ENTERPRISE_ID, IPV6_DST_ADDR, 28, QUOTE_OUTPUT, "IPV6_DST_ADDR", "dst", "destinationIPv6Address", "IPv6 destination address" ,print_ipv6_dst_addr, C(IPV6_DST_NET, IPV6_DST_IP_GEO_CHILDS))\
 	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_MASK, 29, DONT_QUOTE_OUTPUT, "IPV6_SRC_MASK", "ipv6_src_mask", "sourceIPv6PrefixLength", "IPv6 source mask",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV6_DST_MASK, 30, DONT_QUOTE_OUTPUT, "IPV6_DST_MASK", "ipv6_dst_mask", "destinationIPv6PrefixLength", "IPv6 destination mask",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_ASNUM, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "IPV6_SRC_ASNUM", "src_asnum", "sourceIPv4Address", "IPv6 source address",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_SRC_NAME", "src_name", "sourceIPv6Name", "IPv6 source name",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_NET_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_SRC_NET_NAME", "src_net_name", "sourceIPv6NetName", "IPv6 source net name",print_net_name_v6, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV6_SRC_NET, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IPV6_SRC_NET", "src_net", "sourceIPv6Net", "IPv6 source net name",print_net_v6, IPV6_SRC_NET_NAME)\
@@ -298,7 +295,7 @@ const char* getStandardFieldId(size_t id);
 	X(CISCO_ENTERPRISE_ID, WAN_IP_NET_NAME_BASED_ON_DIRECTION, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "WAN_IP_NET_NAME_BASED_ON_DIRECTION", "wan_ip_net_name", "IP", "WAN IP address", print_wan_addr_net_name, NO_CHILDS)\
 	X(CISCO_ENTERPRISE_ID, LAN_PORT_BASED_ON_DIRECTION, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "LAN_PORT_BASED_ON_DIRECTION", "lan_port", "lanPort", "LAN Port number", print_lan_port, NO_CHILDS)\
 	X(CISCO_ENTERPRISE_ID, WAN_PORT_BASED_ON_DIRECTION, PRIVATE_ENTITY_ID, DONT_QUOTE_OUTPUT, "WAN_PORT_BASED_ON_DIRECTION", "wan_port", "wanPort", "WAN Port number", print_wan_port, NO_CHILDS)\
-	X(CISCO_ENTERPRISE_ID, STA_IPV4_ADDRESS, 366, QUOTE_OUTPUT, "STA_IPV4_ADDRESS", "src", "src", "IPv4 destination address",print_ipv4_src_addr, C(IPV4_SRC_NET, IPV4_SRC_ASNUM, SRC_IP_COUNTRY))\
+	X(CISCO_ENTERPRISE_ID, STA_IPV4_ADDRESS, 366, QUOTE_OUTPUT, "STA_IPV4_ADDRESS", "src", "src", "IPv4 destination address",print_ipv4_src_addr, C(IPV4_SRC_NET, IPV4_SRC_IP_GEO_CHILDS))\
 	X(CISCO_ENTERPRISE_ID, STA_IPV4_ADDRESS_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "STA_IPV4_ADDRESS_NAME", "src_name","src_name", "IPv4 destination address Name",NO_FN,NO_CHILDS)\
 	X(CISCO_ENTERPRISE_ID, WAP_MAC_ADDRESS, 367, QUOTE_OUTPUT, "WAP_MAC_ADDRESS", "wireless_station", "devMacAddr", "Device MAC Address",print_mac, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, REDBORDER_TYPE, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "REDBORDER_TYPE", "type", "type", "Redborder internal flowtype (currenly, netflow version)" ,print_netflow_type, NO_CHILDS)\
