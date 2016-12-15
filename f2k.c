@@ -126,7 +126,6 @@ static const struct option long_options[] = {
   /* Handled by the plugin */
   { "no-promisc",                       no_argument,             NULL, '6' },
   { "pcap-file-list",                   required_argument,       NULL, '$' },
-  { "city-list",                        required_argument,       NULL, ',' },
   { "country-list",                     required_argument,       NULL, 259 },
   /* Some identifiers are available */
   { "dont-drop-privileges",             no_argument,             NULL, '\\' },
@@ -659,10 +658,6 @@ static void usage() {
          "                                    | specified rate. Default: 1:1 [no sampling]\n");
   printf("[--as-list|-A] <AS list>            | GeoIP file containing the list of known ASs.\n"
          "                                    | Example: GeoIPASNum.dat\n");
-  printf("--city-list <city list>             | GeoIP file containing the city/IP mapping. Note\n"
-         "                                    | that nProbe will load the IPv6 file equivalent\n"
-         "                                    | if present. Example: --city-list GeoLiteCity.dat\n"
-         "                                    | will also attempt to load GeoLiteCityv6.dat\n");
   printf("[--pid-file|-g] <PID file>          | Put the PID in the specified file\n");
   printf("[--flow-version|-V] <version>       | NetFlow Version: 5=v5, 9=v9, 10=IPFIX\n");
   printf("[--count|-2] <number>               | Capture a specified number of packets\n"
@@ -1061,7 +1056,6 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
       case '7':
       case '+':
       case 'A': /* as-list */
-      case ',': /* city-list */
       case 259: /* country-list */
       case 229: /* kafka opts */
       case 'X': /* kafka modifiers */
@@ -1104,11 +1098,6 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
       break;
     case '\\':
       readOnlyGlobals.do_not_drop_privileges = 1;
-      break;
-    case ',':
-      readOnlyGlobals.rb_databases.geoip_cities_database_path = optarg;
-      if(reparse_options)
-        readOnlyGlobals.rb_databases.reload_geoip_database = 1;
       break;
     case 259:
       readOnlyGlobals.rb_databases.geoip_country_database_path = optarg;
@@ -2165,12 +2154,16 @@ static void* fetchPcapPackets(void* _thid) {
 
 /* ****************************************************** */
 
+#ifdef HAVE_GEOIP
+
 static void init_geoip(){
   if(readOnlyGlobals.rb_databases.geoip_country_database_path)
     readCountries(readOnlyGlobals.rb_databases.geoip_country_database_path);
   if(readOnlyGlobals.rb_databases.geoip_as_database_path)
     readASs(readOnlyGlobals.rb_databases.geoip_as_database_path);
 }
+
+#endif /* HAVE_GEOIP */
 
 #ifdef HAVE_ZOOKEEPER
 
@@ -2222,8 +2215,6 @@ static void init_globals(void) {
 
 static void printCopyrights(void) {
 #ifdef HAVE_GEOIP
-  if(readOnlyGlobals.geo_ip_city_db != NULL)
-    traceEvent(TRACE_NORMAL, "%s", GeoIP_database_info(readOnlyGlobals.geo_ip_city_db));
   if(readOnlyGlobals.geo_ip_asn_db != NULL)
     traceEvent(TRACE_NORMAL, "%s", GeoIP_database_info(readOnlyGlobals.geo_ip_asn_db));
 #endif
@@ -2232,10 +2223,12 @@ static void printCopyrights(void) {
 /* ****************************************************** */
 
 static void check_for_database_reloads(){
+#ifdef HAVE_GEOIP
   if(unlikely(readOnlyGlobals.rb_databases.reload_geoip_database)){
     init_geoip(); // locks and reload properly
     readOnlyGlobals.rb_databases.reload_geoip_database=0;
   }
+#endif /* HAVE_GEOIP */
 
   check_if_reload(&readOnlyGlobals.rb_databases);
 }

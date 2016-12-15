@@ -20,12 +20,14 @@
 #include "f2k.h"
 #include "rb_sensor.h"
 #include "template.h"
+
 #include <assert.h>
 #include <dirent.h>
 #include <arpa/inet.h>
 #include <stdarg.h>
 #include <pwd.h>
 #include <syslog.h>
+#include <sys/stat.h>
 
 #ifdef FREEBSD
 #include <pthread_np.h>
@@ -203,23 +205,13 @@ static void readGeoIpDatabase(const char *path, const char *database_name, GeoIP
 
   pthread_rwlock_unlock(&readWriteGlobals->geoipRwLock);
 }
-#endif
 
 void readASs(const char *path) {
-#ifdef HAVE_GEOIP
   readGeoIpDatabase(path,"AS",&readOnlyGlobals.geo_ip_asn_db,&readOnlyGlobals.geo_ip_asn_db_v6);
-#endif
-}
-
-void readCities(const char *path) {
-#ifdef HAVE_GEOIP
-  readGeoIpDatabase(path,"cities",&readOnlyGlobals.geo_ip_city_db,&readOnlyGlobals.geo_ip_city_db_v6);
-#endif
 }
 
 void deleteGeoIPDatabases()
 {
-#ifdef HAVE_GEOIP
   pthread_rwlock_wrlock(&readWriteGlobals->geoipRwLock);
   if(readOnlyGlobals.geo_ip_asn_db != NULL)
     GeoIP_delete(readOnlyGlobals.geo_ip_asn_db);
@@ -227,12 +219,6 @@ void deleteGeoIPDatabases()
   if(readOnlyGlobals.geo_ip_asn_db_v6 != NULL)
     GeoIP_delete(readOnlyGlobals.geo_ip_asn_db_v6);
   readOnlyGlobals.geo_ip_asn_db_v6 = NULL;
-  if(readOnlyGlobals.geo_ip_city_db != NULL)
-    GeoIP_delete(readOnlyGlobals.geo_ip_city_db);
-  readOnlyGlobals.geo_ip_city_db = NULL;
-  if(readOnlyGlobals.geo_ip_city_db_v6 != NULL)
-    GeoIP_delete(readOnlyGlobals.geo_ip_city_db_v6);
-  readOnlyGlobals.geo_ip_city_db_v6 = NULL;
   if(readOnlyGlobals.geo_ip_country_db != NULL)
     GeoIP_delete(readOnlyGlobals.geo_ip_country_db);
   readOnlyGlobals.geo_ip_country_db = NULL;
@@ -240,15 +226,15 @@ void deleteGeoIPDatabases()
     GeoIP_delete(readOnlyGlobals.geo_ip_country_db_v6);
   readOnlyGlobals.geo_ip_country_db_v6 = NULL;
   pthread_rwlock_unlock(&readWriteGlobals->geoipRwLock);
-#endif
 }
+#endif
 
 /* ******************************************** */
-void readCountries(const char *path) {
 #ifdef HAVE_GEOIP
+void readCountries(const char *path) {
   readGeoIpDatabase(path,"cities",&readOnlyGlobals.geo_ip_country_db,&readOnlyGlobals.geo_ip_country_db_v6);
-#endif
 }
+#endif
 
 /* ******************************************** */
 

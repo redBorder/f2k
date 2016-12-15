@@ -217,7 +217,6 @@ typedef struct {
 #ifdef HAVE_GEOIP
   /* GeoIP */
   GeoIP *geo_ip_asn_db, *geo_ip_asn_db_v6;
-  GeoIP *geo_ip_city_db, *geo_ip_city_db_v6;
   GeoIP *geo_ip_country_db, *geo_ip_country_db_v6;
 #endif
 

@@ -135,7 +135,11 @@ int nf_test_teardown(void **state) {
   for (i = 0; i < RD_ARRAYSIZE(hosts_lists); ++i) {
     freeHostsList(hosts_lists[i]);
   }
+
+#ifdef HAVE_GEOIP
   deleteGeoIPDatabases();
+#endif /* HAVE_GEOIP */
+
   if (readOnlyGlobals.zk.zh != NULL) {
     stop_f2k_zk();
     readOnlyGlobals.zk.zh = NULL;
@@ -212,8 +216,11 @@ static int load_geoip_databases(const char *geoip_path) {
 			"as-path" ,&AS_path,
 			"country-path" ,&country_path);
 
+#ifdef HAVE_GEOIP
 		readASs(AS_path);
 		readCountries(country_path);
+#endif /* HAVE_GEOIP */
+
 
 		free_json_unpacked(unpack_private);
 		free(config_file);

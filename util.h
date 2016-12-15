@@ -140,11 +140,13 @@ void daemonize(void);
 
 void setThreadAffinity(u_int core_id);
 
+#ifdef HAVE_GEOIP
 void readASs(const char *path);
-void readCities(const char *path);
 void readCountries(const char *path);
 void deleteGeoIPDatabases();
 void initAS(void);
+#endif /* HAVE_GEOIP */
+
 uint32_t msTimeDiff(struct timeval *end, struct timeval *begin);
 float timevalDiff(struct timeval *end, struct timeval *begin);
 unsigned int ntop_sleep(unsigned int secs);
@@ -368,7 +370,6 @@ struct rb_databases{
   struct mac_vendor_database *mac_vendor_database;
   char *hosts_database_path;
   char *geoip_as_database_path;
-  char *geoip_cities_database_path;
   char *geoip_country_database_path;
   char *mac_vendor_database_path;
   char *sensors_info_path;
