@@ -1338,17 +1338,15 @@ struct AS_info{
   const char *name;
 };
 
-static struct AS_info extract_as_from_geoip_response(char *rsp)
-{
+static struct AS_info extract_as_from_geoip_response(char *rsp) {
   /* rsp = ASDDDDD SSSSSSS */
   char *aux = NULL;
   struct AS_info asinfo = {NULL,0,NULL};
   asinfo.number = strtok_r(rsp," ",&aux);
-  if(asinfo.number)
-  {
+  if (asinfo.number) {
     asinfo.number+=2;
     asinfo.number_len = aux-rsp-3;
-    asinfo.name = aux;
+    asinfo.name = strtok_r(NULL,"",&aux);
   }
 
   return asinfo;
