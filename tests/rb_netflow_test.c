@@ -351,6 +351,10 @@ static struct string_list *test_flow_i(const struct test_params *params,
     init_kafka_producer(params->kafka_url);
   }
 
+  if (params->normalize_directions) {
+    readOnlyGlobals.normalize_directions = true;
+  }
+
   check_if_reload(&readOnlyGlobals.rb_databases);
 
   const uint32_t netflow_device_ip = params->netflow_src_ip;

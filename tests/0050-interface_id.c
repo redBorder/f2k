@@ -32,42 +32,23 @@
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
 	0x00, 0x00, 0x00
 
-#define APP_ID_ENTITIES(RT, R) \
-	RT(STA_MAC_ADDRESS, 6, 0, 0x00, 0x05, 0x69, 0x28, 0xb0, 0xc7) \
-	RT(STA_IPV4_ADDRESS, 4, 0, 10, 13, 94, 223) \
-	RT(INPUT_SNMP, 2, 0, UINT16_TO_UINT8_ARR(1)) \
-	RT(OUTPUT_SNMP, 2, 0, UINT16_TO_UINT8_ARR(2)) \
-	RT(WLAN_SSID, 33, 0,  WLAN_SSID_CHARS) \
-	RT(DIRECTION, 1, 0, 0) \
-	RT(IN_BYTES, 8, 0, UINT64_TO_UINT8_ARR(7603)) \
-	RT(IN_PKTS, 8, 0, UINT64_TO_UINT8_ARR(263)) \
-	RT(98, 1, 0, 0) \
-	RT(195, 1, 0, 0) \
-	RT(WAP_MAC_ADDRESS, 6, 0, 0x58, 0xbf, 0xea, 0x01, 0x5b, 0x40) \
-		/* ****************************** */ \
-	R(STA_MAC_ADDRESS, 6, 0, 0x00, 0x05, 0x69, 0x28, 0xb0, 0xc7) \
-	R(STA_IPV4_ADDRESS, 4, 0, 10, 13, 94, 223) \
-	R(INPUT_SNMP, 2, 0, UINT16_TO_UINT8_ARR(2)) \
-	R(OUTPUT_SNMP, 2, 0, UINT16_TO_UINT8_ARR(4)) \
-	R(WLAN_SSID, 33, 0,  WLAN_SSID_CHARS) \
-	R(DIRECTION, 1, 0, 0) \
-	R(BYTES, 8, 0, UINT64_TO_UINT8_ARR(7603)) \
-	R(PKTS, 8, 0, UINT64_TO_UINT8_ARR(263)) \
-	R(98, 1, 0, 0) \
-	R(195, 1, 0, 0) \
-	R(WAP_MAC_ADDRESS, 6, 0, 0x58, 0xbf, 0xea, 0x01, 0x5b, 0x40) \
-		/* ****************************** */ \
-	R(STA_MAC_ADDRESS, 6, 0, 0x00, 0x05, 0x69, 0x28, 0xb0, 0xc7) \
-	R(STA_IPV4_ADDRESS, 4, 0, 10, 13, 94, 223) \
-	R(INPUT_SNMP, 2, 0, UINT16_TO_UINT8_ARR(3)) \
-	R(OUTPUT_SNMP, 2, 0, UINT16_TO_UINT8_ARR(1)) \
-	R(WLAN_SSID, 33, 0,  WLAN_SSID_CHARS) \
-	R(DIRECTION, 1, 0, 0) \
-	R(BYTES, 8, 0, UINT64_TO_UINT8_ARR(7603)) \
-	R(PKTS, 8, 0, UINT64_TO_UINT8_ARR(263)) \
-	R(98, 1, 0, 0) \
-	R(195, 1, 0, 0) \
-	R(WAP_MAC_ADDRESS, 6, 0, 0x58, 0xbf, 0xea, 0x01, 0x5b, 0x40)
+#define INTERFACE_FLOW_BASE(X, t_direction, t_input_snmp, t_output_snmp) \
+	X(STA_MAC_ADDRESS, 6, 0, 0x00, 0x05, 0x69, 0x28, 0xb0, 0xc7) \
+	X(STA_IPV4_ADDRESS, 4, 0, 10, 13, 94, 223) \
+	X(INPUT_SNMP, 2, 0, UINT16_TO_UINT8_ARR(t_input_snmp)) \
+	X(OUTPUT_SNMP, 2, 0, UINT16_TO_UINT8_ARR(t_output_snmp)) \
+	X(WLAN_SSID, 33, 0,  WLAN_SSID_CHARS) \
+	X(DIRECTION, 1, 0, t_direction) \
+	X(IN_BYTES, 8, 0, UINT64_TO_UINT8_ARR(7603)) \
+	X(IN_PKTS, 8, 0, UINT64_TO_UINT8_ARR(263)) \
+	X(98, 1, 0, 0) \
+	X(195, 1, 0, 0) \
+	X(WAP_MAC_ADDRESS, 6, 0, 0x58, 0xbf, 0xea, 0x01, 0x5b, 0x40)
+
+#define INTERFACE_ID_ENTITIES(RT, R) \
+	INTERFACE_FLOW_BASE(RT, 0, 1, 2) \
+	INTERFACE_FLOW_BASE(R, 1, 2, 4) \
+	INTERFACE_FLOW_BASE(R, 1, 3, 1)
 
 #define INTERFACE_NAME(num) \
 	'e', 't', 'h', 'e',  'r',  'n',  'e',  't', \
@@ -130,60 +111,111 @@
 	.flow_sequence = constexpr_be32toh(12372811), \
 	.observation_id = constexpr_be32toh(2),
 
+/* *************************** NF9 interfaces id *************************** */
+static const NF9_TEMPLATE(v9_template, TEST_V9_FLOW_HEADER,
+	TEST_TEMPLATE_ID, INTERFACE_ID_ENTITIES);
+static const NF9_FLOW(v9_flow, TEST_V9_FLOW_HEADER, TEST_TEMPLATE_ID,
+	INTERFACE_ID_ENTITIES);
 
-static int prepare_test_nf9_appid_enrichment(void **state) {
+static const NF9_OPTION_TEMPLATE(v9_option_template,
+	TEST_V9_FLOW_HEADER, OPTIONS_TEMPLATE_ID,
+	OPTIONS_ENTITIES_NF9);
+static const NF9_OPTION_FLOW(v9_option_flow, TEST_V9_FLOW_HEADER,
+	OPTIONS_TEMPLATE_ID, OPTIONS_ENTITIES_NF9);
 
-/* *************************** NF9 application id *************************** */
-	static const NF9_TEMPLATE(v9_template, TEST_V9_FLOW_HEADER,
-		TEST_TEMPLATE_ID, APP_ID_ENTITIES);
-	static const NF9_FLOW(v9_flow, TEST_V9_FLOW_HEADER, TEST_TEMPLATE_ID,
-		APP_ID_ENTITIES);
+/* ************************** IPFIX interfaces id ************************** */
+static const IPFIX_TEMPLATE(ipfix_template, TEST_IPFIX_FLOW_HEADER,
+	TEST_TEMPLATE_ID, INTERFACE_ID_ENTITIES);
+static const IPFIX_FLOW(ipfix_flow, TEST_IPFIX_FLOW_HEADER,
+	TEST_TEMPLATE_ID, INTERFACE_ID_ENTITIES);
 
-	static const NF9_OPTION_TEMPLATE(v9_option_template,
-		TEST_V9_FLOW_HEADER, OPTIONS_TEMPLATE_ID,
-		OPTIONS_ENTITIES_NF9);
-	static const NF9_OPTION_FLOW(v9_option_flow, TEST_V9_FLOW_HEADER,
-		OPTIONS_TEMPLATE_ID, OPTIONS_ENTITIES_NF9);
+static const IPFIX_OPTION_TEMPLATE(ipfix_option_template,
+	TEST_IPFIX_FLOW_HEADER, OPTIONS_TEMPLATE_ID,
+	OPTIONS_ENTITIES_IPFIX);
+static const IPFIX_OPTION_FLOW(ipfix_option_flow,
+	TEST_IPFIX_FLOW_HEADER, OPTIONS_TEMPLATE_ID,
+	OPTIONS_ENTITIES_IPFIX);
 
-/* ************************** IPFIX application id ************************** */
-	static const IPFIX_TEMPLATE(ipfix_template, TEST_IPFIX_FLOW_HEADER,
-		TEST_TEMPLATE_ID, APP_ID_ENTITIES);
-	static const IPFIX_FLOW(ipfix_flow, TEST_IPFIX_FLOW_HEADER,
-		TEST_TEMPLATE_ID, APP_ID_ENTITIES);
 
-	static const IPFIX_OPTION_TEMPLATE(ipfix_option_template,
-		TEST_IPFIX_FLOW_HEADER, OPTIONS_TEMPLATE_ID,
-		OPTIONS_ENTITIES_IPFIX);
-	static const IPFIX_OPTION_FLOW(ipfix_option_flow,
-		TEST_IPFIX_FLOW_HEADER, OPTIONS_TEMPLATE_ID,
-		OPTIONS_ENTITIES_IPFIX)
+static int prepare_test_interface_id0(void **state,
+		const struct checkdata *pre_checkdata,
+		const size_t pre_checkdata_size,
+		const struct checkdata *post_checkdata,
+		const size_t post_checkdata_size,
+		const bool normalize_directions) {
+	#define TEST(mrecord, mrecord_size, checks, checks_size, ...) {        \
+		.record = mrecord, .record_size = mrecord_size,                \
+		.checkdata = checks, .checkdata_size = checks_size,            \
+		.netflow_src_ip = 0x04030201, __VA_ARGS__                      \
+	}
+
+	struct test_params test_params[] = {
+		// 1st test use fallback list
+		TEST(&v9_template, sizeof(v9_template), NULL, 0,
+			.config_json_path =
+				"tests/0010-testAppIdEnrichment.json",
+			.host_list_path = "./tests/0010-data/",
+			.normalize_directions = normalize_directions),
+		TEST(&v9_flow, sizeof(v9_flow),
+			pre_checkdata, pre_checkdata_size,),
+
+		// 2nd test use an option template (private ssl)
+		TEST(&v9_option_template, sizeof(v9_option_template), NULL, 0,),
+		TEST(&v9_option_flow, sizeof(v9_option_flow), NULL, 0,),
+		TEST(&v9_flow, sizeof(v9_flow),
+			post_checkdata, post_checkdata_size,),
+
+		// Same with IPFIX
+		TEST(&ipfix_template, sizeof(ipfix_template), NULL, 0,),
+		TEST(&ipfix_flow, sizeof(ipfix_flow),
+			pre_checkdata, pre_checkdata_size,),
+
+		TEST(&ipfix_option_template, sizeof(ipfix_option_template),
+			NULL, 0,),
+		TEST(&ipfix_option_flow, sizeof(ipfix_option_flow), NULL, 0,),
+		TEST(&ipfix_flow, sizeof(ipfix_flow),
+			post_checkdata, post_checkdata_size,),
+	};
+#undef TEST
+
+	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
+	return *state == NULL;
+}
+
+static int prepare_test_interface_id(void **state) {
 
 /* ********************************* CHECKS ********************************* */
 
-#define CHECKDATA(input_snmp, input_snmp_name, input_snmp_description, \
-		  output_snmp, output_snmp_name, output_snmp_description) \
-	{{.key = "input_snmp", .value = input_snmp}, \
-	{.key = "input_snmp_name", .value = input_snmp_name}, \
-	{.key = "input_snmp_description", .value = input_snmp_description}, \
-	{.key = "output_snmp", .value = output_snmp}, \
-	{.key = "output_snmp_name", .value = output_snmp_name}, \
-	{.key = "output_snmp_description", .value = output_snmp_description}}
+#define CHECKDATA(left_name, left_snmp, \
+			left_snmp_name, left_snmp_description, \
+		  right_name, right_snmp, \
+			right_snmp_name, right_snmp_description) \
+	{{.key = left_name, .value = left_snmp}, \
+	{.key = left_name "_name", .value = left_snmp_name}, \
+	{.key = left_name "_description", .value = left_snmp_description}, \
+	{.key = right_name, .value = right_snmp}, \
+	{.key = right_name "_name", .value = right_snmp_name}, \
+	{.key = right_name "_description", .value = right_snmp_description}}
 
 	static const struct checkdata_value checkdata1[] =
-		CHECKDATA("1", "1", "1", "2", "2", "2");
+		CHECKDATA("input_snmp", "1", "1", "1",
+			"output_snmp", "2", "2", "2");
 	static const struct checkdata_value checkdata2[] =
-		CHECKDATA("2", "2", "2", "4", "4", "4");
+		CHECKDATA("input_snmp", "2", "2", "2",
+			"output_snmp", "4", "4", "4");
 	static const struct checkdata_value checkdata3[] =
-		CHECKDATA("3", "3", "3", "1", "1", "1");
+		CHECKDATA("input_snmp", "3", "3", "3",
+			"output_snmp", "1", "1", "1");
 
 	static const struct checkdata_value checkdata1_name[] =
-		CHECKDATA("1", "ethernet0/1", "ethernet0/1d",
-			"2", "ethernet0/2", "ethernet0/2d");
+		CHECKDATA("input_snmp", "1", "ethernet0/1", "ethernet0/1d",
+			"output_snmp", "2", "ethernet0/2", "ethernet0/2d");
 	static const struct checkdata_value checkdata2_name[] =
-		CHECKDATA("2", "ethernet0/2", "ethernet0/2d", "4", "4", "4");
+		CHECKDATA("input_snmp", "2", "ethernet0/2", "ethernet0/2d",
+			"output_snmp", "4", "4", "4");
 	static const struct checkdata_value checkdata3_name[] =
-		CHECKDATA("3", "3", "3", "1", "ethernet0/1", "ethernet0/1d");
-#undef CHECKDATA
+		CHECKDATA("input_snmp", "3", "3", "3",
+			"output_snmp", "1", "ethernet0/1", "ethernet0/1d");
 
 #define CHECK(checkdata) {.size = RD_ARRAYSIZE(checkdata), .checks = checkdata}
 
@@ -198,52 +230,60 @@ static int prepare_test_nf9_appid_enrichment(void **state) {
 		CHECK(checkdata2_name),
 		CHECK(checkdata3_name),
 	};
-#undef CHECK
 
-/* ****************************** Actual test ****************************** */
+	return prepare_test_interface_id0(state,
+		pre_checkdata, RD_ARRAYSIZE(pre_checkdata),
+		post_checkdata, RD_ARRAYSIZE(post_checkdata),
+		false);
+}
 
-#define TEST(mrecord, mrecord_size, checks, checks_size, ...) {                \
-		.record = mrecord, .record_size = mrecord_size,                \
-		.checkdata = checks, .checkdata_size = checks_size,            \
-		.netflow_src_ip = 0x04030201, __VA_ARGS__                      \
-	}
+static int prepare_test_normalized_interface_id(void **state) {
 
-	struct test_params test_params[] = {
-		// 1st test use fallback list
-		TEST(&v9_template, sizeof(v9_template), NULL, 0,
-			.config_json_path =
-				"tests/0010-testAppIdEnrichment.json",
-			.host_list_path = "./tests/0010-data/"),
-		TEST(&v9_flow, sizeof(v9_flow),
-			pre_checkdata, RD_ARRAYSIZE(pre_checkdata),),
+/* ********************************* CHECKS ********************************* */
 
-		// 2nd test use an option template (private ssl)
-		TEST(&v9_option_template, sizeof(v9_option_template), NULL, 0,),
-		TEST(&v9_option_flow, sizeof(v9_option_flow), NULL, 0,),
-		TEST(&v9_flow, sizeof(v9_flow),
-			post_checkdata, RD_ARRAYSIZE(post_checkdata),),
+	static const struct checkdata_value checkdata1[] =
+		CHECKDATA("lan_interface", "1", "1", "1",
+			"wan_interface", "2", "2", "2");
+	static const struct checkdata_value checkdata2[] =
+		CHECKDATA("wan_interface", "2", "2", "2",
+			"lan_interface", "4", "4", "4");
+	static const struct checkdata_value checkdata3[] =
+		CHECKDATA("wan_interface", "3", "3", "3",
+			"lan_interface", "1", "1", "1");
 
-		// Same with IPFIX
-		TEST(&ipfix_template, sizeof(ipfix_template), NULL, 0,),
-		TEST(&ipfix_flow, sizeof(ipfix_flow),
-			pre_checkdata, RD_ARRAYSIZE(pre_checkdata),),
+	static const struct checkdata_value checkdata1_name[] =
+		CHECKDATA("lan_interface", "1", "ethernet0/1", "ethernet0/1d",
+			"wan_interface", "2", "ethernet0/2", "ethernet0/2d");
+	static const struct checkdata_value checkdata2_name[] =
+		CHECKDATA("wan_interface", "2", "ethernet0/2", "ethernet0/2d",
+			"lan_interface", "4", "4", "4");
+	static const struct checkdata_value checkdata3_name[] =
+		CHECKDATA("wan_interface", "3", "3", "3",
+			"lan_interface", "1", "ethernet0/1", "ethernet0/1d");
 
-		TEST(&ipfix_option_template, sizeof(ipfix_option_template),
-			NULL, 0,),
-		TEST(&ipfix_option_flow, sizeof(ipfix_option_flow), NULL, 0,),
-		TEST(&ipfix_flow, sizeof(ipfix_flow),
-			post_checkdata, RD_ARRAYSIZE(post_checkdata),),
+	static const struct checkdata pre_checkdata[] = {
+		CHECK(checkdata1),
+		CHECK(checkdata2),
+		CHECK(checkdata3),
 	};
-#undef TEST
 
-	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
-	return *state == NULL;
+	static const struct checkdata post_checkdata[] = {
+		CHECK(checkdata1_name),
+		CHECK(checkdata2_name),
+		CHECK(checkdata3_name),
+	};
+
+	return prepare_test_interface_id0(state,
+		pre_checkdata, RD_ARRAYSIZE(pre_checkdata),
+		post_checkdata, RD_ARRAYSIZE(post_checkdata),
+		true);
 }
 
 int main() {
 	const struct CMUnitTest tests[] = {
+		cmocka_unit_test_setup(testFlow, prepare_test_interface_id),
 		cmocka_unit_test_setup(testFlow,
-					prepare_test_nf9_appid_enrichment),
+		 	prepare_test_normalized_interface_id),
 	};
 
 	return cmocka_run_group_tests(tests, nf_test_setup, nf_test_teardown);
