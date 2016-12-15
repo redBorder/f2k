@@ -509,8 +509,6 @@ static const struct checkdata checkdata_router_src_mac_span_false[] = {
 	CHECKDATA(checkdata_values_router_src_mac_addr_span_false),
 };
 
-#define checkdata_router_src_mac_no_span checkdata_router_src_mac_span_false
-
 static const struct checkdata checkdata_router_dst_mac_span_true[] = {
 	CHECKDATA(checkdata_values_router_dst_mac_addr_span_true),
 	CHECKDATA(checkdata_values_router_dst_mac_addr_span_true),
@@ -532,8 +530,6 @@ static const struct checkdata checkdata_router_dst_mac_span_false[] = {
 	CHECKDATA(checkdata_values_nospan_ingress),
 	CHECKDATA(checkdata_values_nospan_egress),
 };
-
-#define checkdata_router_dst_mac_no_span checkdata_router_dst_mac_span_false
 
 static const struct checkdata checkdata_router_post_dst_mac_span_true[] = {
 	CHECKDATA(checkdata_values_span_ingress),
@@ -557,8 +553,6 @@ static const struct checkdata checkdata_router_post_dst_mac_span_false[] = {
 	CHECKDATA(checkdata_values_router_post_dst_mac_addr_span_false),
 };
 
-#define checkdata_router_post_dst_mac_no_span checkdata_router_post_dst_mac_span_false
-
 static int prepare_test_mac_direction(void **state) {
 #define TEST(config_path, mmac_vendors, nf_dev_ip, mrecord, mrecord_size,      \
 							checks, checks_sz) {   \
@@ -577,16 +571,16 @@ static int prepare_test_mac_direction(void **state) {
 
 #define TEST_TEMPLATE_FLOW_ALL_SENSORS(config_path, mmac_vendors,              \
 		template, template_size, flow, flow_size,                      \
-		checks1, checks1_sz, checks2, checks2_sz, checks3, checks3_sz) \
+		checks1, checks1_sz, checks2, checks2_sz)                      \
 	/* span_true */                                                        \
 	TEST_TEMPLATE_FLOW(config_path, mmac_vendors, 0x04030201, template,    \
 		template_size, flow, flow_size, checks1, checks1_sz),          \
 	/* span_false */                                                       \
 	TEST_TEMPLATE_FLOW(config_path, mmac_vendors, 0x04030301, template,    \
 		template_size, flow, flow_size, checks2, checks2_sz),          \
-	/* nospan */                                                           \
+	/* nospan (same as span=false) */                                      \
 	TEST_TEMPLATE_FLOW(config_path, mmac_vendors, 0x04030401, template,    \
-		template_size, flow, flow_size, checks3, checks3_sz)
+		template_size, flow, flow_size, checks2, checks2_sz)
 
 	struct test_params test_params[] = {
 		/* POST DST MAC */
@@ -599,9 +593,7 @@ static int prepare_test_mac_direction(void **state) {
 			checkdata_router_post_dst_mac_span_true,
 			RD_ARRAYSIZE(checkdata_router_post_dst_mac_span_true),
 			checkdata_router_post_dst_mac_span_false,
-			RD_ARRAYSIZE(checkdata_router_post_dst_mac_span_false),
-			checkdata_router_post_dst_mac_no_span,
-			RD_ARRAYSIZE(checkdata_router_post_dst_mac_no_span)),
+			RD_ARRAYSIZE(checkdata_router_post_dst_mac_span_false)),
 
 		/* SRC MAC */
 		TEST_TEMPLATE_FLOW_ALL_SENSORS(NULL, NULL,
@@ -611,9 +603,7 @@ static int prepare_test_mac_direction(void **state) {
 			checkdata_router_src_mac_span_true,
 			RD_ARRAYSIZE(checkdata_router_src_mac_span_true),
 			checkdata_router_src_mac_span_false,
-			RD_ARRAYSIZE(checkdata_router_src_mac_span_false),
-			checkdata_router_src_mac_no_span,
-			RD_ARRAYSIZE(checkdata_router_src_mac_no_span)),
+			RD_ARRAYSIZE(checkdata_router_src_mac_span_false)),
 
 		/* DST MAC */
 		TEST_TEMPLATE_FLOW_ALL_SENSORS(NULL, NULL,
@@ -623,9 +613,7 @@ static int prepare_test_mac_direction(void **state) {
 			checkdata_router_dst_mac_span_true,
 			RD_ARRAYSIZE(checkdata_router_dst_mac_span_true),
 			checkdata_router_dst_mac_span_false,
-			RD_ARRAYSIZE(checkdata_router_dst_mac_span_false),
-			checkdata_router_dst_mac_no_span,
-			RD_ARRAYSIZE(checkdata_router_dst_mac_no_span)),
+			RD_ARRAYSIZE(checkdata_router_dst_mac_span_false)),
 	};
 
 	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
