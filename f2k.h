@@ -168,6 +168,8 @@ struct fileList {
 
 typedef struct {
   bool becomeDaemon;
+  // will transform L2, L3 and L4 src/dst into lan/wan
+  bool normalize_directions;
 
   /* Expanded copy of CLI arguments */
   int argc;

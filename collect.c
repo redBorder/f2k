@@ -562,11 +562,32 @@ static struct string_list *dissectNetFlowV5Record(const NetFlow5Record *the5Reco
       &flowCache);
   }
 
-  guessDirection(&flowCache);
+  // Simulate ingress direction
 
   printNetflowRecordWithTemplate(kafka_line_buffer,
-    TEMPLATE_OF(PRINT_DIRECTION), NULL, 0, 0, &flowCache);
-  print_sensor_enrichment(kafka_line_buffer,&flowCache);
+    TEMPLATE_OF(HOST), NULL, 0, 0, &flowCache);
+  printNetflowRecordWithTemplate(kafka_line_buffer,
+    TEMPLATE_OF(REFERER), NULL, 0, 0, &flowCache);
+  if (readOnlyGlobals.normalize_directions) {
+    guessDirection(&flowCache);
+    static const V9V10TemplateElementId *post_templates[] = {
+      TEMPLATE_OF(PRINT_DIRECTION),
+      TEMPLATE_OF(LAN_INTERFACE),
+      TEMPLATE_OF(WAN_INTERFACE),
+      TEMPLATE_OF(CLIENT_MAC_BASED_ON_DIRECTION),
+      TEMPLATE_OF(WAN_IP_BASED_ON_DIRECTION),
+      TEMPLATE_OF(LAN_IP_BASED_ON_DIRECTION),
+      TEMPLATE_OF(WAN_PORT),
+      TEMPLATE_OF(LAN_PORT),
+    };
+
+    size_t i;
+    for (i=0; i<RD_ARRAYSIZE(post_templates); ++i) {
+      printNetflowRecordWithTemplate(kafka_line_buffer,
+        post_templates[i], NULL, 0, 0, &flowCache);
+    }
+  }
+  print_sensor_enrichment(kafka_line_buffer, &flowCache);
 
   struct string_list *kafka_buffers_list = time_split_flow(kafka_line_buffer,
                                   &flowCache);
@@ -1394,23 +1415,29 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
 
     worker->stats.num_flows_processed++;
 
-    guessDirection(flowCache);
     printNetflowRecordWithTemplate(kafka_line_buffer,
       TEMPLATE_OF(HOST), NULL, 0, 0, flowCache);
     printNetflowRecordWithTemplate(kafka_line_buffer,
       TEMPLATE_OF(REFERER), NULL, 0, 0, flowCache);
-    printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(PRINT_DIRECTION), NULL, 0, 0, flowCache);
-    printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(CLIENT_MAC_BASED_ON_DIRECTION), NULL, 0, 0, flowCache);
-    printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(WAN_IP_BASED_ON_DIRECTION), NULL, 0, 0, flowCache);
-    printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(LAN_IP_BASED_ON_DIRECTION), NULL, 0, 0, flowCache);
-    printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(WAN_PORT_BASED_ON_DIRECTION), NULL, 0, 0, flowCache);
-    printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(LAN_PORT_BASED_ON_DIRECTION), NULL, 0, 0, flowCache);
+    if (readOnlyGlobals.normalize_directions) {
+      guessDirection(flowCache);
+      static const V9V10TemplateElementId *post_templates[] = {
+        TEMPLATE_OF(PRINT_DIRECTION),
+        TEMPLATE_OF(LAN_INTERFACE),
+        TEMPLATE_OF(WAN_INTERFACE),
+        TEMPLATE_OF(CLIENT_MAC_BASED_ON_DIRECTION),
+        TEMPLATE_OF(WAN_IP_BASED_ON_DIRECTION),
+        TEMPLATE_OF(LAN_IP_BASED_ON_DIRECTION),
+        TEMPLATE_OF(WAN_PORT),
+        TEMPLATE_OF(LAN_PORT),
+      };
+
+      size_t i;
+      for (i=0; i<RD_ARRAYSIZE(post_templates); ++i) {
+        printNetflowRecordWithTemplate(kafka_line_buffer,
+          post_templates[i], NULL, 0, 0, flowCache);
+      }
+    }
     print_sensor_enrichment(kafka_line_buffer,flowCache);
 
 #ifdef HAVE_UDNS
@@ -1419,7 +1446,8 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
                solve_target = observation_id_want_target_dns(
                 flowCache->observation_id);
 
-    if((solve_client || solve_target) && readOnlyGlobals.udns.csv_dns_servers) {
+    if((solve_client || solve_target) && readOnlyGlobals.udns.csv_dns_servers
+        && readOnlyGlobals.normalize_directions) {
       static __thread size_t dns_worker_i = 0; /// @TODO use another way, please.
       if(++dns_worker_i >= readOnlyGlobals.numProcessThreads) {
         dns_worker_i = 0;

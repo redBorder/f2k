@@ -125,9 +125,10 @@ static const struct TestV9Flow v9Flow = {
 #define CHECKDATA_BUFFER_1(first_switched, timestamp)                          \
 	(struct checkdata_value []) {                                          \
 		{.key="type", .value="netflowv9"},                             \
-		{.key="src", .value="10.13.94.223"},                           \
-		{.key="src_name", .value=NULL}, {.key="src_net", .value=NULL}, \
-		{.key="src_net_name", .value=NULL},                            \
+		{.key="lan_ip", .value="10.13.94.223"},                        \
+		{.key="lan_ip_name", .value=NULL},                             \
+		{.key="lan_ip_net", .value=NULL},                              \
+		{.key="lan_ip_net_name", .value=NULL},                         \
 		{.key="timestamp", .value=timestamp},                          \
 		{.key="first_switched", .value=first_switched},                \
 	}
@@ -135,9 +136,10 @@ static const struct TestV9Flow v9Flow = {
 #define CHECKDATA_BUFFER_2(first_switched, timestamp)                          \
 	(struct checkdata_value []) {                                          \
 		{.key="type", .value="netflowv9"},                             \
-		{.key="src", .value="8.8.8.8"},{.key="src_name", .value=NULL}, \
-		{.key="src_net", .value="8.8.8.0/24"},                         \
-		{.key="src_net_name", .value="google8"},                       \
+		{.key="lan_ip", .value="8.8.8.8"},                             \
+		{.key="lan_ip_name", .value=NULL},                             \
+		{.key="lan_ip_net", .value="8.8.8.0/24"},                      \
+		{.key="lan_ip_net_name", .value="google8"},                    \
 		{.key="timestamp", .value=timestamp},                          \
 		{.key="first_switched", .value=first_switched},                \
 	}

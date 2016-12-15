@@ -106,6 +106,7 @@ static const struct option long_options[] = {
   { "template-cache",                   required_argument,       NULL, 257 },
   { "rb-config",                        required_argument,       NULL, 258 },
   { "separate-long-flows",              no_argument,             NULL, 260 },
+  { "normalize-directions",             no_argument,             NULL, 'n' },
 
   { "interface",                        required_argument,       NULL, 'i' },
   { "syslog",                           required_argument,       NULL, 'I' },
@@ -1250,6 +1251,10 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
     case 'v':
       probeVersion();
       exit(0);
+
+    case 'n':
+      readOnlyGlobals.normalize_directions = true;
+      break;
 
     case 'I':
       {

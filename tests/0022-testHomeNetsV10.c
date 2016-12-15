@@ -228,93 +228,158 @@ static const struct TestV10Flow_v6 v10Flow_v6 = {
 	},
 };
 
-static const struct checkdata_value checkdata_values1[] = {
-	{.key = "type", .value="netflowv10"},
-	{.key = "src", .value="10.13.122.44"},
-	{.key = "src_net", .value="10.13.30.0/16"},
-	{.key = "src_net_name", .value="users"},
-	{.key = "dst", .value="66.220.152.19"},
-	{.key = "dst_net", .value=NULL},
-	{.key = "dst_net_name", .value=NULL},
-	{.key = "direction", .value="ingress"},
-};
+#define CHECKDATA(left_name, left_ip, left_net, left_net_name, \
+		  right_name, right_ip, right_net, right_net_name, \
+		  direction) { \
+	{.key = left_name, .value=left_ip}, \
+	{.key = left_name "_net", .value=left_net}, \
+	{.key = left_name "_net_name", .value=left_net_name}, \
+	{.key = right_name, .value=right_ip}, \
+	{.key = right_name "_net", .value=right_net}, \
+	{.key = right_name "_net_name", .value=right_net_name}, \
+	{.key = "direction", .value=direction}, \
+}
 
-static const struct checkdata_value checkdata_values_v6_1[] = {
-	{.key = "type", .value="netflowv10"},
-	{.key = "src", .value="2001:0428:ce00:2011:0d5a:6069:2467:9bd1"},
-	{.key = "src_net", .value="2001:0428:ce00:0000:0000:0000:0000:0000/48"},
-	{.key = "src_net_name", .value="users6"},
-	{.key = "dst", .value="2001:0008:0000:0000:0000:0000:0000:0001"},
-	{.key = "dst_net", .value=NULL},
-	{.key = "dst_net_name", .value=NULL},
-	{.key = "direction", .value="ingress"},
-};
-
-static const struct checkdata_value checkdata_values_v6_2[] = {
-	{.key = "type", .value="netflowv10"},
-	{.key = "src", .value="2001:0008:0000:0000:0000:0000:0000:0001"},
-	{.key = "src_net", .value=NULL},
-	{.key = "src_net_name", .value=NULL},
-	{.key = "dst", .value="2001:0428:ce00:2011:0d5a:6069:2467:9bd1"},
-	{.key = "dst_net", .value="2001:0428:ce00:0000:0000:0000:0000:0000/48"},
-	{.key = "dst_net_name", .value="users6"},
-	{.key = "direction", .value="egress"},
-};
-
-static int prepare_test_nf10_home_nets(void **state) {
-	static const struct checkdata checkdata_v4[] = {
-		{.size = RD_ARRAYSIZE(checkdata_values1), .checks=checkdata_values1}
-	};
-	static const struct checkdata checkdata_v6[] = {
-		{.size = RD_ARRAYSIZE(checkdata_values_v6_1), .checks=checkdata_values_v6_1},
-		{.size = RD_ARRAYSIZE(checkdata_values_v6_2), .checks=checkdata_values_v6_2}
-	};
-
-#define TEST(config_path, mhosts_db_path, nf_dev_ip, mrecord, mrecord_size,    \
-							checks, checks_sz) {   \
-		.config_json_path = config_path,                               \
-		.host_list_path = mhosts_db_path,                              \
+static int prepare_test_nf10_home_nets0(void **state,
+					const struct checkdata *checkdata_v4,
+					const size_t checkdata_v4_size,
+					const struct checkdata *checkdata_v6,
+					const size_t checkdata_v6_size,
+					const bool normalize_directions) {
+#define TEST(nf_dev_ip, mrecord, mrecord_size, checks, checks_sz, ...) {       \
 		.netflow_src_ip = nf_dev_ip,                                   \
 		.record = mrecord, .record_size = mrecord_size,                \
-		.checkdata = checks, .checkdata_size = checks_sz               \
+		.checkdata = checks, .checkdata_size = checks_sz,              \
+		__VA_ARGS__                                                    \
 	}
 
-#define TEST_TEMPLATE_FLOW0(config_path, mhosts_db_path, nf_dev_ip, template,  \
-			template_size, flow, flow_size, checks, checks_sz)     \
-	TEST(config_path, mhosts_db_path, nf_dev_ip, template, template_size,  \
-								NULL, 0),      \
-	TEST(NULL, NULL, nf_dev_ip, flow, flow_size, checks, checks_sz)
+#define TEST_TEMPLATE_FLOW0(nf_dev_ip, template, template_size, flow,          \
+		flow_size, checks, checks_sz, ...)                             \
+	TEST(nf_dev_ip, template, template_size, NULL, 0, __VA_ARGS__),        \
+	TEST(nf_dev_ip, flow, flow_size, checks, checks_sz,)
 
-#define TEST_TEMPLATE_FLOW_V4(config_path, mhosts_db_path, nf_dev_ip)          \
-		TEST_TEMPLATE_FLOW0(config_path, mhosts_db_path, nf_dev_ip,    \
-			&v10Template, sizeof(v10Template),                     \
-			&v10Flow, sizeof(v10Flow),                             \
-			checkdata_v4, RD_ARRAYSIZE(checkdata_v4))
+#define TEST_TEMPLATE_FLOW_V4(nf_dev_ip, ...)                                  \
+	TEST_TEMPLATE_FLOW0(nf_dev_ip,                                         \
+		&v10Template, sizeof(v10Template), &v10Flow, sizeof(v10Flow),  \
+		checkdata_v4, checkdata_v4_size, __VA_ARGS__)
 
-#define TEST_TEMPLATE_FLOW_V6(config_path, mhosts_db_path, nf_dev_ip)          \
-		TEST_TEMPLATE_FLOW0(config_path, mhosts_db_path, nf_dev_ip,    \
-			&v10Template_v6, sizeof(v10Template_v6),               \
-			&v10Flow_v6, sizeof(v10Flow_v6),                       \
-			checkdata_v6, RD_ARRAYSIZE(checkdata_v6))
+#define TEST_TEMPLATE_FLOW_V6(nf_dev_ip, ...)                                  \
+	TEST_TEMPLATE_FLOW0(nf_dev_ip,                                         \
+		&v10Template_v6, sizeof(v10Template_v6),                       \
+		&v10Flow_v6, sizeof(v10Flow_v6),                               \
+		checkdata_v6, checkdata_v6_size, __VA_ARGS__)
 
+	/* different span port configuration should not affect when no mac is
+	implied */
 	struct test_params test_params[] = {
-		TEST_TEMPLATE_FLOW_V4("./tests/0022-testHomeNetsV10.json",
-					"./tests/0011-data/", 0x04030201),
+		TEST_TEMPLATE_FLOW_V4(0x04030201,
+			.config_json_path = "./tests/0022-testHomeNetsV10.json",
+			.host_list_path = "./tests/0011-data/",
+			.normalize_directions = normalize_directions),
 
-		TEST_TEMPLATE_FLOW_V4(NULL, NULL, 0x04030301),
-		TEST_TEMPLATE_FLOW_V4(NULL, NULL, 0x04030401),
-		TEST_TEMPLATE_FLOW_V6(NULL, NULL, 0x04030201),
-		TEST_TEMPLATE_FLOW_V6(NULL, NULL, 0x04030301),
-		TEST_TEMPLATE_FLOW_V6(NULL, NULL, 0x04030401),
+		TEST_TEMPLATE_FLOW_V4(0x04030301,),
+		TEST_TEMPLATE_FLOW_V4(0x04030401,),
+		TEST_TEMPLATE_FLOW_V6(0x04030201,),
+		TEST_TEMPLATE_FLOW_V6(0x04030301,),
+		TEST_TEMPLATE_FLOW_V6(0x04030401,),
 	};
 
 	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
 	return *state == NULL;
 }
 
+static int prepare_test_nf10_home_nets_normalize(void **state) {
+#define CHECKS(t_checks) {.size = RD_ARRAYSIZE(t_checks), .checks = t_checks}
+	static const struct checkdata_value checkdata_values1[] =
+	CHECKDATA("lan_ip", "10.13.122.44",
+			    "10.13.30.0/16",
+			    "users",
+		  "wan_ip", "66.220.152.19",
+			    NULL,
+			    NULL,
+			    "ingress");
+
+	static const struct checkdata_value checkdata_values_v6_1[] =
+	CHECKDATA("lan_ip", "2001:0428:ce00:2011:0d5a:6069:2467:9bd1",
+			    "2001:0428:ce00:0000:0000:0000:0000:0000/48",
+			    "users6",
+		  "wan_ip", "2001:0008:0000:0000:0000:0000:0000:0001",
+			    NULL,
+			    NULL,
+			    "ingress");
+
+	static const struct checkdata_value checkdata_values_v6_2[] =
+	CHECKDATA("wan_ip", "2001:0008:0000:0000:0000:0000:0000:0001",
+			    NULL,
+			    NULL,
+		  "lan_ip", "2001:0428:ce00:2011:0d5a:6069:2467:9bd1",
+			    "2001:0428:ce00:0000:0000:0000:0000:0000/48",
+			    "users6",
+			    "egress");
+
+	static const struct checkdata checkdata_v4[] = {
+		CHECKS(checkdata_values1),
+	};
+	static const struct checkdata checkdata_v6[] = {
+		CHECKS(checkdata_values_v6_1), CHECKS(checkdata_values_v6_2),
+	};
+
+	static const bool normalize_directions = true;
+	return prepare_test_nf10_home_nets0(state,
+				checkdata_v4, RD_ARRAYSIZE(checkdata_v4),
+				checkdata_v6, RD_ARRAYSIZE(checkdata_v6),
+				normalize_directions);
+}
+
+static int prepare_test_nf10_home_nets_dont_normalize(void **state) {
+#define CHECKS(t_checks) {.size = RD_ARRAYSIZE(t_checks), .checks = t_checks}
+	static const struct checkdata_value checkdata_values1[] =
+	CHECKDATA("src", "10.13.122.44",
+			    "10.13.30.0/16",
+			    "users",
+		  "dst", "66.220.152.19",
+			    NULL,
+			    NULL,
+			    NULL);
+
+	static const struct checkdata_value checkdata_values_v6_1[] =
+	CHECKDATA("src", "2001:0428:ce00:2011:0d5a:6069:2467:9bd1",
+			    "2001:0428:ce00:0000:0000:0000:0000:0000/48",
+			    "users6",
+		  "dst", "2001:0008:0000:0000:0000:0000:0000:0001",
+			    NULL,
+			    NULL,
+			    NULL);
+
+	static const struct checkdata_value checkdata_values_v6_2[] =
+	CHECKDATA("src", "2001:0008:0000:0000:0000:0000:0000:0001",
+			    NULL,
+			    NULL,
+		  "dst", "2001:0428:ce00:2011:0d5a:6069:2467:9bd1",
+			    "2001:0428:ce00:0000:0000:0000:0000:0000/48",
+			    "users6",
+			    NULL);
+
+	static const struct checkdata checkdata_v4[] = {
+		CHECKS(checkdata_values1),
+	};
+	static const struct checkdata checkdata_v6[] = {
+		CHECKS(checkdata_values_v6_1), CHECKS(checkdata_values_v6_2),
+	};
+
+	static const bool normalize_directions = false;
+	return prepare_test_nf10_home_nets0(state,
+				checkdata_v4, RD_ARRAYSIZE(checkdata_v4),
+				checkdata_v6, RD_ARRAYSIZE(checkdata_v6),
+				normalize_directions);
+}
+
 int main() {
 	const struct CMUnitTest tests[] = {
-		cmocka_unit_test_setup(testFlow, prepare_test_nf10_home_nets),
+		cmocka_unit_test_setup(testFlow,
+			prepare_test_nf10_home_nets_dont_normalize),
+		cmocka_unit_test_setup(testFlow,
+			prepare_test_nf10_home_nets_normalize),
 	};
 
 	return cmocka_run_group_tests(tests, nf_test_setup, nf_test_teardown);

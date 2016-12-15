@@ -56,7 +56,7 @@ static const char t_config_path[] = "./tests/0000-testFlowV5.json";
 #define NF9_CHECKDATA(T_BYTES, T_PKTS) { \
 	{.key="type", .value="netflowv9"}, \
 	{.key="client_mac", .value="b8:17:c2:28:b0:c7"}, \
-	{.key="src", .value="10.13.94.223"}, \
+	{.key="lan_ip", .value="10.13.94.223"}, \
 	/* {.key="application_id", .value="13:453"}, */ \
 	{.key="wireless_id", .value="local-wifi"}, \
 	{.key="direction", .value="ingress"}, \

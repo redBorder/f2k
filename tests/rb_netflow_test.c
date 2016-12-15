@@ -404,6 +404,10 @@ static struct string_list *test_flow_i(const struct test_params *params,
   }
 #endif
 
+  if (params->normalize_directions) {
+    readOnlyGlobals.normalize_directions = true;
+  }
+
   if (test_producer_rkt) {
     char *buf = calloc(params->record_size, sizeof(char));
     memcpy(buf, params->record, params->record_size);
@@ -419,12 +423,8 @@ static struct string_list *test_flow_i(const struct test_params *params,
   } else {
     check_if_reload(&readOnlyGlobals.rb_databases);
 
-    const uint32_t netflow_device_ip = params->netflow_src_ip;
-    const uint8_t *record = params->record;
-    const size_t record_len = params->record_size;
-
     struct sensor *sensor_object = get_sensor(
-        readOnlyGlobals.rb_databases.sensors_info, netflow_device_ip);
+        readOnlyGlobals.rb_databases.sensors_info, params->netflow_src_ip);
 
     if (sensor_object) {
       // wait until worker end to process all templates
@@ -446,7 +446,8 @@ static struct string_list *test_flow_i(const struct test_params *params,
 
       mem_wraps_set_fail_in(mem_stash); // fail beyond this point
       struct string_list *ret = dissectNetFlow(
-          worker, sensor_object, netflow_device_ip, record, record_len);
+          worker, sensor_object, params->netflow_src_ip, params->record,
+          params->record_size);
       rb_sensor_decref(sensor_object);
 
       pthread_mutex_unlock(&worker->packetsQueue.rfq_lock);

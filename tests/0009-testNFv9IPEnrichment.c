@@ -77,18 +77,18 @@ struct TestV9Flow{
 
 static const struct checkdata_value checkdata1[] = {
 	{.key="type", .value="netflowv9"},
-	{.key="src", .value="10.13.94.223"},
-	{.key="src_name", .value=NULL},
-	{.key="src_net", .value=NULL},
-	{.key="src_net_name", .value=NULL},
+	{.key="lan_ip", .value="10.13.94.223"},
+	{.key="lan_ip_name", .value=NULL},
+	{.key="lan_ip_net", .value=NULL},
+	{.key="lan_ip_net_name", .value=NULL},
 };
 
 static const struct checkdata_value checkdata2[] = {
 	{.key="type", .value="netflowv9"},
-	{.key="src", .value="8.8.8.8"},
-	{.key="src_name", .value=NULL},
-	{.key="src_net", .value="8.8.8.0/24"},
-	{.key="src_net_name", .value="google8"},
+	{.key="lan_ip", .value="8.8.8.8"},
+	{.key="lan_ip_name", .value=NULL},
+	{.key="lan_ip_net", .value="8.8.8.0/24"},
+	{.key="lan_ip_net_name", .value="google8"},
 };
 
 static int prepare_test_nf9_ip_enrichment(void **state) {
