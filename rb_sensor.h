@@ -70,8 +70,6 @@ const char *network_ip(observation_id_t *observation_id,const uint8_t ip[16]);
 const char *network_name(observation_id_t *observation_id,const uint8_t ip[16]);
 const char *observation_id_enrichment(const observation_id_t *obs_id);
 bool is_span_observation_id(const observation_id_t *obs_id);
-bool observation_id_has_mac_db(const observation_id_t *obs_id);
-bool observation_id_has_router_mac(observation_id_t *obs_id,const uint64_t mac);
 #ifdef HAVE_UDNS
 bool observation_id_want_client_dns(const observation_id_t *observation_id);
 bool observation_id_want_target_dns(const observation_id_t *observation_id);

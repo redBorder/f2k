@@ -142,8 +142,8 @@ static const struct checkdata checkdata_v5_flow_seq[] = {
 static int prepare_test_nf5_flow_seq(void **state) {
 	struct test_params test_params = {
 		.config_json_path =
-			"./tests/0033-routerMacBasedDisection.json",
-		.netflow_src_ip = 0x04030201,                          
+			"./tests/0000-testFlowV5.json",
+		.netflow_src_ip = 0x04030201,
 		.record = &record, .record_size = sizeof(record),
 		.checkdata = checkdata_v5_flow_seq,
 		.checkdata_size = RD_ARRAYSIZE(checkdata_v5_flow_seq)

@@ -79,17 +79,6 @@ static int ip_direction(int known_src,int known_dst) {
   return DIRECTION_UNSET;
 }
 
-static int mac_direction(int known_src,int known_dst) {
-  if(known_src && !known_dst) {
-    return DIRECTION_EGRESS;
-  } else if(!known_src && known_dst) {
-    return DIRECTION_INGRESS;
-  }
-
-  // else no idea
-  return DIRECTION_UNSET;
-}
-
 /*
   Try to guess direction based on source and destination address
   return: true if guessed/already setted. false if couldn't set
@@ -97,30 +86,6 @@ static int mac_direction(int known_src,int known_dst) {
 bool guessDirection(struct flowCache *cache) {
   assert(cache);
   static const char zeros[sizeof(cache->address.src)] = {0};
-
-  if (observation_id_has_mac_db(cache->observation_id)) {
-    const uint64_t src_mac_as_num = net2number(cache->macs.src_mac, 6);
-    const uint64_t dst_mac_as_num =
-      is_span_observation_id(cache->observation_id) ?
-        net2number(cache->macs.dst_mac, 6) :
-        net2number(cache->macs.post_dst_mac, 6);
-
-    const bool src_mac_is_router = observation_id_has_router_mac(
-                              cache->observation_id, src_mac_as_num);
-    const bool dst_mac_is_router = observation_id_has_router_mac(
-                              cache->observation_id, dst_mac_as_num);
-
-    if (0!=src_mac_as_num && valid_mac(src_mac_as_num)
-       && 0!=dst_mac_as_num && valid_mac(dst_mac_as_num)) {
-
-      const int mac_guessed_direction = mac_direction(src_mac_is_router,
-                                                            dst_mac_is_router);
-      if(mac_guessed_direction != DIRECTION_UNSET) {
-        cache->macs.direction = mac_guessed_direction;
-        return true;
-      }
-    }
-  }
 
   if (0 == memcmp(cache->address.src, zeros, sizeof(cache->address.src)) ||
       0 == memcmp(cache->address.dst, zeros, sizeof(cache->address.dst))) {

@@ -154,7 +154,7 @@ static int prepare_test_nf9_seq(void **state) {
 	TEST(NULL, flow, flow_size, checks, checks_sz)
 
 	struct test_params test_params[] = {
-		TEST_TEMPLATE_FLOW("./tests/0033-routerMacBasedDisection.json",
+		TEST_TEMPLATE_FLOW("./tests/0000-testFlowV5.json",
 			&v9Template, sizeof(v9Template),
 			&v9Flow, sizeof(v9Flow),
 			checkdata_v9_flow_seq,

@@ -26,11 +26,6 @@
 #include <librd/rdmem.h>
 #include <jansson.h>
 
-#ifndef RD_AVL_EMPTY
-#define RD_AVL_EMPTY(ravl) (NULL == (ravl)->ravl_root)
-#endif
-
-
 /*******************************************************************************/
 /*                            RB CONFIGURATION                                 */
 /*******************************************************************************/
@@ -167,18 +162,6 @@ struct mac_address_tree_node {
   rd_avl_node_t avl_node;
 };
 
-static int compare_mac_address_node(const void *_mac1,const void *_mac2) {
-  const struct mac_address_tree_node *mac1 = _mac1;
-  const struct mac_address_tree_node *mac2 = _mac2;
-
-#ifdef MAC_ADDRESS_TREE_NODE_MAGIC
-  assert(MAC_ADDRESS_TREE_NODE_MAGIC == mac1->magic);
-  assert(MAC_ADDRESS_TREE_NODE_MAGIC == mac2->magic);
-#endif
-
-  return mac2->mac - mac1->mac;
-}
-
 /* ******** */
 
 /// Define an observation id
@@ -189,7 +172,6 @@ struct observation_id_s {
 #endif
   uint32_t observation_id;
 
-  rd_avl_t routers_macs;
   rd_avl_t home_networks;
   rd_avl_t applications;
   rd_avl_t selectors;
@@ -581,63 +563,6 @@ static bool parse_observation_id_home_nets(observation_id_t *observation_id,
   return rc;
 }
 
-static bool parse_observation_id_routers_macs(observation_id_t *observation_id,
-          const json_t *router_mac_address, const struct sensor *sensor) {
-  if(!json_is_array(router_mac_address)) {
-    traceEvent(TRACE_ERROR,"Router mac addresses is not an array in sensor %s.",
-                                                      sensor_ip_string(sensor));
-    return false;
-  }
-
-  const size_t router_mac_address_size = json_array_size(router_mac_address);
-  size_t i=0;
-
-  struct mac_address_tree_node *mac_address_node = rd_memctx_calloc(
-    &observation_id->memctx, router_mac_address_size,
-    sizeof(mac_address_node[0]));
-
-  if (NULL == mac_address_node) {
-    traceEvent(TRACE_ERROR,
-      "Can't allocate mac address nodes for sensor %s observation id %"PRIu32
-      " (out of memory?)", sensor_ip_string(sensor),
-      observation_id_num(observation_id));
-    return false;
-  }
-
-  for(i=0;i<router_mac_address_size;++i) {
-    const json_t *mac_i = json_array_get(router_mac_address,i);
-    if(!json_is_string(mac_i)) {
-      traceEvent(TRACE_ERROR,
-        "router mac address %zu of sensor %s is not a string",
-        i, sensor_ip_string(sensor));
-      continue;
-    }
-
-    const char *mac_str = json_string_value(mac_i);
-    if(NULL == mac_str) {
-      traceEvent(TRACE_ERROR,"Can't parse router mac address %zu of sensor %s",
-                            i,sensor_ip_string(sensor));
-      continue;
-    }
-
-    mac_address_node[i].mac = parse_mac(mac_str);
-    if(mac_address_node[i].mac == INVALID_MAC) {
-      traceEvent(TRACE_ERROR,"Can't parse router mac address %s of sensor %s",
-                                                mac_str,sensor_ip_string(sensor));
-      continue;
-    }
-
-#ifdef MAC_ADDRESS_TREE_NODE_MAGIC
-    mac_address_node[i].magic = MAC_ADDRESS_TREE_NODE_MAGIC;
-#endif
-
-    RD_AVL_INSERT(&observation_id->routers_macs, &mac_address_node[i],
-      avl_node);
-  }
-
-  return true;
-}
-
 static bool parse_observation_id_enrichment(observation_id_t *observation_id,
     const json_t *enrichment, const struct sensor *sensor) {
   if(!json_is_object(enrichment)) {
@@ -730,8 +655,9 @@ static bool parse_observation_id(observation_id_t *observation_id,
     parse_observation_id_enrichment(observation_id, enrichment, sensor);
   }
 
-  if(routers_macs) {
-    parse_observation_id_routers_macs(observation_id, routers_macs, sensor);
+  if (routers_macs) {
+    traceEvent(TRACE_ERROR,
+      "Observation id's router macs support has been deprecated");
   }
 
   observation_id->fallback_first_switch = fallback_first_switch;
@@ -771,7 +697,6 @@ static observation_id_t *observation_id_new(uint32_t observation_id,
   ret->observation_id = observation_id;
 
   rd_avl_init(&ret->home_networks, compare_networks, 0);
-  rd_avl_init(&ret->routers_macs, compare_mac_address_node, 0);
   rd_avl_init(&ret->applications, application_id_cmp, 0);
   rd_avl_init(&ret->selectors, selector_id_cmp, 0);
   rd_avl_init(&ret->interfaces, interface_id_cmp, 0);
@@ -821,24 +746,6 @@ struct sensor {
 
 worker_t *sensor_worker(const struct sensor *sensor) {
   return sensor->worker;
-}
-
-bool observation_id_has_mac_db(const observation_id_t *sensor) {
-  return !RD_AVL_EMPTY(&sensor->routers_macs);
-}
-
-bool observation_id_has_router_mac(observation_id_t *observation_id,
-                                                          const uint64_t mac) {
-  assert(observation_id);
-
-  struct mac_address_tree_node dummy_mac;
-  memset(&dummy_mac,0,sizeof(dummy_mac));
-  dummy_mac.mac = mac;
-#ifdef MAC_ADDRESS_TREE_NODE_MAGIC
-  dummy_mac.magic = MAC_ADDRESS_TREE_NODE_MAGIC;
-#endif
-
-  return NULL != RD_AVL_FIND(&observation_id->routers_macs, &dummy_mac);
 }
 
 static observation_id_t dummy_observation_id(uint32_t observation_id) {
