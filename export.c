@@ -99,7 +99,7 @@ bool guessDirection(struct flowCache *cache) {
                                                             cache->address.dst);
 
   const int ip_guessed_direction = ip_direction(src_ip_in_home_net,dst_ip_in_home_net);
-  if(ip_guessed_direction != DIRECTION_UNSET) {
+  if (ip_guessed_direction != DIRECTION_UNSET) {
     cache->macs.direction = ip_guessed_direction;
     return true;
   }
@@ -431,48 +431,59 @@ size_t print_biflow_direction(struct printbuf *kafka_line_buffer,
   }
 }
 
+static size_t print_direction0(struct printbuf *kafka_line_buffer,
+    const uint8_t direction) {
+  return printbuf_memappend_fast_string(kafka_line_buffer,
+    (direction == NETFLOW_DIRECTION_INGRESS) ? "ingress" :
+    (direction == NETFLOW_DIRECTION_EGRESS)  ? "egress"  :
+    "");
+}
+
 size_t print_direction(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flowCache){
   assert_multi(kafka_line_buffer, flowCache);
   unused_params(buffer, real_field_len, real_field_offset);
 
-  if(flowCache->macs.direction == DIRECTION_UNSET){
+  if (flowCache->macs.direction == DIRECTION_UNSET) {
     /* Sorry, can't do nothing */
     return 0;
   }
 
-  if(flowCache->macs.direction == DIRECTION_INGRESS)
-    return printbuf_memappend_fast_string(kafka_line_buffer,"ingress");
-  else if(flowCache->macs.direction == DIRECTION_EGRESS)
-    return printbuf_memappend_fast_string(kafka_line_buffer,"egress");
-  else if(flowCache->macs.direction == DIRECTION_INTERNAL)
+  if (flowCache->macs.direction == DIRECTION_INGRESS) {
+    return print_direction0(kafka_line_buffer, NETFLOW_DIRECTION_INGRESS);
+  } else if (flowCache->macs.direction == DIRECTION_EGRESS) {
+    return print_direction0(kafka_line_buffer, NETFLOW_DIRECTION_EGRESS);
+  } else if (flowCache->macs.direction == DIRECTION_INTERNAL) {
     return printbuf_memappend_fast_string(kafka_line_buffer,"internal");
-
-  if(unlikely(readOnlyGlobals.enable_debug))
-    traceEvent(TRACE_ERROR,"UNKNOWN direction: %d",flowCache->macs.direction);
-  return 0;
+  } else {
+    return 0;
+  }
 }
 
 size_t save_direction(struct printbuf *kafka_line_buffer, const void *vbuffer,
     const size_t real_field_len, const size_t real_field_offset,
     struct flowCache *flowCache) {
   const uint8_t *buffer = vbuffer;
-  assert_multi(buffer, flowCache);
-  assert(real_field_len > 0);
+  assert_multi(buffer);
   unused_params(real_field_len, kafka_line_buffer);
+  const uint64_t direction = net2number(buffer + real_field_offset,
+    real_field_len);
 
-
-  switch((buffer+real_field_offset)[0]){
-  case NETFLOW_DIRECTION_INGRESS:
-    flowCache->macs.direction = DIRECTION_INGRESS;
-    break;
-  case NETFLOW_DIRECTION_EGRESS:
-    flowCache->macs.direction = DIRECTION_EGRESS;
-    break;
-  default:
-    break; /* Don't know what to do */
+  if (readOnlyGlobals.normalize_directions) {
+    switch (direction) {
+    case NETFLOW_DIRECTION_INGRESS:
+      flowCache->macs.direction = DIRECTION_INGRESS;
+      break;
+    case NETFLOW_DIRECTION_EGRESS:
+      flowCache->macs.direction = DIRECTION_EGRESS;
+      break;
+    default:
+      break; /* Don't know what to do */
+    };
+    return 0; /* nothing printed */
+  } else {
+    return print_direction0(kafka_line_buffer, direction);
   }
-  return 0; /* nothing printed */
 }
 
 /**
@@ -486,13 +497,11 @@ size_t save_direction(struct printbuf *kafka_line_buffer, const void *vbuffer,
  * @param flowCache           unused
  */
 static void save_mac(uint8_t *dst_buffer, const char *src_buffer_mac_name,
-    struct printbuf *kafka_line_buffer,
-    const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    const void *vbuffer, const size_t real_field_len,
+    const size_t real_field_offset) {
 
   const uint8_t *buffer = vbuffer;
   assert_multi(buffer);
-  unused_params(flowCache, kafka_line_buffer);
 
   if (likely(real_field_len == 6)) {
     memcpy(dst_buffer, buffer + real_field_offset, 6);
@@ -501,35 +510,64 @@ static void save_mac(uint8_t *dst_buffer, const char *src_buffer_mac_name,
   }
 }
 
-size_t save_src_mac(struct printbuf *kafka_line_buffer,const void *buffer,
-    const size_t real_field_len, const size_t real_field_offset, struct flowCache *flowCache){
-  unused_params(kafka_line_buffer);
+/**
+ * Process a given MAC
+ * @param  dst_buffer          Buffer to save if we are going to process it
+ *                             later
+ * @param  src_buffer_mac_name MAC name for debug purposes
+ * @param  kafka_line_buffer   Buffer to print MAC
+ * @param  vbuffer             MAC buffer
+ * @param  real_field_len      MAC length
+ * @param  real_field_offset   MAC offset
+ * @return                     [description]
+ */
+static size_t process_mac0(uint8_t *dst_buffer, const char *src_buffer_mac_name,
+    struct printbuf *kafka_line_buffer,
+    const void *vbuffer, const size_t real_field_len,
+    const size_t real_field_offset) {
+  if (readOnlyGlobals.normalize_directions) {
+    save_mac(dst_buffer, src_buffer_mac_name, vbuffer, real_field_len,
+      real_field_offset);
+    return 0;
+  } else {
+    return print_mac(kafka_line_buffer, vbuffer, real_field_len,
+      real_field_offset, NULL);
+  }
+}
 
-  save_mac(flowCache->macs.src_mac, "Source mac", kafka_line_buffer, buffer,
-    real_field_len, real_field_offset, flowCache);
+size_t process_src_mac(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  unused_params(flow_cache);
+  process_mac0(flow_cache->macs.src_mac, "Source mac",
+    kafka_line_buffer, buffer, real_field_len, real_field_offset);
   return 0;
 }
 
-size_t save_post_src_mac(struct printbuf *kafka_line_buffer, const void *buffer,
+size_t process_post_src_mac(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  unused_params(flow_cache);
+  process_mac0(flow_cache->macs.post_src_mac, "PST Source mac",
+    kafka_line_buffer, buffer, real_field_len, real_field_offset);
+  return 0;
+}
+
+size_t process_dst_mac(struct printbuf *kafka_line_buffer, const void *buffer,
     const size_t real_field_len, const size_t real_field_offset,
-    struct flowCache *flowCache){
-  save_mac(flowCache->macs.post_src_mac, "PST Source mac", kafka_line_buffer,
-    buffer, real_field_len, real_field_offset, flowCache);
+    struct flowCache *flow_cache) {
+  unused_params(flow_cache);
+  process_mac0(flow_cache->macs.dst_mac, "DST mac",
+    kafka_line_buffer, buffer, real_field_len, real_field_offset);
   return 0;
 }
 
-size_t save_dst_mac(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
-  assert(flowCache);
-  save_mac(flowCache->macs.dst_mac, "DST mac", kafka_line_buffer, buffer,
-    real_field_len, real_field_offset, flowCache);
-  return 0;
-}
-
-size_t save_post_dst_mac(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
-  save_mac(flowCache->macs.post_dst_mac, "POST DST mac", kafka_line_buffer, buffer,
-    real_field_len, real_field_offset, flowCache);
+size_t process_post_dst_mac(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  unused_params(flow_cache);
+  process_mac0(flow_cache->macs.post_dst_mac, "POST DST mac",
+    kafka_line_buffer, buffer, real_field_len, real_field_offset);
   return 0;
 }
 
@@ -622,18 +660,36 @@ static const char *global_net_list_name(const IPNameAssoc *assoc) {
   return assoc->name;
 }
 
-size_t print_net_v6(struct printbuf *kafka_line_buffer,
+static size_t print_net_v6_0(struct printbuf *kafka_line_buffer,
     const void *vbuffer,const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flowCache) {
   return print_net0(kafka_line_buffer, vbuffer, real_field_len,
-    real_field_offset, flowCache, network_ip, global_net_list_number);
+      real_field_offset, flowCache, network_ip, global_net_list_number);
+}
+
+static size_t print_net_name_v6_0(struct printbuf *kafka_line_buffer,
+    const void *vbuffer,const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache) {
+  return print_net0(kafka_line_buffer, vbuffer, real_field_len,
+      real_field_offset, flowCache, network_name, global_net_list_name);
+}
+
+size_t print_net_v6(struct printbuf *kafka_line_buffer,
+    const void *buffer,const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  return (!readOnlyGlobals.normalize_directions) ?
+    print_net_v6_0(kafka_line_buffer, buffer, real_field_len,
+      real_field_offset, flow_cache) :
+      0; // Not needed
 }
 
 size_t print_net_name_v6(struct printbuf *kafka_line_buffer,
-    const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
-  return print_net0(kafka_line_buffer, vbuffer, real_field_len,
-    real_field_offset, flowCache, network_name, global_net_list_name);
+    const void *buffer,const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  return (!readOnlyGlobals.normalize_directions) ?
+    print_net_name_v6_0(kafka_line_buffer, buffer, real_field_len,
+      real_field_offset, flow_cache) :
+      0; // Not needed
 }
 
 /** Decorate a function making an ipv6 function be called over an ipv4 buffer
@@ -730,24 +786,34 @@ static void flow_cache_save_ipv4(void *dst_buf, const void *vbuffer,
   ipv4buf_to_6(dst_buf, buffer + real_field_offset);
 }
 
+static size_t process_ipv4_addr0(void *dst_buf,
+                                 struct printbuf *kafka_line_buffer,
+                                 const void *buffer,
+                                 const size_t real_field_len,
+                                 const size_t real_field_offset,
+                                 struct flowCache *flowCache) {
+  if (readOnlyGlobals.normalize_directions) {
+    flow_cache_save_ipv4(dst_buf, buffer, real_field_len, real_field_offset);
+    return 0;
+  } else {
+    return print_ipv4_addr(kafka_line_buffer, buffer, real_field_len,
+      real_field_offset, flowCache);
+  }
+}
+
 size_t print_ipv4_src_addr(struct printbuf *kafka_line_buffer,
     const void *buffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
-
-  flow_cache_save_ipv4(flowCache->address.src, buffer, real_field_len,
-    real_field_offset);
-  return print_ipv4_addr(kafka_line_buffer, buffer,
-    real_field_len, real_field_offset, flowCache);
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  return process_ipv4_addr0(flow_cache->address.src, kafka_line_buffer, buffer,
+    real_field_len, real_field_offset, flow_cache);
 }
 
 size_t print_ipv4_dst_addr(struct printbuf *kafka_line_buffer,
     const void *buffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    const size_t real_field_offset, struct flowCache *flow_cache){
 
-  flow_cache_save_ipv4(flowCache->address.dst, buffer, real_field_len,
-    real_field_offset);
-  return print_ipv4_addr(kafka_line_buffer, buffer,
-    real_field_len, real_field_offset, flowCache);
+  return process_ipv4_addr0(flow_cache->address.dst, kafka_line_buffer, buffer,
+    real_field_len, real_field_offset, flow_cache);
 }
 
 static bool is_ipv4_mapped(const void *ipv6) {
@@ -797,23 +863,46 @@ static size_t print_flow_cache_net0(struct printbuf *kafka_line_buffer,
 static size_t print_flow_cache_net(struct printbuf *kafka_line_buffer,
     const void *ip_addr, struct flowCache *flow_cache) {
   return print_flow_cache_net0(kafka_line_buffer, ip_addr, flow_cache,
-    print_net_v6);
+    print_net_v6_0);
 }
 
 static size_t print_flow_cache_net_name(struct printbuf *kafka_line_buffer,
     const void *ip_addr, struct flowCache *flow_cache) {
   return print_flow_cache_net0(kafka_line_buffer, ip_addr, flow_cache,
-    print_net_name_v6);
+    print_net_name_v6_0);
+}
+
+size_t print_sta_ipv4_address(struct printbuf *kafka_line_buffer,
+                              const void *vbuffer, const size_t real_field_len,
+                              const size_t real_field_offset,
+                              struct flowCache *flow_cache) {
+  const char *buffer = vbuffer;
+  if (unlikely(real_field_len != 4)) {
+    traceEvent(TRACE_ERROR, "Bad client ip addr received");
+    return 0;
+  }
+
+  /* Save client address for DNS query */
+  flow_cache->address.client[10] = flow_cache->address.client[11] = 0xff;
+  memcpy(&flow_cache->address.client[12], buffer, 4);
+
+  /* print */
+  const uint32_t addr = net2number(buffer + real_field_offset, real_field_len);
+  return print_ipv4_addr0(kafka_line_buffer, addr);
 }
 
 size_t print_lan_addr(struct printbuf *kafka_line_buffer,
-                            const void *buffer, const size_t real_field_len,
-                            const size_t real_field_offset,
-                            struct flowCache *flowCache) {
+                      const void *buffer, const size_t real_field_len,
+                      const size_t real_field_offset,
+                      struct flowCache *flow_cache) {
   unused_params(buffer, real_field_len, real_field_offset);
-  return print_flow_cache_address(kafka_line_buffer, flowCache,
-    get_direction_based_client_ip, print_flow_cache_addr);
 
+  if (!readOnlyGlobals.normalize_directions) {
+    return 0;
+  }
+
+  return print_flow_cache_address(kafka_line_buffer, flow_cache,
+    get_direction_based_client_ip, print_flow_cache_addr);
 }
 
 size_t print_lan_addr_net(struct printbuf *kafka_line_buffer,
@@ -913,39 +1002,46 @@ static size_t print_mac_vendor0(struct printbuf *kafka_line_buffer,const void *b
   return 0;
 }
 
-static int empty_mac(const uint8_t *mac) {
-  static const uint8_t _empty_mac[] = {0,0,0,0,0,0};
-  return NULL == mac || 0==memcmp(_empty_mac,mac,6);
+static bool empty_ipv6_addr(const uint8_t *addr) {
+  static const uint8_t ipv6[16];
+  return !memcmp(addr, ipv6, sizeof(ipv6));
 }
+
+/*
+  Netflow probe point of view
+
+  (client) -> (probe) traffic => ingress -> client_mac is src mac
+  (client) <- (probe) traffic => egress  -> client_mac is dst mac
+*/
+#define GET_CLIENT_ENDPOINT(t_direction, t_src, t_dst) ({                      \
+  typeof(t_src) src = (t_src); typeof(t_dst) dst = (t_dst);                    \
+  ((t_direction) == DIRECTION_EGRESS) ? dst : src; })
 
 static const uint8_t *get_direction_based_client_mac(struct flowCache *flowCache){
   assert(flowCache);
 
-  const uint8_t *mac = NULL;
+  const uint8_t *src_mac = flowCache->macs.src_mac;
   const uint8_t *dst_mac = is_span_observation_id(flowCache->observation_id) ?
     flowCache->macs.dst_mac : flowCache->macs.post_dst_mac;
 
-  /*
-    Netflow probe point of view
+  return GET_CLIENT_ENDPOINT(flowCache->macs.direction, src_mac, dst_mac);
+}
 
-    (client) -> (probe) traffic => ingress -> client_mac is src mac
-    (client) <- (probe) traffic => egress  -> client_mac is dst mac
-  */
+static uint64_t get_direction_based_client_port(
+    const struct flowCache *flow_cache) {
+  assert(flow_cache);
 
-  if(flowCache->macs.direction == DIRECTION_INGRESS && !empty_mac(flowCache->macs.src_mac)) {
-    mac = flowCache->macs.src_mac;
-  } else if(flowCache->macs.direction == DIRECTION_EGRESS && !empty_mac(dst_mac)) {
-    mac = dst_mac;
-  } else if(flowCache->macs.direction == DIRECTION_INTERNAL) {
-    /// @TODO test this case
-    if(!empty_mac(dst_mac)) {
-      mac = dst_mac;
-    } else if(!empty_mac(flowCache->macs.src_mac)) {
-      mac = flowCache->macs.src_mac;
-    }
-  }
+  return GET_CLIENT_ENDPOINT(flow_cache->macs.direction, flow_cache->ports.src,
+    flow_cache->ports.dst);
+}
 
-  return mac;
+static uint64_t get_direction_based_target_port(
+    const struct flowCache *flow_cache) {
+  assert(flowCache);
+
+  const uint64_t client_port = get_direction_based_client_port(flow_cache);
+  return (client_port == flow_cache->ports.src) ? flow_cache->ports.dst :
+    flow_cache->ports.src;
 }
 
 size_t print_direction_based_client_mac(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
@@ -1172,8 +1268,7 @@ static size_t print_port0(struct printbuf *kafka_line_buffer,const uint16_t port
   return printbuf_memappend_fast_n10(kafka_line_buffer,port);
 }
 
-//
-static size_t save_and_print_port(uint16_t *save_port, const char *port_type,
+static size_t process_port0(uint16_t *save_port, const char *port_type,
     struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flowCache) {
@@ -1186,56 +1281,59 @@ static size_t save_and_print_port(uint16_t *save_port, const char *port_type,
   }
 
   const uint16_t port = net2number(buffer + real_field_offset, real_field_len);
-  *save_port = port;
-  return print_port0(kafka_line_buffer,port);
+  if (readOnlyGlobals.normalize_directions) {
+    *save_port = port;
+    return 0;
+  } else {
+    return print_port0(kafka_line_buffer, port);
+  }
 }
 
-size_t print_src_port(struct printbuf *kafka_line_buffer,
+size_t process_src_port(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flowCache) {
 
-  return save_and_print_port(&flowCache->ports.src, "SRC", kafka_line_buffer,
+  return process_port0(&flowCache->ports.src, "SRC PORT", kafka_line_buffer,
     buffer, real_field_len, real_field_offset, flowCache);
 }
 
-size_t print_dst_port(struct printbuf *kafka_line_buffer,
+size_t process_dst_port(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flowCache){
 
-  return save_and_print_port(&flowCache->ports.dst, "DST", kafka_line_buffer,
+  return process_port0(&flowCache->ports.dst, "DST PORT", kafka_line_buffer,
     buffer, real_field_len, real_field_offset, flowCache);
 }
 
-size_t print_lan_port(struct printbuf *kafka_line_buffer, const void *buffer,
-                         const size_t real_field_len,
-                         const size_t real_field_offset,
-                         struct flowCache *flowCache) {
+static size_t print_flow_cache_number(struct printbuf *kafka_line_buffer,
+    const struct flowCache *flow_cache,
+    uint64_t (*get_number_cb)(const struct flowCache *)) {
+  const uint64_t number = get_number_cb(flow_cache);
+  return printbuf_memappend_fast_n10(kafka_line_buffer, number);
+}
 
-  assert_multi(kafka_line_buffer);
+size_t print_lan_port(struct printbuf *kafka_line_buffer, const void *buffer,
+                      const size_t real_field_len,
+                      const size_t real_field_offset,
+                      struct flowCache *flow_cache) {
+
+  assert_multi(kafka_line_buffer, flow_cache);
   unused_params(buffer, real_field_len, real_field_offset);
 
-  const uint16_t client_port = get_direction_based_client_port(flowCache);
-  if (!client_port) {
-    return 0;
-  }
-
-  return print_port0(kafka_line_buffer, client_port);
+  return print_flow_cache_number(kafka_line_buffer, flow_cache,
+    get_direction_based_client_port);
 }
 
 size_t print_wan_port(struct printbuf *kafka_line_buffer, const void *buffer,
                          const size_t real_field_len,
                          const size_t real_field_offset,
-                         struct flowCache *flowCache) {
+                         struct flowCache *flow_cache) {
 
-  assert_multi(kafka_line_buffer);
+  assert_multi(kafka_line_buffer, flow_cache);
   unused_params(buffer, real_field_len, real_field_offset);
 
-  const uint16_t target_port = get_direction_based_target_port(flowCache);
-  if (!target_port) {
-    return 0;
-  }
-
-  return print_port0(kafka_line_buffer, target_port);
+  return print_flow_cache_number(kafka_line_buffer, flow_cache,
+    get_direction_based_target_port);
 }
 
 /** Print and store ipv6
@@ -1291,28 +1389,17 @@ size_t print_ipv6_dst_addr(struct printbuf *kafka_line_buffer,
 
 #ifdef HAVE_GEOIP
 
-static size_t append_and_change_quotes(struct printbuf *kafka_line_buffer,
-                                                          const void *vbuffer) {
-  const char *buffer = vbuffer;
-  assert_multi(buffer, vbuffer);
-  int i=0;
-  while(buffer[i]!=0){
-    if(buffer[i] == '\"')
-      printbuf_memappend_fast(kafka_line_buffer,"\'",1);
-    else
-      printbuf_memappend_fast(kafka_line_buffer,&buffer[i],1);
-    ++i;
-  }
-
-  return i;
-}
-
 size_t print_country_code(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flowCache){
 
   assert(buffer);
   unused_params(real_field_offset, flowCache);
+
+  if (readOnlyGlobals.normalize_directions) {
+    /* Nothing to do */
+    return 0;
+  }
 
   if (unlikely(real_field_len!=4)) {
     traceEvent(TRACE_ERROR,"IP length %zu != 4 bytes.", real_field_len);
@@ -1322,11 +1409,12 @@ size_t print_country_code(struct printbuf *kafka_line_buffer,
   const uint32_t ipv4 = net2number(buffer, 4);
   if (readOnlyGlobals.geo_ip_country_db) {
     pthread_rwlock_rdlock(&readWriteGlobals->geoipRwLock);
-    const char * country = GeoIP_country_code_by_ipnum(readOnlyGlobals.geo_ip_country_db,ipv4);
-    // const char * country = GeoIP_country_name_by_ipnum(readOnlyGlobals.geo_ip_country_db,ipv4);
+    const char *country = GeoIP_country_code_by_ipnum(
+      readOnlyGlobals.geo_ip_country_db,ipv4);
     pthread_rwlock_unlock(&readWriteGlobals->geoipRwLock);
-    if(country)
-      return append_and_change_quotes(kafka_line_buffer,country);
+    if (country) {
+      return append_escaped(kafka_line_buffer, country, strlen(country));
+    }
   }
 
   return 0;
@@ -1428,6 +1516,11 @@ size_t print_AS_ipv4_name(struct printbuf *kafka_line_buffer,
   assert(buffer);
   (void)flowCache;
 
+  if (readOnlyGlobals.normalize_directions) {
+    /* Nothing to do */
+    return 0;
+  }
+
   if (likely(real_field_len==4)) {
     return print_AS_ipv4_name0(kafka_line_buffer, buffer + real_field_offset,
                                                                 real_field_len);
@@ -1520,12 +1613,20 @@ size_t print_AS6(struct printbuf *kafka_line_buffer,
 static size_t print_country6_code0(struct printbuf *kafka_line_buffer, const struct in6_addr *ipv6){
   if(readOnlyGlobals.geo_ip_country_db_v6){
     pthread_rwlock_rdlock(&readWriteGlobals->geoipRwLock);
-    const char * country = GeoIP_country_code_by_ipnum_v6(readOnlyGlobals.geo_ip_country_db_v6,*ipv6);
+    const char *country = GeoIP_country_code_by_ipnum_v6(readOnlyGlobals.geo_ip_country_db_v6,*ipv6);
     pthread_rwlock_unlock(&readWriteGlobals->geoipRwLock);
-    if(country)
-      return append_and_change_quotes(kafka_line_buffer,country);
+    if (country) {
+      return append_escaped(kafka_line_buffer, country, strlen(country));
+    }
   }
   return 0;
+}
+
+// Same function as print_country6_code0 but with an extra flowCache parameter
+static size_t print_country6_code_fc(struct printbuf *kafka_line_buffer,
+    const void *ipv6, struct flowCache *flow_cache) {
+  (void)flow_cache;
+  return print_country6_code0(kafka_line_buffer, ipv6);
 }
 
 size_t print_country6_code(struct printbuf *kafka_line_buffer,
@@ -1542,6 +1643,45 @@ size_t print_country6_code(struct printbuf *kafka_line_buffer,
 
   const struct in6_addr ipv6 = get_ipv6(buffer + real_field_offset);
   return print_country6_code0(kafka_line_buffer,&ipv6);
+}
+
+size_t print_lan_country_code(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len, real_field_offset);
+  return print_flow_cache_address(kafka_line_buffer, flow_cache,
+    get_direction_based_client_ip, print_country6_code_fc);
+}
+
+size_t print_wan_country_code(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len, real_field_offset);
+  return print_flow_cache_address(kafka_line_buffer, flow_cache,
+    get_direction_based_target_ip, print_country6_code_fc);
+}
+
+/// Wrapper to call print_AS6_0 with a flow_cache
+static size_t print_AS6_name_fc(struct printbuf *kafka_line_buffer,
+    const void *ipv6, struct flowCache *flow_cache) {
+  (void)flow_cache;
+  return print_AS6_name0(kafka_line_buffer, ipv6);
+}
+
+size_t print_lan_AS_name(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len, real_field_offset);
+  return print_flow_cache_address(kafka_line_buffer, flow_cache,
+    get_direction_based_client_ip, print_AS6_name_fc);
+}
+
+size_t print_wan_AS_name(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len, real_field_offset);
+  return print_flow_cache_address(kafka_line_buffer, flow_cache,
+    get_direction_based_target_ip, print_AS6_name_fc);
 }
 
 #endif /* HAVE_GEOIP */
@@ -1899,41 +2039,17 @@ static const uint8_t *get_dst_ip(const struct flowCache *flowCache) {
   return (const uint8_t *)flowCache->address.dst;
 }
 
-static uint16_t get_src_port(const struct flowCache *flowCache) {
-  return flowCache->ports.src;
-}
-
-static uint16_t get_dst_port(const struct flowCache *flowCache) {
-  return flowCache->ports.dst;
-}
-
 const uint8_t *get_direction_based_client_ip(const struct flowCache *flowCache) {
   assert(flowCache);
 
-  const uint8_t *ret = NULL;
   const uint8_t *src_ip = get_src_ip(flowCache);
   const uint8_t *dst_ip = get_dst_ip(flowCache);
 
-  /*
-    Netflow probe point of view
-
-    (client) -> (probe) traffic => ingress -> client_mac is src mac
-    (client) <- (probe) traffic => egress  -> client_mac is dst mac
-  */
-  /// @NOTE keep in sync with get_direction_based_client_mac
-  if(flowCache->macs.direction == DIRECTION_INGRESS && NULL != src_ip) {
-    ret = src_ip;
-  } else if(flowCache->macs.direction == DIRECTION_EGRESS && NULL != dst_ip) {
-    ret = dst_ip;
-  } else if(flowCache->macs.direction == DIRECTION_INTERNAL) {
-    if(NULL != dst_ip) {
-      ret = dst_ip;
-    } else if(NULL != src_ip){
-      ret = src_ip;
-    }
+  if (!empty_ipv6_addr(flowCache->address.client)) {
+    return flowCache->address.client;
   }
 
-  return ret;
+  return GET_CLIENT_ENDPOINT(flowCache->macs.direction, src_ip, dst_ip);
 }
 
 const uint8_t *get_direction_based_target_ip(
@@ -1944,45 +2060,6 @@ const uint8_t *get_direction_based_target_ip(
   const uint8_t *client_hostname = get_direction_based_client_ip(flowCache);
   return (client_hostname == src_ip) ?
     dst_ip : src_ip;
-}
-
-uint16_t get_direction_based_client_port(const struct flowCache *flowCache) {
-  assert(flowCache);
-
-  uint16_t ret = 0;
-  const uint16_t src_port = get_src_port(flowCache);
-  const uint16_t dst_port = get_dst_port(flowCache);
-
-  /*
-    Netflow probe point of view
-
-    (client) -> (probe) traffic => ingress -> client_mac is src mac
-    (client) <- (probe) traffic => egress  -> client_mac is dst mac
-  */
-  /// @NOTE keep in sync with get_direction_based_client_mac
-  if (flowCache->macs.direction == DIRECTION_INGRESS && src_port) {
-    ret = src_port;
-  } else if (flowCache->macs.direction == DIRECTION_EGRESS && dst_port) {
-    ret = dst_port;
-  } else if (flowCache->macs.direction == DIRECTION_INTERNAL) {
-    if (dst_port) {
-      ret = dst_port;
-    } else if (src_port) {
-      ret = src_port;
-    }
-  }
-
-  return (const uint16_t)ret;
-}
-
-uint16_t get_direction_based_target_port(const struct flowCache *flowCache) {
-  assert(flowCache);
-
-  const uint16_t src_port = get_src_port(flowCache);
-  const uint16_t dst_port = get_dst_port(flowCache);
-
-  const uint16_t client_port = get_direction_based_client_port(flowCache);
-  return (client_port == src_port) ? dst_port : src_port;
 }
 
 /// @TODO difference client/target src/dst
@@ -2352,16 +2429,132 @@ size_t print_selector_name(struct printbuf *kafka_line_buffer,
     real_field_offset, flowCache, observation_id_selector_name);
 }
 
-size_t print_interface_name(struct printbuf *kafka_line_buffer,
+static size_t process_snmp_interface(uint64_t *save,
+    struct printbuf *kafka_line_buffer, const void *vbuffer,
+    const size_t real_field_len, const size_t real_field_offset,
+    struct flowCache *flowCache) {
+  const uint8_t *buffer = vbuffer;
+  if (readOnlyGlobals.normalize_directions) {
+    *save = net2number(buffer + real_field_offset, real_field_len);
+    return 0;
+  } else {
+    return print_number(kafka_line_buffer, vbuffer, real_field_len,
+      real_field_offset, flowCache);
+  }
+}
+
+static uint64_t get_direction_based_client_interface(
+    const struct flowCache *flow_cache) {
+  return GET_CLIENT_ENDPOINT(flow_cache->macs.direction,
+    flow_cache->interfaces.input, flow_cache->interfaces.output);
+}
+
+static uint64_t get_direction_based_target_interface(
+    const struct flowCache *flow_cache) {
+  uint64_t client_interface = get_direction_based_client_interface(flow_cache);
+  return (client_interface == flow_cache->interfaces.input)
+    ? flow_cache->interfaces.output : flow_cache->interfaces.input;
+}
+
+size_t print_lan_interface(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len, real_field_offset);
+
+  return print_flow_cache_number(kafka_line_buffer, flow_cache,
+    get_direction_based_client_interface);
+}
+
+size_t print_wan_interface(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len, real_field_offset);
+
+  return print_flow_cache_number(kafka_line_buffer, flow_cache,
+    get_direction_based_target_interface);
+}
+
+size_t process_input_snmp(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  return process_snmp_interface(&flow_cache->interfaces.input,
+    kafka_line_buffer, buffer, real_field_len, real_field_offset,
+    flow_cache);
+}
+
+size_t process_output_snmp(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  return process_snmp_interface(&flow_cache->interfaces.output,
+    kafka_line_buffer, buffer, real_field_len, real_field_offset,
+    flow_cache);
+}
+
+// Do not check if we are normalizing directions
+static size_t print_interface_name0(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flowCache) {
   return print_observation_id_attribute(kafka_line_buffer, vbuffer, real_field_len,
-    real_field_offset, flowCache, observation_id_interface_name);
+      real_field_offset, flowCache, observation_id_interface_name);
+}
+
+size_t print_interface_name(struct printbuf *kafka_line_buffer,
+    const void *vbuffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flowCache) {
+  return !readOnlyGlobals.normalize_directions ?
+    print_interface_name0(kafka_line_buffer, vbuffer, real_field_len,
+      real_field_offset, flowCache) :
+    0;
 }
 
 size_t print_interface_description(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flowCache) {
-  return print_observation_id_attribute(kafka_line_buffer, vbuffer, real_field_len,
-    real_field_offset, flowCache, observation_id_interface_description);
+  return !readOnlyGlobals.normalize_directions ?
+    print_observation_id_attribute(kafka_line_buffer, vbuffer, real_field_len,
+      real_field_offset, flowCache, observation_id_interface_description) : 0;
+}
+
+static size_t print_flow_cache_interface_str(struct printbuf *kafka_line_buffer,
+    const struct flowCache *flow_cache,
+    uint64_t (*get_number_cb)(const struct flowCache *),
+    const char * (*interface_str_cb)(observation_id_t *,uint64_t)) {
+  const uint64_t number = get_number_cb(flow_cache);
+  observation_id_t *observation_domain_id = flow_cache->observation_id;
+  const char *str = interface_str_cb(observation_domain_id, number);
+  return str ? printbuf_memappend_fast_string(kafka_line_buffer, str) :
+    printbuf_memappend_fast_n10(kafka_line_buffer, number);
+}
+
+size_t print_lan_interface_name(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len, real_field_offset);
+  return print_flow_cache_interface_str(kafka_line_buffer, flow_cache,
+    get_direction_based_client_interface, observation_id_interface_name);
+
+}
+size_t print_wan_interface_name(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len, real_field_offset);
+  return print_flow_cache_interface_str(kafka_line_buffer, flow_cache,
+    get_direction_based_target_interface, observation_id_interface_name);
+}
+
+size_t print_lan_interface_description(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len, real_field_offset);
+  return print_flow_cache_interface_str(kafka_line_buffer, flow_cache,
+    get_direction_based_client_interface, observation_id_interface_description);
+
+}
+
+size_t print_wan_interface_description(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len, real_field_offset);
+  return print_flow_cache_interface_str(kafka_line_buffer, flow_cache,
+    get_direction_based_target_interface, observation_id_interface_description);
 }

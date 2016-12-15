@@ -25,6 +25,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <stdbool.h>
 
 int nf_test_setup(void **state);
 
@@ -44,6 +45,7 @@ struct nf_test_state {
 			const char *kafka_url;
 			const char *dns_servers;
 			const char *templates_zk_node;
+			bool normalize_directions;
 
 			uint32_t netflow_src_ip;
 

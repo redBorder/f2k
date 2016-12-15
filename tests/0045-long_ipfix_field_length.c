@@ -206,7 +206,6 @@ static const struct checkdata_value checkdata_values1[] = {
 	{.key = "http_host", .value="newlyrics.gomtv.com"},
 	{.key = "http_user_agent", .value="GomAudio 2, 0, 11, 1156.J"},
 	{.key = "direction", .value="ingress"},
-	{.key = "client_mac", .value="60:57:18:c2:87:d8"},
 	{.key = "sensor_ip", .value="4.3.2.1"},
 	{.key = "sensor_name", .value="FlowTest"},
 	{.key = "first_switched", .value="1382637021"},

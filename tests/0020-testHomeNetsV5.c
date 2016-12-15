@@ -265,88 +265,87 @@ static const NetFlow5Record record2 = {
 	}
 };
 
-static const struct checkdata_value checkdata_values1_0[] = {
-	{.key = "src", .value="192.168.1.1",},
-	{.key = "src_net", .value=NULL,},
-	{.key = "src_net_name", .value=NULL,},
-	{.key = "dst", .value="192.168.1.2",},
-	{.key = "dst_net", .value=NULL},
-	{.key = "dst_net_name", .value=NULL,},
-	{.key = "direction", .value=NULL,},
+static int prepare_test_nf5_home_nets_0(void **state,
+					const bool normalize_directions,
+					const struct checkdata *checkdata_r1,
+					const size_t checkdata_r1_size,
+					const struct checkdata *checkdata_r2,
+					const size_t checkdata_r2_size) {
+#define TEST(nf_dev_ip, mrecord, mrecord_size, checks, checks_size, ...) {     \
+		.netflow_src_ip = nf_dev_ip,                                   \
+		.record = mrecord, .record_size = mrecord_size,                \
+		.checkdata = checks, .checkdata_size = checks_size,            \
+		__VA_ARGS__}
+
+	struct test_params test_params[] = {
+		[0] = TEST(0x04030201,
+			&record1, sizeof(record1),
+			checkdata_r1, checkdata_r1_size,
+			.config_json_path = "./tests/0020-testHomeNetsV5.json",
+			.host_list_path = "./tests/0020-data/",
+			.normalize_directions = normalize_directions),
+
+		[1] = TEST(0x04030301,
+			&record2, sizeof(record2),
+			checkdata_r2, checkdata_r2_size,),
+	};
+#undef TEST
+
+	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
+	return *state == NULL;
+}
+
+/* Left: SRC/LAN, RIGHT: DST/WAN */
+#define CHECKDATA(left_name, left_ip, left_net, left_net_name, \
+		  right_name, right_ip, right_net, right_net_name, \
+		  direction) {\
+	{.key = left_name, .value=left_ip,}, \
+	{.key = left_name "_net", .value=left_net,}, \
+	{.key = left_name "_net_name", .value=left_net_name,}, \
+	{.key = right_name, .value=right_ip,}, \
+	{.key = right_name "_net", .value=right_net,}, \
+	{.key = right_name "_net_name", .value=right_net_name,}, \
+	{.key = "direction", .value=direction,}, \
 };
 
-static const struct checkdata_value checkdata_values1_1[] = {
-	{.key = "src", .value="10.0.30.10",},
-	{.key = "src_net", .value="10.0.30.0/24",},
-	{.key = "src_net_name", .value="users",},
-	{.key = "dst", .value="192.168.1.2",},
-	{.key = "dst_net", .value=NULL},
-	{.key = "dst_net_name", .value=NULL,},
-	{.key = "direction", .value="ingress",},
+static int prepare_test_nf5_home_nets_normalize(void *state) {
+	/* Can't guess direction => src is LAN, dst is WAN */
+	static const struct checkdata_value checkdata_values1_0[] =
+		CHECKDATA("lan_ip", "192.168.1.1", NULL, NULL,
+			  "wan_ip", "192.168.1.2", NULL, NULL, NULL);
 
-};
+	/* src is in lan */
+	static const struct checkdata_value checkdata_values1_1[] =
+		CHECKDATA("lan_ip", "10.0.30.10", "10.0.30.0/24", "users",
+			  "wan_ip", "192.168.1.2", NULL, NULL, "ingress");
 
-static const struct checkdata_value checkdata_values1_2[] = {
-	{.key = "src", .value="8.8.8.8",},
-	{.key = "src_net", .value="8.8.8.0/24",},
-	{.key = "src_net_name", .value="google8",},
-	{.key = "dst", .value="192.168.1.2",},
-	{.key = "dst_net", .value=NULL},
-	{.key = "dst_net_name", .value=NULL,},
-	{.key = "direction", .value=NULL,},
-};
+	/* src is in net objects, but not in home net => LAN is src,
+	WAN is dst*/
+	static const struct checkdata_value checkdata_values1_2[] =
+		CHECKDATA("lan_ip", "8.8.8.8", "8.8.8.0/24", "google8",
+			  "wan_ip", "192.168.1.2", NULL, NULL, NULL);
 
-static const struct checkdata_value checkdata_values1_3[] = {
-	{.key = "src", .value="192.168.1.2",},
-	{.key = "src_net", .value=NULL},
-	{.key = "src_net_name", .value=NULL,},
-	{.key = "dst", .value="10.0.30.10",},
-	{.key = "dst_net", .value="10.0.30.0/24",},
-	{.key = "dst_net_name", .value="users",},
-	{.key = "direction", .value="egress",},
-};
+	/* dst is in home net */
+	static const struct checkdata_value checkdata_values1_3[] =
+		CHECKDATA("wan_ip", "192.168.1.2", NULL, NULL,
+			  "lan_ip", "10.0.30.10", "10.0.30.0/24", "users",
+			  "egress");
 
-static const struct checkdata_value checkdata_values1_4[] = {
-	{.key = "src", .value="192.168.1.2",},
-	{.key = "src_net", .value=NULL},
-	{.key = "src_net_name", .value=NULL,},
-	{.key = "dst", .value="8.8.8.8",},
-	{.key = "dst_net", .value="8.8.8.0/24",},
-	{.key = "dst_net_name", .value="google8",},
-	{.key = "direction", .value=NULL,},
-};
+	/* dst is in nets, but src/dst are not in home nets */
+	static const struct checkdata_value checkdata_values1_4[] =
+		CHECKDATA("lan_ip", "192.168.1.2", NULL, NULL,
+			  "wan_ip", "8.8.8.8", "8.8.8.0/24", "google8", NULL);
 
-static const struct checkdata_value checkdata_values1_5[] = {
-	{.key = "src", .value="10.0.150.10",},
-	{.key = "src_net", .value="10.0.150.0/24",},
-	{.key = "src_net_name", .value="lab",},
-	{.key = "dst", .value="192.168.1.2",},
-	{.key = "dst_net", .value=NULL},
-	{.key = "dst_net_name", .value=NULL,},
-	{.key = "direction", .value="ingress",},
-};
+	/* src in home nets & nets objects => prioritize home nets */
+	static const struct checkdata_value checkdata_values1_5[] =
+		CHECKDATA("lan_ip", "10.0.150.10", "10.0.150.0/24", "lab",
+			  "wan_ip", "192.168.1.2", NULL, NULL, "ingress");
 
-static const struct checkdata_value checkdata_values1_6[] = {
-	{.key = "src", .value="192.168.1.2",},
-	{.key = "src_net", .value=NULL},
-	{.key = "src_net_name", .value=NULL,},
-	{.key = "dst", .value="10.0.150.10",},
-	{.key = "dst_net", .value="10.0.150.0/24",},
-	{.key = "dst_net_name", .value="lab",},
-	{.key = "direction", .value="egress",},
-};
+	/* Other sensor, with no home nets */
+	static const struct checkdata_value checkdata_values2_0[] =
+		CHECKDATA("lan_ip", "10.0.30.10", NULL, NULL,
+			  "wan_ip", "192.168.1.2", NULL, NULL, NULL);
 
-static const struct checkdata_value checkdata_values2_0[] = {
-	{.key = "src", .value="10.0.30.10",},
-	{.key = "src_net", .value=NULL,},
-	{.key = "src_net_name", .value=NULL,},
-	{.key = "dst", .value="192.168.1.2",},
-	{.key = "dst_net", .value=NULL},
-	{.key = "dst_net_name", .value=NULL,},
-	{.key = "direction", .value=NULL,},
-};
-
-static int prepare_test_nf5_home_nets(void **state) {
 	static const struct checkdata checkdata1[] = {
 		{.size = RD_ARRAYSIZE(checkdata_values1_0), .checks=checkdata_values1_0},
 		{.size = RD_ARRAYSIZE(checkdata_values1_1), .checks=checkdata_values1_1},
@@ -360,33 +359,72 @@ static int prepare_test_nf5_home_nets(void **state) {
 		{.size = RD_ARRAYSIZE(checkdata_values2_0), .checks=checkdata_values2_0},
 	};
 
-#define TEST(config_path, mhosts_db_path, nf_dev_ip, mrecord, mrecord_size,    \
-							checks, checks_size) { \
-		.config_json_path = config_path,                               \
-		.host_list_path = mhosts_db_path,                              \
-		.netflow_src_ip = nf_dev_ip,                                   \
-		.record = mrecord, .record_size = mrecord_size,                \
-		.checkdata = checks, .checkdata_size = checks_size             \
-	}
+	return prepare_test_nf5_home_nets_0(state, true,
+				checkdata1, RD_ARRAYSIZE(checkdata1),
+				checkdata2, RD_ARRAYSIZE(checkdata2));
+}
 
-	struct test_params test_params[] = {
-		[0] = TEST("./tests/0020-testHomeNetsV5.json",
-					"./tests/0020-data/", 0x04030201,
-					&record1, sizeof(record1),
-					checkdata1, RD_ARRAYSIZE(checkdata1)),
+static int prepare_test_nf5_home_nets_dont_normalize(void *state) {
+	/* Can't guess direction => src is LAN, dst is WAN */
+	static const struct checkdata_value checkdata_values1_0[] =
+		CHECKDATA("src", "192.168.1.1", NULL, NULL,
+			  "dst", "192.168.1.2", NULL, NULL, NULL);
 
-		[1] = TEST(NULL, NULL, 0x04030301,
-					&record2, sizeof(record2),
-					checkdata2, RD_ARRAYSIZE(checkdata2)),
+	/* src is in lan */
+	static const struct checkdata_value checkdata_values1_1[] =
+		CHECKDATA("src", "10.0.30.10", "10.0.30.0/24", "users",
+			  "dst", "192.168.1.2", NULL, NULL, NULL);
+
+	/* src is in net objects, but not in home net => LAN is src,
+	WAN is dst*/
+	static const struct checkdata_value checkdata_values1_2[] =
+		CHECKDATA("src", "8.8.8.8", "8.8.8.0/24", "google8",
+			  "dst", "192.168.1.2", NULL, NULL, NULL);
+
+	/* dst is in home net */
+	static const struct checkdata_value checkdata_values1_3[] =
+		CHECKDATA("src", "192.168.1.2", NULL, NULL,
+			  "dst", "10.0.30.10", "10.0.30.0/24", "users", NULL);
+
+	/* dst is in nets, but src/dst are not in home nets */
+	static const struct checkdata_value checkdata_values1_4[] =
+		CHECKDATA("src", "192.168.1.2", NULL, NULL,
+			  "dst", "8.8.8.8", "8.8.8.0/24", "google8", NULL);
+
+	/* src in home nets & nets objects => prioritize home nets */
+	static const struct checkdata_value checkdata_values1_5[] =
+		CHECKDATA("src", "10.0.150.10", "10.0.150.0/24", "lab",
+			  "dst", "192.168.1.2", NULL, NULL, NULL);
+
+	/* Other sensor, with no home nets */
+	static const struct checkdata_value checkdata_values2_0[] =
+		CHECKDATA("src", "10.0.30.10", NULL, NULL,
+			  "dst", "192.168.1.2", NULL, NULL, NULL);
+
+	static const struct checkdata checkdata1[] = {
+		{.size = RD_ARRAYSIZE(checkdata_values1_0), .checks=checkdata_values1_0},
+		{.size = RD_ARRAYSIZE(checkdata_values1_1), .checks=checkdata_values1_1},
+		{.size = RD_ARRAYSIZE(checkdata_values1_2), .checks=checkdata_values1_2},
+		{.size = RD_ARRAYSIZE(checkdata_values1_3), .checks=checkdata_values1_3},
+		{.size = RD_ARRAYSIZE(checkdata_values1_4), .checks=checkdata_values1_4},
+		{.size = RD_ARRAYSIZE(checkdata_values1_5), .checks=checkdata_values1_5},
 	};
 
-	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
-	return *state == NULL;
+	static const struct checkdata checkdata2[] = {
+		{.size = RD_ARRAYSIZE(checkdata_values2_0), .checks=checkdata_values2_0},
+	};
+
+	return prepare_test_nf5_home_nets_0(state, false,
+				checkdata1, RD_ARRAYSIZE(checkdata1),
+				checkdata2, RD_ARRAYSIZE(checkdata2));
 }
 
 int main() {
 	const struct CMUnitTest tests[] = {
-		cmocka_unit_test_setup(testFlow, prepare_test_nf5_home_nets),
+		cmocka_unit_test_setup(testFlow,
+			prepare_test_nf5_home_nets_dont_normalize),
+		cmocka_unit_test_setup(testFlow,
+			prepare_test_nf5_home_nets_normalize),
 	};
 
 	return cmocka_run_group_tests(tests, nf_test_setup, nf_test_teardown);

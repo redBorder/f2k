@@ -147,7 +147,8 @@ static int prepare_test_nf9(void **state) {
 			&checkdata, 1,
 			.config_json_path = "./tests/0047-testNetflow9_dns.json",
 			.kafka_url = "kafka:9092",
-			.dns_servers = "localhost"),
+			.dns_servers = "localhost",
+			.normalize_directions = true),
 	};
 
 	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
