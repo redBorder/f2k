@@ -38,89 +38,42 @@ struct TestV9Flow{
 	const uint8_t buffer2[72];
 }__attribute__((packed));
 
-static const struct TestV9Template v9Template = {
-	.flowHeader = {
-		/*uint16_t*/ .version = 0x0900,           /* Current version=9*/
-		/*uint16_t*/ .count = 0x0100,           /* The number of records in PDU. */
-		/*uint32_t*/ .sys_uptime = 0x00003039,     /* Current time in msecs since router booted */
-		/*uint32_t*/ .unix_secs = 0xe2336552,     /* Current seconds since 0000 UTC 1970 */
-		/*uint32_t*/ .flow_sequence = 0x38040000, /* Sequence number of total flows seen */
-		/*uint32_t*/ .source_id = 0x01000000,      /* Source id */
-	},
+#define TEST_FLOW_HEADER \
+	.sys_uptime = constexpr_be32toh(12345), \
+	.unix_secs = constexpr_be32toh(1382364130), \
+	.flow_sequence = constexpr_be32toh(1080), \
+	.source_id = constexpr_be32toh(1),
 
-	.flowSetHeader = {
-		/*uint16_t*/ .templateFlowset = 0x0000,
-		/*uint16_t*/ .flowsetLen = 0x3000,
-	},
+#define TEST_TEMPLATE_ID 259
 
-	.templateHeader = {
-		/*uint16_t*/ .templateId = 0x0301, /*259*/
-		/*uint16_t*/ .fieldCount = 0x0a00,
-	},
+#define T_WLAN_SSID \
+	'l','o','c','a','l','-','w','i', \
+	'f','i',0,  0,  0,  0,  0,  0,   \
+	0,  0,  0,  0,  0,  0,  0,  0,   \
+	0,  0,  0,  0,  0,  0,  0,  0,   \
+	0
 
-	.templateSet = { /* all uint16_t*/
-		[0] = {.templateId = 0x6d01 /* 365: STA_MAC_ADDRESS  */, .flowsetLen = 0x0600},
-		[1] = {.templateId = 0x6e01 /* 366: STA_IPV4_ADDRESS */, .flowsetLen = 0x0400},
-		[2] = {.templateId = 0x5f00 /*  95: APPLICATION_ID */,   .flowsetLen = 0x0400},
-		[3] = {.templateId = 0x9300 /* 147: WLAN_SSID */, .flowsetLen = 0x2100},
-		[4] = {.templateId = 0x3d00 /*  61: DIRECTION */, .flowsetLen = 0x0100},
-		[5] = {.templateId = 0x0100 /*   1: BYTES */, .flowsetLen = 0x0800},
-		[6] = {.templateId = 0x0200 /*   2: PKTS */, .flowsetLen = 0x0800},
-		[7] = {.templateId = 0x6200 /*  98: Not processed */, .flowsetLen = 0x0100},
-		[8] = {.templateId = 0xc300 /* 195: Not processed */, .flowsetLen = 0x0100},
-		[9] = {.templateId = 0x616f /* 367: WAP_MAC_ADDRESS */, .flowsetLen = 0x0600},
-	}
-};
-
-static const struct TestV9Flow v9Flow = {
-	.flowHeader = {
-		/*uint16_t*/ .version = 0x0900,           /* Current version=9*/
-		/*uint16_t*/ .count = 0x0100,           /* The number of records in PDU. */
-		/*uint32_t*/ .sys_uptime = 0x00003039,     /* Current time in msecs since router booted */
-		/*uint32_t*/ .unix_secs = 0x98346552,     /* Current seconds since 0000 UTC 1970 */
-		/*uint32_t*/ .flow_sequence = 0x76040000, /* Sequence number of total flows seen */
-		/*uint32_t*/ .source_id = 0x01000000,      /* Source id */
-	},
-
-	.flowSetHeader = {
-		/*uint16_t*/ .templateFlowset = 0x0301,
-		/*uint16_t*/ .flowsetLen = 0x9000,
-	},
-
-	.buffer1 = {
-		0x00, 0x05, 0x69, 0x28, 0xb0, 0xc7, /* STA_MAC_ADDRESS: b8:14:c2:28:b0:c7 */
-		0x0a, 0x0d, 0x5e, 0xdf,             /* STA_IPV4_ADDRESS: 10.13.94.223 */
-		0x0d, 0x00, 0x01, 0xc5,             /* App Id: 13:453 */
-		0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x2d, /* WLAN_SSID: "local-wifi" */
-		0x77, 0x69, 0x66, 0x69, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00,
-		0x00,                               /* Direction: Ingress */
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1d, 0xb3, /* Octetos */
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x07, /* Paquetes */
-		0x00, 0x00,                         /* Not used */
-		0x58, 0xbf, 0xea, 0x01, 0x5b, 0x40, /* WAP_MAC_ADDRESS */
-	},
-
-	.buffer2 = {
-		0x00, 0x05, 0x69, 0x28, 0xb0, 0xc7, /* STA_MAC_ADDRESS: b8:14:c2:28:b0:c7 */
-		0x08, 0x08, 0x08, 0x08,             /* STA_IPV4_ADDRESS: 10.13.94.223 */
-		0x0d, 0x00, 0x01, 0xc5,             /* App Id: 13:453 */
-		0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x2d, /* WLAN_SSID: "local-wifi" */
-		0x77, 0x69, 0x66, 0x69, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00,
-		0x00,                               /* Direction: Ingress */
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1d, 0xb3, /* Octetos */
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x07, /* Paquetes */
-		0x00, 0x00,                         /* Not used */
-		0x58, 0xbf, 0xea, 0x01, 0x5b, 0x40, /* WAP_MAC_ADDRESS */
-	},
-};
+#define TEST_NF9_ENTITIES(RT, R) \
+	RT(STA_MAC_ADDRESS, 6, 0, 0x00, 0x05, 0x69, 0x28, 0xb0, 0xc7) \
+	RT(STA_IPV4_ADDRESS, 4, 0, 10, 13, 94, 223) \
+	RT(APPLICATION_ID, 4, 0, FLOW_APPLICATION_ID(13, 453)) \
+	RT(WLAN_SSID, 33, 0, T_WLAN_SSID) \
+	RT(DIRECTION, 1, 0, 0) \
+	RT(IN_BYTES, 8, 0, UINT64_TO_UINT8_ARR(7603)) \
+	RT(IN_PKTS, 8, 0,  UINT64_TO_UINT8_ARR(263)) \
+	RT(98, 1, 0, 0) \
+	RT(195, 1, 0, 0) \
+	RT(WAP_MAC_ADDRESS, 6, 0, 0x58, 0xbf, 0xea, 0x01, 0x5b, 0x40) \
+	R(STA_MAC_ADDRESS, 6, 0, 0x00, 0x05, 0x69, 0x28, 0xb0, 0xc7)  \
+	R(STA_IPV4_ADDRESS, 4, 0, 8, 8, 8, 8) \
+	R(APPLICATION_ID, 4, 0, FLOW_APPLICATION_ID(13, 453)) \
+	R(WLAN_SSID, 33, 0, T_WLAN_SSID) \
+	R(DIRECTION, 1, 0, 0) \
+	R(IN_BYTES, 8, 0, UINT64_TO_UINT8_ARR(7603)) \
+	R(IN_PKTS, 8, 0, UINT64_TO_UINT8_ARR(263)) \
+	R(98, 1, 0, 0) \
+	R(195, 1, 0, 0) \
+	R(WAP_MAC_ADDRESS, 6, 0, 0x58, 0xbf, 0xea, 0x01, 0x5b, 0x40)
 
 static const struct checkdata_value checkdata1[] = {
 	{.key="type", .value="netflowv9"},
@@ -139,6 +92,12 @@ static const struct checkdata_value checkdata2[] = {
 };
 
 static int prepare_test_nf9_ip_enrichment(void **state) {
+	static const NF9_TEMPLATE(v9Template, TEST_FLOW_HEADER,
+		TEST_TEMPLATE_ID, TEST_NF9_ENTITIES);
+
+	static const NF9_FLOW(v9Flow, TEST_FLOW_HEADER,
+		TEST_TEMPLATE_ID, TEST_NF9_ENTITIES);
+
 	static const struct checkdata sl1_checkdata[] = {
 		{.size = RD_ARRAYSIZE(checkdata1), .checks = checkdata1},
 		{.size = RD_ARRAYSIZE(checkdata2), .checks = checkdata2},
