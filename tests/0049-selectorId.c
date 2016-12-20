@@ -205,7 +205,128 @@ static int prepare_test_nf9_appid_enrichment(void **state) {
 		TEST(&ipfix_flow, sizeof(ipfix_flow),
 			post_checkdata, RD_ARRAYSIZE(post_checkdata),),
 	};
-#undef TEST
+
+	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
+	return *state == NULL;
+}
+
+/*
+ * REGRESION TEST: FLOW END PADDING
+ */
+
+#define WEB_SELECTOR_ID   UINT32_TO_UINT8_ARR(10)
+#define WEB_SELECTOR_NAME 'w','e','b', 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0
+#define VOICE_SELECTOR_ID   UINT32_TO_UINT8_ARR(20)
+#define VOICE_SELECTOR_NAME 'v','o','i', 'c', 'e', 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0
+#define OTHER_SELECTOR_ID   UINT32_TO_UINT8_ARR(30)
+#define OTHER_SELECTOR_NAME 'o','t','h', 'e', 'r', 'w', 'i', 's', \
+			'e', 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0
+#define LOCAL_SELECTOR_ID   UINT32_TO_UINT8_ARR(40)
+#define LOCAL_SELECTOR_NAME 'l','o','c', 'a', 'l', 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0, \
+			0, 0, 0, 0, 0, 0, 0, 0
+
+
+// Note the padding only in flow. this way, flow alignment is 4
+#define PADDING_ENTITIES(SCOPE_CBT, OPTION_CBT, PADDING_CBT, \
+		SCOPE_CBR, OPTION_CBR, PADDING_CBR) \
+	SCOPE_CBT(SELECTOR_ID, 4, WEB_SELECTOR_ID) \
+	OPTION_CBT(SELECTOR_NAME, 128, WEB_SELECTOR_NAME) \
+	/*****/ \
+	SCOPE_CBR(SELECTOR_ID, 4, VOICE_SELECTOR_ID) \
+	OPTION_CBR(SELECTOR_NAME, 128, VOICE_SELECTOR_NAME) \
+	/*****/ \
+	SCOPE_CBR(SELECTOR_ID, 4, OTHER_SELECTOR_ID) \
+	OPTION_CBR(SELECTOR_NAME, 128, OTHER_SELECTOR_NAME) \
+	/*****/ \
+	SCOPE_CBR(SELECTOR_ID, 4, LOCAL_SELECTOR_ID) \
+	OPTION_CBR(SELECTOR_NAME, 128, LOCAL_SELECTOR_NAME) \
+	PADDING_CBR(0x0, 0x0)
+
+
+static int prepare_test_final_padding(void **state) {
+	static const NF9_OPTION_TEMPLATE(v9_option_template,
+		TEST_V9_FLOW_HEADER, OPTIONS_TEMPLATE_ID,
+		PADDING_ENTITIES);
+	static const NF9_OPTION_FLOW(v9_option_flow, TEST_V9_FLOW_HEADER,
+		OPTIONS_TEMPLATE_ID, PADDING_ENTITIES);
+
+	static const IPFIX_OPTION_TEMPLATE(ipfix_option_template,
+		TEST_IPFIX_FLOW_HEADER, OPTIONS_TEMPLATE_ID,
+		PADDING_ENTITIES);
+	static const IPFIX_OPTION_FLOW(ipfix_option_flow,
+		TEST_IPFIX_FLOW_HEADER, OPTIONS_TEMPLATE_ID,
+		PADDING_ENTITIES)
+
+
+	struct test_params test_params[] = {
+		TEST(&v9_option_template, sizeof(v9_option_template), NULL, 0,
+			.config_json_path =
+				"tests/0010-testAppIdEnrichment.json",
+			.host_list_path = "./tests/0010-data/"),
+		TEST(&v9_option_flow, sizeof(v9_option_flow), NULL, 0,),
+		TEST(&ipfix_option_template, sizeof(ipfix_option_template),
+					NULL, 0,),
+		TEST(&ipfix_option_flow, sizeof(ipfix_option_flow), NULL, 0,),
+
+	};
 
 	*state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
 	return *state == NULL;
@@ -215,6 +336,7 @@ int main() {
 	const struct CMUnitTest tests[] = {
 		cmocka_unit_test_setup(testFlow,
 					prepare_test_nf9_appid_enrichment),
+		cmocka_unit_test_setup(testFlow, prepare_test_final_padding),
 	};
 
 	return cmocka_run_group_tests(tests, nf_test_setup, nf_test_teardown);

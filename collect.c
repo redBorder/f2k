@@ -1503,6 +1503,8 @@ static size_t dissect_nf9_option_flow(observation_id_t *observation_id,
     const uint16_t field_len = field->fieldLen;
 
     if (cursor + field_len > buffer_size) {
+      /* Delete last padding */
+      cursor = buffer_size;
       break;
     }
 
