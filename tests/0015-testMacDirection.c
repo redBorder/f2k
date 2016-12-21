@@ -41,7 +41,6 @@
   X(FLOW_END_REASON, 1, 0, 0x03)                                               \
   X(BIFLOW_DIRECTION, 1, 0, 0x01)                                              \
   X(TRANSACTION_ID, 8, 0, 0x8f, 0x63, 0xf3, 0x40, 0x00, 0x01, 0x00, 0x00)      \
-  X(DIRECTION, 1, 0, 0x00)                                                     \
   X(FLOW_SAMPLER_ID, 1, 0, 0x00)                                               \
   X(APPLICATION_ID, 4, 0, 0x03, 0x00, 0x00, 0x50)                              \
   X(IN_BYTES, 8, 0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0xb8)            \
