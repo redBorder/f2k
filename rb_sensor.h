@@ -69,6 +69,8 @@ void observation_id_decref(observation_id_t *observation_id);
 const char *network_ip(observation_id_t *observation_id,const uint8_t ip[16]);
 const char *network_name(observation_id_t *observation_id,const uint8_t ip[16]);
 const char *observation_id_enrichment(const observation_id_t *obs_id);
+
+bool is_exporter_in_wan_side(const observation_id_t *observation_id);
 bool is_span_observation_id(const observation_id_t *obs_id);
 #ifdef HAVE_UDNS
 bool observation_id_want_client_dns(const observation_id_t *observation_id);

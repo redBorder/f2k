@@ -431,7 +431,7 @@ size_t print_biflow_direction(struct printbuf *kafka_line_buffer,
   }
 }
 
-static size_t print_direction0(struct printbuf *kafka_line_buffer,
+static size_t print_netflow_direction(struct printbuf *kafka_line_buffer,
     const uint8_t direction) {
   return printbuf_memappend_fast_string(kafka_line_buffer,
     (direction == NETFLOW_DIRECTION_INGRESS) ? "ingress" :
@@ -439,50 +439,52 @@ static size_t print_direction0(struct printbuf *kafka_line_buffer,
     "");
 }
 
-size_t print_direction(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
-  assert_multi(kafka_line_buffer, flowCache);
+size_t print_direction(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
+  assert_multi(kafka_line_buffer, flow_cache);
   unused_params(buffer, real_field_len, real_field_offset);
 
-  if (flowCache->macs.direction == DIRECTION_UNSET) {
+  if (flow_cache->macs.direction == DIRECTION_UNSET) {
     /* Sorry, can't do nothing */
     return 0;
   }
 
-  if (flowCache->macs.direction == DIRECTION_INGRESS) {
-    return print_direction0(kafka_line_buffer, NETFLOW_DIRECTION_INGRESS);
-  } else if (flowCache->macs.direction == DIRECTION_EGRESS) {
-    return print_direction0(kafka_line_buffer, NETFLOW_DIRECTION_EGRESS);
-  } else if (flowCache->macs.direction == DIRECTION_INTERNAL) {
-    return printbuf_memappend_fast_string(kafka_line_buffer,"internal");
-  } else {
-    return 0;
+  if (flow_cache->macs.direction == DIRECTION_INGRESS) {
+    return print_netflow_direction(kafka_line_buffer,
+      NETFLOW_DIRECTION_INGRESS);
+  } else if (flow_cache->macs.direction == DIRECTION_EGRESS) {
+    return print_netflow_direction(kafka_line_buffer, NETFLOW_DIRECTION_EGRESS);
   }
+
+  return printbuf_memappend_fast_string(kafka_line_buffer,"internal");
 }
 
 size_t save_direction(struct printbuf *kafka_line_buffer, const void *vbuffer,
     const size_t real_field_len, const size_t real_field_offset,
-    struct flowCache *flowCache) {
+    struct flowCache *flow_cache) {
   const uint8_t *buffer = vbuffer;
   assert_multi(buffer);
   unused_params(real_field_len, kafka_line_buffer);
   const uint64_t direction = net2number(buffer + real_field_offset,
     real_field_len);
 
+  if (unlikely(direction > 1)) {
+    traceEvent(TRACE_ERROR, "Unknown netflow direction %"PRIu64, direction);
+    return 0;
+  }
+
   if (readOnlyGlobals.normalize_directions) {
-    switch (direction) {
-    case NETFLOW_DIRECTION_INGRESS:
-      flowCache->macs.direction = DIRECTION_INGRESS;
-      break;
-    case NETFLOW_DIRECTION_EGRESS:
-      flowCache->macs.direction = DIRECTION_EGRESS;
-      break;
-    default:
-      break; /* Don't know what to do */
-    };
+    uint64_t netflow_direction = direction;
+    if (is_exporter_in_wan_side(flow_cache->observation_id)) {
+      netflow_direction = !netflow_direction;
+    }
+    flow_cache->macs.direction =
+      (netflow_direction == NETFLOW_DIRECTION_INGRESS) ? DIRECTION_INGRESS :
+        DIRECTION_EGRESS;
     return 0; /* nothing printed */
   } else {
-    return print_direction0(kafka_line_buffer, direction);
+    return print_netflow_direction(kafka_line_buffer, direction);
   }
 }
 
@@ -1010,8 +1012,10 @@ static bool empty_ipv6_addr(const uint8_t *addr) {
   (client) <- (probe) traffic => egress  -> client_mac is dst mac
 */
 #define GET_CLIENT_ENDPOINT(t_direction, t_src, t_dst) ({                      \
-  typeof(t_src) src = (t_src); typeof(t_dst) dst = (t_dst);                    \
-  ((t_direction) == DIRECTION_EGRESS) ? dst : src; })
+  const typeof(t_src) src = (t_src), dst = (t_dst);                            \
+  /* Default exporter position is LAN side */                                  \
+  const uint8_t direction = (t_direction);                                     \
+  (direction == DIRECTION_EGRESS) ? dst : src;})
 
 static const uint8_t *get_direction_based_client_mac(struct flowCache *flowCache){
   assert(flowCache);
@@ -1020,7 +1024,8 @@ static const uint8_t *get_direction_based_client_mac(struct flowCache *flowCache
   const uint8_t *dst_mac = is_span_observation_id(flowCache->observation_id) ?
     flowCache->macs.dst_mac : flowCache->macs.post_dst_mac;
 
-  return GET_CLIENT_ENDPOINT(flowCache->macs.direction, src_mac, dst_mac);
+  return GET_CLIENT_ENDPOINT(flowCache->macs.direction,
+    src_mac, dst_mac);
 }
 
 static uint64_t get_direction_based_client_port(
@@ -2035,17 +2040,18 @@ static const uint8_t *get_dst_ip(const struct flowCache *flowCache) {
   return (const uint8_t *)flowCache->address.dst;
 }
 
-const uint8_t *get_direction_based_client_ip(const struct flowCache *flowCache) {
-  assert(flowCache);
+const uint8_t *get_direction_based_client_ip(
+    const struct flowCache *flow_cache) {
+  assert(flow_cache);
 
-  const uint8_t *src_ip = get_src_ip(flowCache);
-  const uint8_t *dst_ip = get_dst_ip(flowCache);
+  const uint8_t *src_ip = get_src_ip(flow_cache);
+  const uint8_t *dst_ip = get_dst_ip(flow_cache);
 
-  if (!empty_ipv6_addr(flowCache->address.client)) {
-    return flowCache->address.client;
+  if (!empty_ipv6_addr(flow_cache->address.client)) {
+    return flow_cache->address.client;
   }
 
-  return GET_CLIENT_ENDPOINT(flowCache->macs.direction, src_ip, dst_ip);
+  return GET_CLIENT_ENDPOINT(flow_cache->macs.direction, src_ip, dst_ip);
 }
 
 const uint8_t *get_direction_based_target_ip(
@@ -2441,6 +2447,7 @@ static size_t process_snmp_interface(uint64_t *save,
 
 static uint64_t get_direction_based_client_interface(
     const struct flowCache *flow_cache) {
+
   return GET_CLIENT_ENDPOINT(flow_cache->macs.direction,
     flow_cache->interfaces.input, flow_cache->interfaces.output);
 }

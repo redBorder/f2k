@@ -164,13 +164,14 @@
   FIXED_FLOW_ENTITIES_4_V6(R)                                                  \
   R(DIRECTION, 1, 0, 0x01)
 
-/* Expected(not_normalized_direction, expected_normalized_direction,
+/* Expected(not_normalized_direction, expected_normalized_direction_lan_side,
+  expected_normalized_direction_wan_side,
   src_mac, dst_mac, post_dst_mac,
   src_ip, src_net, src_net_name, src_v6_ip, src_v6_net, src_v6_net_name
   dst_ip, dst_net, dst_net_name, dst_v6_ip, dst_v6_net, dst_v6_net_name,
   src_port, dst_port) */
 #define EXPECTED_RESULTS_BASE(X)                                               \
-  X("ingress", ingress,                                                        \
+  X("ingress", ingress, ingress,                                               \
     "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "10.13.30.44", "10.13.30.0/16", "users",                                   \
     "2001:0428:ce00:0000:0000:0000:0000:0001",                                 \
@@ -181,7 +182,7 @@
       NULL,                                                                    \
       NULL,                                                                    \
       "54713", "443")                                                          \
-  X("egress", ingress,                                                         \
+  X("egress", ingress, ingress,                                                \
     "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "10.13.30.44", "10.13.30.0/16", "users",                                   \
     "2001:0428:ce00:0000:0000:0000:0000:0001",                                 \
@@ -192,7 +193,7 @@
       NULL,                                                                    \
       NULL,                                                                    \
       "54713", "443")                                                          \
-  X("ingress", egress,                                                         \
+  X("ingress", egress, egress,                                                 \
     "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "66.220.152.19", NULL, NULL,                                               \
       "2001:0428:ff00:0000:0000:0000:0000:0002",                               \
@@ -203,7 +204,7 @@
       "2001:0428:ce00:0000:0000:0000:0000:0000/48",                            \
       "users6",                                                                \
     "54713", "443")                                                            \
-  X("egress", egress,                                                          \
+  X("egress", egress, egress,                                                  \
     "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "66.220.152.19", NULL, NULL,                                               \
       "2001:0428:ff00:0000:0000:0000:0000:0002",                               \
@@ -214,7 +215,7 @@
       "2001:0428:ce00:0000:0000:0000:0000:0000/48",                            \
       "users6",                                                                \
     "54713", "443")                                                            \
-  X("ingress", internal,                                                       \
+  X("ingress", internal, internal,                                             \
     "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "10.13.30.44", "10.13.30.0/16", "users",                                   \
     "2001:0428:ce00:0000:0000:0000:0000:0001",                                 \
@@ -225,7 +226,7 @@
       "2001:0428:ce00:0000:0000:0000:0000:0000/48",                            \
       "users6",                                                                \
     "54713", "443")                                                            \
-  X("egress", internal,                                                        \
+  X("egress", internal, internal,                                              \
     "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "10.13.30.44", "10.13.30.0/16", "users",                                   \
     "2001:0428:ce00:0000:0000:0000:0000:0001",                                 \
@@ -236,7 +237,7 @@
       "2001:0428:ce00:0000:0000:0000:0000:0000/48",                            \
       "users6",                                                                \
     "54713", "443")                                                            \
-  X("ingress", ingress,                                                        \
+  X("ingress", ingress, egress,                                                \
     "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "66.220.152.19", NULL, NULL,                                               \
       "2001:0428:ff00:0000:0000:0000:0000:0001",                               \
@@ -247,7 +248,7 @@
         NULL,                                                                  \
         NULL,                                                                  \
         "54713", "443")                                                        \
-  X("egress", egress,                                                          \
+  X("egress", egress, ingress,                                                 \
     "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "66.220.152.19", NULL, NULL,                                               \
       "2001:0428:ff00:0000:0000:0000:0000:0001",                               \
@@ -278,33 +279,35 @@
         {.key = "src_port", .value=t_src_port},                                \
         {.key = "dst_port", .value=dst_port}}},
 
-#define V4_NO_NORMALIZE_CHECKDATA(t_direction, normalized_direction,           \
-    t_src_mac, t_dst_mac, t_post_dst_mac,                                      \
-    t_src_ip, t_src_net, t_src_net_name,                                       \
-    t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                              \
-    t_dst_ip, t_dst_net, t_dst_net_name,                                       \
-    t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                              \
-    t_src_port, dst_port)                                                      \
-  NOT_NORMALIZED_CHECKDATA(t_direction,                                        \
-    t_src_mac, t_dst_mac, t_post_dst_mac,                                      \
-    t_src_ip, t_src_net, t_src_net_name,                                       \
-    t_dst_ip, t_dst_net, t_dst_net_name,                                       \
-    t_src_port, dst_port)
+#define V4_NO_NORMALIZE_CHECKDATA(t_direction,                                 \
+		lan_side_normalized_direction, wan_side_normalized_direction,  \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
+		t_src_port, dst_port)                                          \
+	NOT_NORMALIZED_CHECKDATA(t_direction,                                  \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_src_port, dst_port)
 
-#define V6_NO_NORMALIZE_CHECKDATA(t_direction, normalized_directions,          \
-    t_src_mac, t_dst_mac, t_post_dst_mac,                                      \
-    t_src_ip, t_src_net, t_src_net_name,                                       \
-    t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                              \
-    t_dst_ip, t_dst_net, t_dst_net_name,                                       \
-    t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                              \
-    t_src_port, dst_port)                                                      \
-  NOT_NORMALIZED_CHECKDATA(t_direction,                                        \
-    t_src_mac, t_dst_mac, t_post_dst_mac,                                      \
-    t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                              \
-    t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                              \
-    t_src_port, dst_port)
+#define V6_NO_NORMALIZE_CHECKDATA(t_direction,                                 \
+	        lan_side_normalized_direction, wan_side_normalized_direction,  \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
+		t_src_port, dst_port)                                          \
+	NOT_NORMALIZED_CHECKDATA(t_direction,                                  \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
+		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
+		t_src_port, dst_port)
 
-#define CHECKDATA(direction, client_mac, \
+#define NORMALIZED_CHECKDATA(direction, client_mac,\
   lan_ip, lan_ip_net, lan_ip_net_name, \
   wan_ip, wan_ip_net, wan_ip_net_name, \
   lan_port, wan_port) \
@@ -321,22 +324,20 @@
         {.key = "wan_l4_port", .value=wan_port}}},
 
 
-#define CHECKDATA_NORMALIZE_ingress(                                           \
-		t_src_mac, t_dst_mac,                                          \
+#define CHECKDATA_NORMALIZE_ingress(t_src_mac, t_dst_mac,                      \
 		t_src_ip, t_src_net, t_src_net_name,                           \
 		t_dst_ip, t_dst_net, t_dst_net_name,                           \
 		t_src_port, dst_port)                                          \
-	CHECKDATA("ingress", t_src_mac,                                        \
+	NORMALIZED_CHECKDATA("ingress", t_src_mac,                             \
 		t_src_ip, t_src_net, t_src_net_name,                           \
 		t_dst_ip, t_dst_net, t_dst_net_name,                           \
 		t_src_port, dst_port)
 
-#define CHECKDATA_NORMALIZE_egress(                                            \
-		t_src_mac, t_dst_mac,                                          \
+#define CHECKDATA_NORMALIZE_egress(t_src_mac, t_dst_mac,                       \
 		t_src_ip, t_src_net, t_src_net_name,                           \
 		t_dst_ip, t_dst_net, t_dst_net_name,                           \
 		t_src_port, dst_port)                                          \
-	CHECKDATA("egress", t_dst_mac,                                         \
+	NORMALIZED_CHECKDATA("egress", t_dst_mac,                              \
 		t_dst_ip, t_dst_net, t_dst_net_name,                           \
 		t_src_ip, t_src_net, t_src_net_name,                           \
 		dst_port, t_src_port)
@@ -345,7 +346,7 @@
 		t_src_ip, t_src_net, t_src_net_name,                           \
 		t_dst_ip, t_dst_net, t_dst_net_name,                           \
 		t_src_port, dst_port)                                          \
-	CHECKDATA("internal", t_src_mac,                                       \
+	NORMALIZED_CHECKDATA("internal", t_src_mac,                            \
 		t_src_ip, t_src_net, t_src_net_name,                           \
 		t_dst_ip, t_dst_net, t_dst_net_name,                           \
 		t_src_port, dst_port)
@@ -375,56 +376,120 @@
 		t_src_port, dst_port)
 
 /// Select checkdata V4 IP
-#define V4_NO_SPAN_NORMALIZE_CHECKDATA(t_direction, normalized_direction,      \
+#define V4_LAN_NO_SPAN_NORMALIZE_CHECKDATA(t_direction,                        \
+		lan_normalized_direction, wan_normalized_direction,            \
 		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
 		t_src_ip, t_src_net, t_src_net_name,                           \
 		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
 		t_dst_ip, t_dst_net, t_dst_net_name,                           \
 		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
 		t_src_port, dst_port)                                          \
-	CHECKDATA_NO_SPAN_NORMALIZE_CHECKDATA(normalized_direction,            \
+	CHECKDATA_NO_SPAN_NORMALIZE_CHECKDATA(lan_normalized_direction,        \
 		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
 		t_src_ip, t_src_net, t_src_net_name,                           \
 		t_dst_ip, t_dst_net, t_dst_net_name,                           \
 		t_src_port, dst_port)
 
 /// Select checkdata V6 IP
-#define V6_NO_SPAN_NORMALIZE_CHECKDATA(t_direction, normalized_direction,      \
+#define V6_LAN_NO_SPAN_NORMALIZE_CHECKDATA(t_direction,                        \
+		lan_normalized_direction, wan_normalized_direction,            \
 		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
 		t_src_ip, t_src_net, t_src_net_name,                           \
 		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
 		t_dst_ip, t_dst_net, t_dst_net_name,                           \
 		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
 		t_src_port, dst_port)                                          \
-	CHECKDATA_NO_SPAN_NORMALIZE_CHECKDATA(normalized_direction,            \
+	CHECKDATA_NO_SPAN_NORMALIZE_CHECKDATA(lan_normalized_direction,        \
 		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
 		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
 		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
 		t_src_port, dst_port)
 
 /// Select checkdata V4 IP
-#define V4_SPAN_NORMALIZE_CHECKDATA(t_direction, normalized_direction,         \
+#define V4_LAN_SPAN_NORMALIZE_CHECKDATA(t_direction,                           \
+		lan_normalized_direction, wan_normalized_direction,            \
 		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
 		t_src_ip, t_src_net, t_src_net_name,                           \
 		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
 		t_dst_ip, t_dst_net, t_dst_net_name,                           \
 		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
 		t_src_port, dst_port)                                          \
-	CHECKDATA_SPAN_NORMALIZE_CHECKDATA(normalized_direction,               \
+	CHECKDATA_SPAN_NORMALIZE_CHECKDATA(lan_normalized_direction,           \
 		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
 		t_src_ip, t_src_net, t_src_net_name,                           \
 		t_dst_ip, t_dst_net, t_dst_net_name,                           \
 		t_src_port, dst_port)
 
 /// Select checkdata V6 IP
-#define V6_SPAN_NORMALIZE_CHECKDATA(t_direction, normalized_direction,         \
+#define V6_LAN_SPAN_NORMALIZE_CHECKDATA(t_direction,                           \
+		lan_normalized_direction, wan_normalized_direction,            \
 		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
 		t_src_ip, t_src_net, t_src_net_name,                           \
 		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
 		t_dst_ip, t_dst_net, t_dst_net_name,                           \
 		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
 		t_src_port, dst_port)                                          \
-	CHECKDATA_SPAN_NORMALIZE_CHECKDATA(normalized_direction,               \
+	CHECKDATA_SPAN_NORMALIZE_CHECKDATA(lan_normalized_direction,           \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
+		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
+		t_src_port, dst_port)
+
+/// Select checkdata V4 IP when exporter is in WAN side
+#define V4_WAN_NO_SPAN_NORMALIZE_CHECKDATA(t_direction,                        \
+		lan_normalized_direction, wan_normalized_direction,            \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
+		t_src_port, dst_port)                                          \
+	CHECKDATA_NO_SPAN_NORMALIZE_CHECKDATA(wan_normalized_direction,        \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_src_port, dst_port)
+
+/// Select checkdata V6 IP when exporter is in WAN side
+#define V6_WAN_NO_SPAN_NORMALIZE_CHECKDATA(t_direction,                        \
+		lan_normalized_direction, wan_normalized_direction,            \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
+		t_src_port, dst_port)                                          \
+	CHECKDATA_NO_SPAN_NORMALIZE_CHECKDATA(wan_normalized_direction,        \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
+		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
+		t_src_port, dst_port)
+
+/// Select checkdata V4 IP when exporter is in WAN side
+#define V4_WAN_SPAN_NORMALIZE_CHECKDATA(t_direction,                           \
+		lan_normalized_direction, wan_normalized_direction,            \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
+		t_src_port, dst_port)                                          \
+	CHECKDATA_SPAN_NORMALIZE_CHECKDATA(wan_normalized_direction,           \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_src_port, dst_port)
+
+/// Select checkdata V6 IP when exporter is in WAN side
+#define V6_WAN_SPAN_NORMALIZE_CHECKDATA(t_direction,                           \
+		lan_normalized_direction, wan_normalized_direction,            \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
+		t_src_port, dst_port)                                          \
+	CHECKDATA_SPAN_NORMALIZE_CHECKDATA(wan_normalized_direction,           \
 		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
 		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
 		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
@@ -441,16 +506,21 @@ static const IPFIX_FLOW(v10Flow_v6, TEST_FLOW_HEADER, TEST_TEMPLATE_ID_V6,
                         FLOW_ENTITIES_V6);
 
 
+struct exporter_side_tests {
+	struct {
+		const struct checkdata *checks;
+		size_t size;
+	} checkdata_span_true_v4, checkdata_span_false_v4,
+	  checkdata_span_true_v6, checkdata_span_false_v6;
+};
+
+struct test_mac_direction_params {
+	struct exporter_side_tests lan,wan;
+};
+
 static int prepare_test_nf10_mac_direction_base(void **state,
-    const struct checkdata *checkdata_span_true_v4,
-    const size_t checkdata_span_true_v4_size,
-    const struct checkdata *checkdata_span_false_v4,
-    const size_t checkdata_span_false_v4_size,
-    const struct checkdata *checkdata_span_true_v6,
-    const size_t checkdata_span_true_v6_size,
-    const struct checkdata *checkdata_span_false_v6,
-    const size_t checkdata_span_false_v6_size,
-    const bool normalize_directions) {
+		const struct test_mac_direction_params *params,
+		bool normalize_directions) {
 
 #define TEST(nf_dev_ip, mrecord, mrecord_size, checks, checks_size,...) {      \
 	.netflow_src_ip = nf_dev_ip,                                           \
@@ -463,38 +533,77 @@ static int prepare_test_nf10_mac_direction_base(void **state,
 	TEST(nf_dev_ip, template, template_size, NULL, 0, __VA_ARGS__),        \
 	TEST(nf_dev_ip, flow, flow_size, checks, checks_size,)
 
-        const struct test_params test_params[] = {
-                TEST_TEMPLATE_FLOW(0x04030201,
-                        &v10Template, sizeof(v10Template),
-                        &v10Flow, sizeof(v10Flow),
-                        checkdata_span_true_v4, checkdata_span_true_v4_size,
+	const struct test_params test_params[] = {
+		// LAN SIDE: span true, span false, no span specified (false)
+		TEST_TEMPLATE_FLOW(0x04030201,
+			&v10Template, sizeof(v10Template),
+			&v10Flow, sizeof(v10Flow),
+			params->lan.checkdata_span_true_v4.checks,
+			params->lan.checkdata_span_true_v4.size,
 			.config_json_path = "./tests/0015-testMacDirection.json",
 			.normalize_directions = normalize_directions),
-                TEST_TEMPLATE_FLOW(0x04030301,
-                        &v10Template, sizeof(v10Template),
-                        &v10Flow, sizeof(v10Flow),
-                        checkdata_span_false_v4, checkdata_span_false_v4_size,),
-                TEST_TEMPLATE_FLOW(0x04030401,
-                        &v10Template, sizeof(v10Template),
-                        &v10Flow, sizeof(v10Flow),
-                        checkdata_span_false_v4, checkdata_span_false_v4_size,),
-                TEST_TEMPLATE_FLOW(0x04030201,
-                        &v10Template_v6, sizeof(v10Template_v6),
-                        &v10Flow_v6, sizeof(v10Flow_v6),
-                        checkdata_span_true_v6, checkdata_span_true_v6_size,),
-                TEST_TEMPLATE_FLOW(0x04030301,
-                        &v10Template_v6, sizeof(v10Template_v6),
-                        &v10Flow_v6, sizeof(v10Flow_v6),
-                        checkdata_span_false_v6, checkdata_span_false_v6_size,),
-                TEST_TEMPLATE_FLOW(0x04030401,
-                        &v10Template_v6, sizeof(v10Template_v6),
-                        &v10Flow_v6, sizeof(v10Flow_v6),
-                        checkdata_span_false_v6, checkdata_span_false_v6_size,),
+		TEST_TEMPLATE_FLOW(0x04030301,
+			&v10Template, sizeof(v10Template),
+			&v10Flow, sizeof(v10Flow),
+			params->lan.checkdata_span_false_v4.checks,
+			params->lan.checkdata_span_false_v4.size,),
+		TEST_TEMPLATE_FLOW(0x04030401,
+			&v10Template, sizeof(v10Template),
+			&v10Flow, sizeof(v10Flow),
+			params->lan.checkdata_span_false_v4.checks,
+			params->lan.checkdata_span_false_v4.size,),
+		TEST_TEMPLATE_FLOW(0x04030201,
+			&v10Template_v6, sizeof(v10Template_v6),
+			&v10Flow_v6, sizeof(v10Flow_v6),
+			params->lan.checkdata_span_true_v6.checks,
+			params->lan.checkdata_span_true_v6.size,),
+		TEST_TEMPLATE_FLOW(0x04030301,
+			&v10Template_v6, sizeof(v10Template_v6),
+			&v10Flow_v6, sizeof(v10Flow_v6),
+			params->lan.checkdata_span_false_v6.checks,
+			params->lan.checkdata_span_false_v6.size,),
+		TEST_TEMPLATE_FLOW(0x04030401,
+			&v10Template_v6, sizeof(v10Template_v6),
+			&v10Flow_v6, sizeof(v10Flow_v6),
+			params->lan.checkdata_span_false_v6.checks,
+			params->lan.checkdata_span_false_v6.size,),
+
+		// WAN SIDE: span true, span false, no span specified (false)
+		// @todo delete ifs
+		TEST_TEMPLATE_FLOW(0x04040201,
+			&v10Template, sizeof(v10Template),
+			&v10Flow, sizeof(v10Flow),
+			params->wan.checkdata_span_true_v4.checks,
+			params->wan.checkdata_span_true_v4.size,),
+		TEST_TEMPLATE_FLOW(0x04040301,
+			&v10Template, sizeof(v10Template),
+			&v10Flow, sizeof(v10Flow),
+			params->wan.checkdata_span_false_v4.checks,
+			params->wan.checkdata_span_false_v4.size,),
+		TEST_TEMPLATE_FLOW(0x04040401,
+			&v10Template, sizeof(v10Template),
+			&v10Flow, sizeof(v10Flow),
+			params->wan.checkdata_span_false_v4.checks,
+			params->wan.checkdata_span_false_v4.size,),
+		TEST_TEMPLATE_FLOW(0x04040201,
+			&v10Template_v6, sizeof(v10Template_v6),
+			&v10Flow_v6, sizeof(v10Flow_v6),
+			params->wan.checkdata_span_true_v6.checks,
+			params->wan.checkdata_span_true_v6.size,),
+		TEST_TEMPLATE_FLOW(0x04040301,
+			&v10Template_v6, sizeof(v10Template_v6),
+			&v10Flow_v6, sizeof(v10Flow_v6),
+			params->wan.checkdata_span_false_v6.checks,
+			params->wan.checkdata_span_false_v6.size,),
+		TEST_TEMPLATE_FLOW(0x04040401,
+			&v10Template_v6, sizeof(v10Template_v6),
+			&v10Flow_v6, sizeof(v10Flow_v6),
+			params->wan.checkdata_span_false_v6.checks,
+			params->wan.checkdata_span_false_v6.size,),
         };
 
         *state = prepare_tests(test_params, RD_ARRAYSIZE(test_params));
         return *state == NULL;
-
 }
 
 static const struct checkdata checkdata_dont_normalize_ipv4[] = {
@@ -506,42 +615,114 @@ static const struct checkdata checkdata_dont_normalize_ipv6[] = {
 };
 
 static int prepare_test_nf10_dont_normalize(void **state) {
-	return prepare_test_nf10_mac_direction_base(state,
-		checkdata_dont_normalize_ipv4,
-		RD_ARRAYSIZE(checkdata_dont_normalize_ipv4),
-		checkdata_dont_normalize_ipv4,
-		RD_ARRAYSIZE(checkdata_dont_normalize_ipv4),
-		checkdata_dont_normalize_ipv6,
-		RD_ARRAYSIZE(checkdata_dont_normalize_ipv6),
-		checkdata_dont_normalize_ipv6,
-		RD_ARRAYSIZE(checkdata_dont_normalize_ipv6),
-		false);
+	static const struct test_mac_direction_params params = {
+		.lan.checkdata_span_true_v4.checks =
+			checkdata_dont_normalize_ipv4,
+		.lan.checkdata_span_true_v4.size =
+			RD_ARRAYSIZE(checkdata_dont_normalize_ipv4),
+		.lan.checkdata_span_false_v4.checks =
+			checkdata_dont_normalize_ipv4,
+		.lan.checkdata_span_false_v4.size =
+			RD_ARRAYSIZE(checkdata_dont_normalize_ipv4),
+		.lan.checkdata_span_true_v6.checks =
+			checkdata_dont_normalize_ipv6,
+		.lan.checkdata_span_true_v6.size =
+			RD_ARRAYSIZE(checkdata_dont_normalize_ipv6),
+		.lan.checkdata_span_false_v6.checks =
+			checkdata_dont_normalize_ipv6,
+		.lan.checkdata_span_false_v6.size =
+			RD_ARRAYSIZE(checkdata_dont_normalize_ipv6),
+
+		.wan.checkdata_span_true_v4.checks =
+			checkdata_dont_normalize_ipv4,
+		.wan.checkdata_span_true_v4.size =
+			RD_ARRAYSIZE(checkdata_dont_normalize_ipv4),
+		.wan.checkdata_span_false_v4.checks =
+			checkdata_dont_normalize_ipv4,
+		.wan.checkdata_span_false_v4.size =
+			RD_ARRAYSIZE(checkdata_dont_normalize_ipv4),
+		.wan.checkdata_span_true_v6.checks =
+			checkdata_dont_normalize_ipv6,
+		.wan.checkdata_span_true_v6.size =
+			RD_ARRAYSIZE(checkdata_dont_normalize_ipv6),
+		.wan.checkdata_span_false_v6.checks =
+			checkdata_dont_normalize_ipv6,
+		.wan.checkdata_span_false_v6.size =
+			RD_ARRAYSIZE(checkdata_dont_normalize_ipv6),
+	};
+
+	return prepare_test_nf10_mac_direction_base(state, &params, false);
 }
 
 static const struct checkdata checkdata_span_true_v4[] = {
-	EXPECTED_RESULTS_BASE(V4_SPAN_NORMALIZE_CHECKDATA)
+	EXPECTED_RESULTS_BASE(V4_LAN_SPAN_NORMALIZE_CHECKDATA)
 };
 
 static const struct checkdata checkdata_span_false_v4[] = {
-	EXPECTED_RESULTS_BASE(V4_NO_SPAN_NORMALIZE_CHECKDATA)
+	EXPECTED_RESULTS_BASE(V4_LAN_NO_SPAN_NORMALIZE_CHECKDATA)
 };
 
 static const struct checkdata checkdata_span_true_v6[] = {
-	EXPECTED_RESULTS_BASE(V6_SPAN_NORMALIZE_CHECKDATA)
+	EXPECTED_RESULTS_BASE(V6_LAN_SPAN_NORMALIZE_CHECKDATA)
 };
 
 static const struct checkdata checkdata_span_false_v6[] = {
-	EXPECTED_RESULTS_BASE(V6_NO_SPAN_NORMALIZE_CHECKDATA)
+	EXPECTED_RESULTS_BASE(V6_LAN_NO_SPAN_NORMALIZE_CHECKDATA)
+};
+
+// In WAN mode, we just need to reverse expected directions
+#define WAN_DIRECTION_OF_LAN_ingress egress
+#define WAN_DIRECTION_OF_LAN_egress ingress
+#define WAN_DIRECTION_OF_LAN_internal internal
+
+static const struct checkdata wan_checkdata_span_true_v4[] = {
+	EXPECTED_RESULTS_BASE(V4_WAN_SPAN_NORMALIZE_CHECKDATA)
+};
+
+static const struct checkdata wan_checkdata_span_false_v4[] = {
+	EXPECTED_RESULTS_BASE(V4_WAN_NO_SPAN_NORMALIZE_CHECKDATA)
+};
+
+static const struct checkdata wan_checkdata_span_true_v6[] = {
+	EXPECTED_RESULTS_BASE(V6_WAN_SPAN_NORMALIZE_CHECKDATA)
+};
+
+static const struct checkdata wan_checkdata_span_false_v6[] = {
+	EXPECTED_RESULTS_BASE(V6_WAN_NO_SPAN_NORMALIZE_CHECKDATA)
 };
 
 static int prepare_test_nf10_mac_direction(void **state) {
+	static const struct test_mac_direction_params params = {
+		.lan.checkdata_span_true_v4.checks = checkdata_span_true_v4,
+		.lan.checkdata_span_true_v4.size =
+			RD_ARRAYSIZE(checkdata_span_true_v4),
+		.lan.checkdata_span_false_v4.checks = checkdata_span_false_v4,
+		.lan.checkdata_span_false_v4.size =
+			RD_ARRAYSIZE(checkdata_span_false_v4),
+		.lan.checkdata_span_true_v6.checks = checkdata_span_true_v6,
+		.lan.checkdata_span_true_v6.size =
+			RD_ARRAYSIZE(checkdata_span_true_v6),
+		.lan.checkdata_span_false_v6.checks = checkdata_span_false_v6,
+		.lan.checkdata_span_false_v6.size =
+			RD_ARRAYSIZE(checkdata_span_false_v6),
+
+		.wan.checkdata_span_true_v4.checks = wan_checkdata_span_true_v4,
+		.wan.checkdata_span_true_v4.size =
+			RD_ARRAYSIZE(wan_checkdata_span_true_v4),
+		.wan.checkdata_span_false_v4.checks =
+			wan_checkdata_span_false_v4,
+		.wan.checkdata_span_false_v4.size =
+			RD_ARRAYSIZE(wan_checkdata_span_false_v4),
+		.wan.checkdata_span_true_v6.checks = wan_checkdata_span_true_v6,
+		.wan.checkdata_span_true_v6.size =
+			RD_ARRAYSIZE(wan_checkdata_span_true_v6),
+		.wan.checkdata_span_false_v6.checks = wan_checkdata_span_false_v6,
+		.wan.checkdata_span_false_v6.size =
+			RD_ARRAYSIZE(wan_checkdata_span_false_v6),
+
+	};
 	static const bool normalize = true;
-	return prepare_test_nf10_mac_direction_base(state,
-		checkdata_span_true_v4, RD_ARRAYSIZE(checkdata_span_true_v4),
-		checkdata_span_false_v4, RD_ARRAYSIZE(checkdata_span_false_v4),
-		checkdata_span_true_v6, RD_ARRAYSIZE(checkdata_span_true_v6),
-		checkdata_span_false_v6, RD_ARRAYSIZE(checkdata_span_false_v6),
-		normalize);
+	return prepare_test_nf10_mac_direction_base(state, &params, normalize);
 }
 
 /// @todo should this be 3 different tests?
