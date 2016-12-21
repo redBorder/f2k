@@ -1013,9 +1013,11 @@ static bool empty_ipv6_addr(const uint8_t *addr) {
   (client) -> (probe) traffic => ingress -> client_mac is src mac
   (client) <- (probe) traffic => egress  -> client_mac is dst mac
 */
-#define GET_CLIENT_ENDPOINT(t_direction, t_src, t_dst) ({                      \
-  typeof(t_src) src = (t_src); typeof(t_dst) dst = (t_dst);                    \
-  ((t_direction) == DIRECTION_EGRESS) ? dst : src; })
+#define GET_CLIENT_ENDPOINT(t_wan_side, t_direction, t_src, t_dst) ({          \
+  const typeof(t_src) src = (t_src), dst = (t_dst);                            \
+  /* Default exporter position is LAN side */                                  \
+  const uint8_t direction = (t_wan_side) ? !(t_direction) : (t_direction);     \
+  (direction == DIRECTION_EGRESS) ? dst : src;})
 
 static const uint8_t *get_direction_based_client_mac(struct flowCache *flowCache){
   assert(flowCache);
@@ -1024,15 +1026,21 @@ static const uint8_t *get_direction_based_client_mac(struct flowCache *flowCache
   const uint8_t *dst_mac = is_span_observation_id(flowCache->observation_id) ?
     flowCache->macs.dst_mac : flowCache->macs.post_dst_mac;
 
-  return GET_CLIENT_ENDPOINT(flowCache->macs.direction, src_mac, dst_mac);
+  const bool exporter_is_in_wan_side =
+    is_exporter_in_wan_side(flowCache->observation_id);
+
+  return GET_CLIENT_ENDPOINT(exporter_is_in_wan_side, flowCache->macs.direction,
+    src_mac, dst_mac);
 }
 
 static uint64_t get_direction_based_client_port(
     const struct flowCache *flow_cache) {
   assert(flow_cache);
 
-  return GET_CLIENT_ENDPOINT(flow_cache->macs.direction, flow_cache->ports.src,
-    flow_cache->ports.dst);
+  const bool exporter_is_in_wan_side =
+    is_exporter_in_wan_side(flow_cache->observation_id);
+  return GET_CLIENT_ENDPOINT(exporter_is_in_wan_side,
+    flow_cache->macs.direction, flow_cache->ports.src, flow_cache->ports.dst);
 }
 
 static uint64_t get_direction_based_target_port(
@@ -2039,17 +2047,21 @@ static const uint8_t *get_dst_ip(const struct flowCache *flowCache) {
   return (const uint8_t *)flowCache->address.dst;
 }
 
-const uint8_t *get_direction_based_client_ip(const struct flowCache *flowCache) {
-  assert(flowCache);
+const uint8_t *get_direction_based_client_ip(
+    const struct flowCache *flow_cache) {
+  assert(flow_cache);
 
-  const uint8_t *src_ip = get_src_ip(flowCache);
-  const uint8_t *dst_ip = get_dst_ip(flowCache);
+  const uint8_t *src_ip = get_src_ip(flow_cache);
+  const uint8_t *dst_ip = get_dst_ip(flow_cache);
 
-  if (!empty_ipv6_addr(flowCache->address.client)) {
-    return flowCache->address.client;
+  if (!empty_ipv6_addr(flow_cache->address.client)) {
+    return flow_cache->address.client;
   }
 
-  return GET_CLIENT_ENDPOINT(flowCache->macs.direction, src_ip, dst_ip);
+  const bool exporter_is_in_wan_side =
+    is_exporter_in_wan_side(flow_cache->observation_id);
+  return GET_CLIENT_ENDPOINT(exporter_is_in_wan_side,
+    flow_cache->macs.direction, src_ip, dst_ip);
 }
 
 const uint8_t *get_direction_based_target_ip(
@@ -2445,8 +2457,12 @@ static size_t process_snmp_interface(uint64_t *save,
 
 static uint64_t get_direction_based_client_interface(
     const struct flowCache *flow_cache) {
-  return GET_CLIENT_ENDPOINT(flow_cache->macs.direction,
-    flow_cache->interfaces.input, flow_cache->interfaces.output);
+
+  const bool exporter_is_in_wan_side =
+    is_exporter_in_wan_side(flow_cache->observation_id);
+  return GET_CLIENT_ENDPOINT(exporter_is_in_wan_side,
+    flow_cache->macs.direction, flow_cache->interfaces.input,
+    flow_cache->interfaces.output);
 }
 
 static uint64_t get_direction_based_target_interface(

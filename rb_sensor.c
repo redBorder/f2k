@@ -178,15 +178,16 @@ struct observation_id_s {
   rd_avl_t interfaces;
   rd_memctx_t memctx;
   char *enrichment;
-  bool span_mode;
+
   int64_t fallback_first_switch;
 
 #ifdef HAVE_UDNS
-#define ENABLE_PTR_DNS_CLIENT 0x01
-#define ENABLE_PTR_DNS_TARGET 0x02
-
-  int dns_flags;
+#define ENABLE_PTR_DNS_CLIENT 1<<0
+#define ENABLE_PTR_DNS_TARGET 1<<1
 #endif
+#define EXPORTER_SPAN         1<<2
+#define EXPORTER_IN_WAN_SIDE  1<<3
+  uint8_t observation_domain_flags;
 
   // @TODO merge in one template_database struct.
   FlowSetV9Ipfix *up_to_512_templates[512]; /* Array: direct element access */
@@ -605,7 +606,7 @@ static bool parse_observation_id_dns0(observation_id_t *observation_id,
         observation_id_num(observation_id));
       return false;
     } else if (json_is_true(dns_ptr_value)) {
-      observation_id->dns_flags |= flag;
+      observation_id->observation_domain_flags |= flag;
     }
   }
 
@@ -677,7 +678,9 @@ static bool parse_observation_id(observation_id_t *observation_id,
   }
 #endif
 
-  observation_id->span_mode = span_mode;
+  if (span_mode) {
+    observation_id->observation_domain_flags |= EXPORTER_SPAN;
+  }
 
   return observation_id;
 }
@@ -767,8 +770,12 @@ const char *observation_id_enrichment(const observation_id_t *obs_id){
   return obs_id->enrichment;
 }
 
-bool is_span_observation_id(const observation_id_t *obs_id) {
-  return obs_id->span_mode;
+bool is_span_observation_id(const observation_id_t *observation_id) {
+    return observation_id->observation_domain_flags & EXPORTER_SPAN;
+}
+
+bool is_exporter_in_wan_side(const observation_id_t *observation_id) {
+    return observation_id->observation_domain_flags & EXPORTER_IN_WAN_SIDE;
 }
 
 int64_t observation_id_fallback_first_switch(const observation_id_t *obs_id) {
@@ -814,11 +821,11 @@ const char *network_name(observation_id_t *obs_id, const uint8_t ip[16]) {
 
 #ifdef HAVE_UDNS
 bool observation_id_want_client_dns(const observation_id_t *oid) {
-  return oid->dns_flags & ENABLE_PTR_DNS_CLIENT;
+  return oid->observation_domain_flags & ENABLE_PTR_DNS_CLIENT;
 }
 
 bool observation_id_want_target_dns(const observation_id_t *oid) {
-  return oid->dns_flags & ENABLE_PTR_DNS_TARGET;
+  return oid->observation_domain_flags & ENABLE_PTR_DNS_TARGET;
 }
 #endif
 
