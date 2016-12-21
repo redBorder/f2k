@@ -178,15 +178,16 @@ struct observation_id_s {
   rd_avl_t interfaces;
   rd_memctx_t memctx;
   char *enrichment;
-  bool span_mode;
+
   int64_t fallback_first_switch;
 
 #ifdef HAVE_UDNS
-#define ENABLE_PTR_DNS_CLIENT 0x01
-#define ENABLE_PTR_DNS_TARGET 0x02
-
-  int dns_flags;
+#define ENABLE_PTR_DNS_CLIENT 1<<0
+#define ENABLE_PTR_DNS_TARGET 1<<1
 #endif
+#define EXPORTER_SPAN         1<<2
+#define EXPORTER_IN_WAN_SIDE  1<<3
+  uint8_t observation_domain_flags;
 
   // @TODO merge in one template_database struct.
   FlowSetV9Ipfix *up_to_512_templates[512]; /* Array: direct element access */
@@ -605,7 +606,7 @@ static bool parse_observation_id_dns0(observation_id_t *observation_id,
         observation_id_num(observation_id));
       return false;
     } else if (json_is_true(dns_ptr_value)) {
-      observation_id->dns_flags |= flag;
+      observation_id->observation_domain_flags |= flag;
     }
   }
 
@@ -628,7 +629,7 @@ static bool parse_observation_id(observation_id_t *observation_id,
     json_t *jobservation_id, uint32_t observation_id_n,
     const struct sensor *sensor) {
   json_error_t jerr;
-  int span_mode = false;
+  int span_mode = false, exporter_in_wan_side = false;
   const json_t *home_nets=NULL, *enrichment=NULL, *routers_macs=NULL;
   json_int_t fallback_first_switch = 0;
 #ifdef HAVE_UDNS
@@ -636,9 +637,13 @@ static bool parse_observation_id(observation_id_t *observation_id,
 #endif
 
   const int unpack_rc = json_unpack_ex(jobservation_id, &jerr, 0,
-    "{s?o,s?o,s?b,s?o,s?I}", "home_nets", &home_nets, "enrichment", &enrichment,
-    "span_port", &span_mode, "routers_macs", &routers_macs,
-    "fallback_first_switch", &fallback_first_switch);
+    "{s?o,s?o,s?b,s?b,s?o,s?I}",
+      "home_nets", &home_nets,
+      "enrichment", &enrichment,
+      "span_port", &span_mode,
+      "exporter_in_wan_side", &exporter_in_wan_side,
+      "routers_macs", &routers_macs,
+      "fallback_first_switch", &fallback_first_switch);
 
   if (unpack_rc != 0) {
     traceEvent(TRACE_ERROR,
@@ -677,7 +682,13 @@ static bool parse_observation_id(observation_id_t *observation_id,
   }
 #endif
 
-  observation_id->span_mode = span_mode;
+  if (span_mode) {
+    observation_id->observation_domain_flags |= EXPORTER_SPAN;
+  }
+
+  if (exporter_in_wan_side) {
+    observation_id->observation_domain_flags |= EXPORTER_IN_WAN_SIDE;
+  }
 
   return observation_id;
 }
@@ -767,8 +778,12 @@ const char *observation_id_enrichment(const observation_id_t *obs_id){
   return obs_id->enrichment;
 }
 
-bool is_span_observation_id(const observation_id_t *obs_id) {
-  return obs_id->span_mode;
+bool is_span_observation_id(const observation_id_t *observation_id) {
+    return observation_id->observation_domain_flags & EXPORTER_SPAN;
+}
+
+bool is_exporter_in_wan_side(const observation_id_t *observation_id) {
+    return observation_id->observation_domain_flags & EXPORTER_IN_WAN_SIDE;
 }
 
 int64_t observation_id_fallback_first_switch(const observation_id_t *obs_id) {
@@ -814,11 +829,11 @@ const char *network_name(observation_id_t *obs_id, const uint8_t ip[16]) {
 
 #ifdef HAVE_UDNS
 bool observation_id_want_client_dns(const observation_id_t *oid) {
-  return oid->dns_flags & ENABLE_PTR_DNS_CLIENT;
+  return oid->observation_domain_flags & ENABLE_PTR_DNS_CLIENT;
 }
 
 bool observation_id_want_target_dns(const observation_id_t *oid) {
-  return oid->dns_flags & ENABLE_PTR_DNS_TARGET;
+  return oid->observation_domain_flags & ENABLE_PTR_DNS_TARGET;
 }
 #endif
 

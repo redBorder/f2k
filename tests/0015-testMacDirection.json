@@ -28,5 +28,38 @@
 				{ "network":"2001:0428:ce00:0000:0000:0000:0000:0000/48", "network_name":"users6" }
 			]
 		}}
+	},
+	"4.4.2.0/24":{"observations_id":{"default":{
+			"sensor_name":"test_2_1",
+			"sensor_ip":"",
+			"home_nets": [
+				{ "network":"10.13.30.0/16", "network_name":"users" },
+				{ "network":"2001:0428:ce00:0000:0000:0000:0000:0000/48", "network_name":"users6" }
+			],
+			"exporter_in_wan_side":true,
+			"span_port":true
+		}}
+	},
+	"4.4.3.0/24":{"observations_id":{"default":{
+			"sensor_name":"test2_2",
+			"sensor_ip":"",
+			"home_nets": [
+				{ "network":"10.13.30.0/16", "network_name":"users" },
+				{ "network":"2001:0428:ce00:0000:0000:0000:0000:0000/48", "network_name":"users6" }
+			],
+			"exporter_in_wan_side":true,
+			"span_port":false
+		}}
+	},
+	"4.4.4.0/24":{"observations_id":{"default":{
+			"sensor_name":"test_2_3",
+			"sensor_ip":"",
+			"home_nets": [
+				{ "network":"10.13.30.0/16", "network_name":"users" },
+				{ "network":"2001:0428:ce00:0000:0000:0000:0000:0000/48", "network_name":"users6" }
+			],
+			"exporter_in_wan_side":true
+		}}
 	}
+
 }}
