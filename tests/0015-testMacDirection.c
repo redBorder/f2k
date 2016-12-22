@@ -164,13 +164,14 @@
   FIXED_FLOW_ENTITIES_4_V6(R)                                                  \
   R(DIRECTION, 1, 0, 0x01)
 
-/* Expected(direction,
+/* Expected(not_normalized_direction, expected_normalized_direction,
   src_mac, dst_mac, post_dst_mac,
   src_ip, src_net, src_net_name, src_v6_ip, src_v6_net, src_v6_net_name
   dst_ip, dst_net, dst_net_name, dst_v6_ip, dst_v6_net, dst_v6_net_name,
   src_port, dst_port) */
 #define EXPECTED_RESULTS_BASE(X)                                               \
-  X("ingress", "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",  \
+  X("ingress", ingress,                                                        \
+    "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "10.13.30.44", "10.13.30.0/16", "users",                                   \
     "2001:0428:ce00:0000:0000:0000:0000:0001",                                 \
       "2001:0428:ce00:0000:0000:0000:0000:0000/48",                            \
@@ -180,7 +181,8 @@
       NULL,                                                                    \
       NULL,                                                                    \
       "54713", "443")                                                          \
-  X("egress", "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",   \
+  X("egress", ingress,                                                         \
+    "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "10.13.30.44", "10.13.30.0/16", "users",                                   \
     "2001:0428:ce00:0000:0000:0000:0000:0001",                                 \
       "2001:0428:ce00:0000:0000:0000:0000:0000/48",                            \
@@ -190,7 +192,8 @@
       NULL,                                                                    \
       NULL,                                                                    \
       "54713", "443")                                                          \
-  X("ingress", "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",  \
+  X("ingress", egress,                                                         \
+    "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "66.220.152.19", NULL, NULL,                                               \
       "2001:0428:ff00:0000:0000:0000:0000:0002",                               \
       NULL,                                                                    \
@@ -200,7 +203,8 @@
       "2001:0428:ce00:0000:0000:0000:0000:0000/48",                            \
       "users6",                                                                \
     "54713", "443")                                                            \
-  X("egress", "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",   \
+  X("egress", egress,                                                          \
+    "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "66.220.152.19", NULL, NULL,                                               \
       "2001:0428:ff00:0000:0000:0000:0000:0002",                               \
       NULL,                                                                    \
@@ -210,7 +214,8 @@
       "2001:0428:ce00:0000:0000:0000:0000:0000/48",                            \
       "users6",                                                                \
     "54713", "443")                                                            \
-  X("ingress", "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",  \
+  X("ingress", internal,                                                       \
+    "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "10.13.30.44", "10.13.30.0/16", "users",                                   \
     "2001:0428:ce00:0000:0000:0000:0000:0001",                                 \
         "2001:0428:ce00:0000:0000:0000:0000:0000/48",                          \
@@ -220,7 +225,8 @@
       "2001:0428:ce00:0000:0000:0000:0000:0000/48",                            \
       "users6",                                                                \
     "54713", "443")                                                            \
-  X("egress", "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",   \
+  X("egress", internal,                                                        \
+    "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "10.13.30.44", "10.13.30.0/16", "users",                                   \
     "2001:0428:ce00:0000:0000:0000:0000:0001",                                 \
         "2001:0428:ce00:0000:0000:0000:0000:0000/48",                          \
@@ -230,7 +236,8 @@
       "2001:0428:ce00:0000:0000:0000:0000:0000/48",                            \
       "users6",                                                                \
     "54713", "443")                                                            \
-  X("ingress", "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",  \
+  X("ingress", ingress,                                                        \
+    "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "66.220.152.19", NULL, NULL,                                               \
       "2001:0428:ff00:0000:0000:0000:0000:0001",                               \
       NULL,                                                                    \
@@ -240,7 +247,8 @@
         NULL,                                                                  \
         NULL,                                                                  \
         "54713", "443")                                                        \
-  X("egress", "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",   \
+  X("egress", egress,                                                          \
+    "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "66.220.152.19", NULL, NULL,                                               \
       "2001:0428:ff00:0000:0000:0000:0000:0001",                               \
       NULL,                                                                    \
@@ -270,7 +278,7 @@
         {.key = "src_port", .value=t_src_port},                                \
         {.key = "dst_port", .value=dst_port}}},
 
-#define V4_NO_NORMALIZE_CHECKDATA(t_direction,                                 \
+#define V4_NO_NORMALIZE_CHECKDATA(t_direction, normalized_direction,           \
     t_src_mac, t_dst_mac, t_post_dst_mac,                                      \
     t_src_ip, t_src_net, t_src_net_name,                                       \
     t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                              \
@@ -283,7 +291,7 @@
     t_dst_ip, t_dst_net, t_dst_net_name,                                       \
     t_src_port, dst_port)
 
-#define V6_NO_NORMALIZE_CHECKDATA(t_direction,                                 \
+#define V6_NO_NORMALIZE_CHECKDATA(t_direction, normalized_directions,          \
     t_src_mac, t_dst_mac, t_post_dst_mac,                                      \
     t_src_ip, t_src_net, t_src_net_name,                                       \
     t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                              \
@@ -310,7 +318,117 @@
         {.key = "wan_ip_net", .value = wan_ip_net}, \
         {.key = "wan_ip_net_name", .value = wan_ip_net_name}, \
         {.key = "lan_l4_port", .value=lan_port}, \
-        {.key = "wan_l4_port", .value=wan_port}}}
+        {.key = "wan_l4_port", .value=wan_port}}},
+
+
+#define CHECKDATA_NORMALIZE_ingress(                                           \
+		t_src_mac, t_dst_mac,                                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_src_port, dst_port)                                          \
+	CHECKDATA("ingress", t_src_mac,                                        \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_src_port, dst_port)
+
+#define CHECKDATA_NORMALIZE_egress(                                            \
+		t_src_mac, t_dst_mac,                                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_src_port, dst_port)                                          \
+	CHECKDATA("egress", t_dst_mac,                                         \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		dst_port, t_src_port)
+
+#define CHECKDATA_NORMALIZE_internal(t_src_mac, t_dst_mac,                     \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_src_port, dst_port)                                          \
+	CHECKDATA("internal", t_src_mac,                                       \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_src_port, dst_port)
+
+
+/// Select dst mac based on span mode
+#define CHECKDATA_NO_SPAN_NORMALIZE_CHECKDATA(direction,                       \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_src_port, dst_port)                                          \
+	CHECKDATA_NORMALIZE_##direction (                                      \
+		t_src_mac, t_post_dst_mac,                                     \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_src_port, dst_port)
+
+#define CHECKDATA_SPAN_NORMALIZE_CHECKDATA(direction,                          \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_src_port, dst_port)                                          \
+	CHECKDATA_NORMALIZE_##direction (                                      \
+		t_src_mac, t_dst_mac,                                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_src_port, dst_port)
+
+/// Select checkdata V4 IP
+#define V4_NO_SPAN_NORMALIZE_CHECKDATA(t_direction, normalized_direction,      \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
+		t_src_port, dst_port)                                          \
+	CHECKDATA_NO_SPAN_NORMALIZE_CHECKDATA(normalized_direction,            \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_src_port, dst_port)
+
+/// Select checkdata V6 IP
+#define V6_NO_SPAN_NORMALIZE_CHECKDATA(t_direction, normalized_direction,      \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
+		t_src_port, dst_port)                                          \
+	CHECKDATA_NO_SPAN_NORMALIZE_CHECKDATA(normalized_direction,            \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
+		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
+		t_src_port, dst_port)
+
+/// Select checkdata V4 IP
+#define V4_SPAN_NORMALIZE_CHECKDATA(t_direction, normalized_direction,         \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
+		t_src_port, dst_port)                                          \
+	CHECKDATA_SPAN_NORMALIZE_CHECKDATA(normalized_direction,               \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_src_port, dst_port)
+
+/// Select checkdata V6 IP
+#define V6_SPAN_NORMALIZE_CHECKDATA(t_direction, normalized_direction,         \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_ip, t_src_net, t_src_net_name,                           \
+		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
+		t_dst_ip, t_dst_net, t_dst_net_name,                           \
+		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
+		t_src_port, dst_port)                                          \
+	CHECKDATA_SPAN_NORMALIZE_CHECKDATA(normalized_direction,               \
+		t_src_mac, t_dst_mac, t_post_dst_mac,                          \
+		t_src_v6_ip, t_src_v6_net, t_src_v6_net_name,                  \
+		t_dst_v6_ip, t_dst_v6_net, t_dst_v6_net_name,                  \
+		t_src_port, dst_port)
 
 static const IPFIX_TEMPLATE(v10Template, TEST_FLOW_HEADER, TEST_TEMPLATE_ID_V4,
                             FLOW_ENTITIES_V4);
@@ -388,216 +506,32 @@ static const struct checkdata checkdata_dont_normalize_ipv6[] = {
 };
 
 static int prepare_test_nf10_dont_normalize(void **state) {
-  return prepare_test_nf10_mac_direction_base(state,
-    checkdata_dont_normalize_ipv4, RD_ARRAYSIZE(checkdata_dont_normalize_ipv4),
-    checkdata_dont_normalize_ipv4, RD_ARRAYSIZE(checkdata_dont_normalize_ipv4),
-    checkdata_dont_normalize_ipv6, RD_ARRAYSIZE(checkdata_dont_normalize_ipv6),
-    checkdata_dont_normalize_ipv6, RD_ARRAYSIZE(checkdata_dont_normalize_ipv6),
-    false);
+	return prepare_test_nf10_mac_direction_base(state,
+		checkdata_dont_normalize_ipv4,
+		RD_ARRAYSIZE(checkdata_dont_normalize_ipv4),
+		checkdata_dont_normalize_ipv4,
+		RD_ARRAYSIZE(checkdata_dont_normalize_ipv4),
+		checkdata_dont_normalize_ipv6,
+		RD_ARRAYSIZE(checkdata_dont_normalize_ipv6),
+		checkdata_dont_normalize_ipv6,
+		RD_ARRAYSIZE(checkdata_dont_normalize_ipv6),
+		false);
 }
 
 static const struct checkdata checkdata_span_true_v4[] = {
-	CHECKDATA("ingress", "00:24:14:01:02:03",
-		"10.13.30.44", "10.13.30.0/16", "users",
-		"66.220.152.19", NULL, NULL,
-		"54713", "443"),
-	CHECKDATA("ingress", "00:24:14:01:02:03",
-		"10.13.30.44", "10.13.30.0/16", "users",
-		"66.220.152.19", NULL, NULL,
-		"54713", "443"),
-	CHECKDATA("egress", "00:22:55:04:05:06",
-		"10.13.30.44", "10.13.30.0/16", "users",
-		"66.220.152.19", NULL, NULL,
-		"443", "54713"),
-	CHECKDATA("egress", "00:22:55:04:05:06",
-		"10.13.30.44", "10.13.30.0/16", "users",
-		"66.220.152.19", NULL, NULL,
-		"443", "54713"),
-	CHECKDATA("internal", "00:24:14:01:02:03",
-		"10.13.30.44", "10.13.30.0/16", "users",
-		"10.13.30.45", "10.13.30.0/16", "users",
-		"54713", "443"),
-	CHECKDATA("internal", "00:24:14:01:02:03",
-		"10.13.30.44", "10.13.30.0/16", "users",
-		"10.13.30.45", "10.13.30.0/16", "users",
-		"54713", "443"),
-	CHECKDATA("ingress", "00:24:14:01:02:03",
-		"66.220.152.19", NULL, NULL,
-		"66.220.152.20", NULL, NULL,
-		"54713", "443"),
-	CHECKDATA("egress", "00:22:55:04:05:06",
-		"66.220.152.20", NULL, NULL,
-		"66.220.152.19", NULL, NULL,
-		"443", "54713"),
+	EXPECTED_RESULTS_BASE(V4_SPAN_NORMALIZE_CHECKDATA)
 };
 
 static const struct checkdata checkdata_span_false_v4[] = {
-	CHECKDATA("ingress", "00:24:14:01:02:03",
-		"10.13.30.44", "10.13.30.0/16", "users",
-		"66.220.152.19", NULL, NULL,
-		"54713", "443"),
-	CHECKDATA("ingress", "00:24:14:01:02:03",
-		"10.13.30.44", "10.13.30.0/16", "users",
-		"66.220.152.19", NULL, NULL,
-		"54713", "443"),
-	CHECKDATA("egress", "00:24:1d:04:05:06",
-		"10.13.30.44", "10.13.30.0/16", "users",
-		"66.220.152.19", NULL, NULL,
-		"443", "54713"),
-	CHECKDATA("egress", "00:24:1d:04:05:06",
-		"10.13.30.44", "10.13.30.0/16", "users",
-		"66.220.152.19", NULL, NULL,
-		"443", "54713"),
-	CHECKDATA("internal", "00:24:14:01:02:03",
-		"10.13.30.44", "10.13.30.0/16", "users",
-		"10.13.30.45", "10.13.30.0/16", "users",
-		"54713", "443"),
-	CHECKDATA("internal", "00:24:14:01:02:03",
-		"10.13.30.44", "10.13.30.0/16", "users",
-		"10.13.30.45", "10.13.30.0/16", "users",
-		"54713", "443"),
-	CHECKDATA("ingress", "00:24:14:01:02:03",
-		"66.220.152.19", NULL, NULL,
-		"66.220.152.20", NULL, NULL,
-		"54713", "443"),
-	CHECKDATA("egress", "00:24:1d:04:05:06",
-		"66.220.152.20", NULL, NULL,
-		"66.220.152.19", NULL, NULL,
-		"443", "54713"),
+	EXPECTED_RESULTS_BASE(V4_NO_SPAN_NORMALIZE_CHECKDATA)
 };
 
 static const struct checkdata checkdata_span_true_v6[] = {
-	CHECKDATA("ingress", "00:24:14:01:02:03",
-		"2001:0428:ce00:0000:0000:0000:0000:0001",
-			"2001:0428:ce00:0000:0000:0000:0000:0000/48",
-			"users6",
-		"2001:0428:ff00:0000:0000:0000:0000:0002",
-			NULL,
-			NULL,
-		"54713", "443"),
-	CHECKDATA("ingress", "00:24:14:01:02:03",
-		"2001:0428:ce00:0000:0000:0000:0000:0001",
-			"2001:0428:ce00:0000:0000:0000:0000:0000/48",
-			"users6",
-		"2001:0428:ff00:0000:0000:0000:0000:0002",
-			NULL,
-			NULL,
-		"54713", "443"),
-	CHECKDATA("egress", "00:22:55:04:05:06",
-		"2001:0428:ce00:0000:0000:0000:0000:0001",
-			"2001:0428:ce00:0000:0000:0000:0000:0000/48",
-			"users6",
-		"2001:0428:ff00:0000:0000:0000:0000:0002",
-			NULL,
-			NULL,
-		"443", "54713"),
-	CHECKDATA("egress", "00:22:55:04:05:06",
-		"2001:0428:ce00:0000:0000:0000:0000:0001",
-			"2001:0428:ce00:0000:0000:0000:0000:0000/48",
-			"users6",
-		"2001:0428:ff00:0000:0000:0000:0000:0002",
-			NULL,
-			NULL,
-		"443", "54713"),
-	CHECKDATA("internal", "00:24:14:01:02:03",
-		"2001:0428:ce00:0000:0000:0000:0000:0001",
-			"2001:0428:ce00:0000:0000:0000:0000:0000/48",
-			"users6",
-		"2001:0428:ce00:0000:0000:0000:0000:0002",
-			"2001:0428:ce00:0000:0000:0000:0000:0000/48",
-			"users6",
-		"54713", "443"),
-	CHECKDATA("internal", "00:24:14:01:02:03",
-		"2001:0428:ce00:0000:0000:0000:0000:0001",
-			"2001:0428:ce00:0000:0000:0000:0000:0000/48",
-			"users6",
-		"2001:0428:ce00:0000:0000:0000:0000:0002",
-			"2001:0428:ce00:0000:0000:0000:0000:0000/48",
-			"users6",
-		"54713", "443"),
-	CHECKDATA("ingress", "00:24:14:01:02:03",
-		"2001:0428:ff00:0000:0000:0000:0000:0001",
-			NULL,
-			NULL,
-		"2001:0428:ff00:0000:0000:0000:0000:0002",
-			NULL,
-			NULL,
-		"54713", "443"),
-	CHECKDATA("egress", "00:22:55:04:05:06",
-		"2001:0428:ff00:0000:0000:0000:0000:0002",
-			NULL,
-			NULL,
-		"2001:0428:ff00:0000:0000:0000:0000:0001",
-			NULL,
-			NULL,
-		"443", "54713"),
+	EXPECTED_RESULTS_BASE(V6_SPAN_NORMALIZE_CHECKDATA)
 };
 
 static const struct checkdata checkdata_span_false_v6[] = {
-	CHECKDATA("ingress", "00:24:14:01:02:03",
-		"2001:0428:ce00:0000:0000:0000:0000:0001",
-			"2001:0428:ce00:0000:0000:0000:0000:0000/48",
-			"users6",
-		"2001:0428:ff00:0000:0000:0000:0000:0002",
-			NULL,
-			NULL,
-		"54713", "443"),
-	CHECKDATA("ingress", "00:24:14:01:02:03",
-		"2001:0428:ce00:0000:0000:0000:0000:0001",
-			"2001:0428:ce00:0000:0000:0000:0000:0000/48",
-			"users6",
-		"2001:0428:ff00:0000:0000:0000:0000:0002",
-			NULL,
-			NULL,
-		"54713", "443"),
-	CHECKDATA("egress", "00:24:1d:04:05:06",
-		"2001:0428:ce00:0000:0000:0000:0000:0001",
-			"2001:0428:ce00:0000:0000:0000:0000:0000/48",
-			"users6",
-		"2001:0428:ff00:0000:0000:0000:0000:0002",
-			NULL,
-			NULL,
-		"443", "54713"),
-	CHECKDATA("egress", "00:24:1d:04:05:06",
-		"2001:0428:ce00:0000:0000:0000:0000:0001",
-			"2001:0428:ce00:0000:0000:0000:0000:0000/48",
-			"users6",
-		"2001:0428:ff00:0000:0000:0000:0000:0002",
-			NULL,
-			NULL,
-		"443", "54713"),
-	CHECKDATA("internal", "00:24:14:01:02:03",
-		"2001:0428:ce00:0000:0000:0000:0000:0001",
-			"2001:0428:ce00:0000:0000:0000:0000:0000/48",
-			"users6",
-		"2001:0428:ce00:0000:0000:0000:0000:0002",
-			"2001:0428:ce00:0000:0000:0000:0000:0000/48",
-			"users6",
-		"54713", "443"),
-	CHECKDATA("internal", "00:24:14:01:02:03",
-		"2001:0428:ce00:0000:0000:0000:0000:0001",
-			"2001:0428:ce00:0000:0000:0000:0000:0000/48",
-			"users6",
-		"2001:0428:ce00:0000:0000:0000:0000:0002",
-			"2001:0428:ce00:0000:0000:0000:0000:0000/48",
-			"users6",
-		"54713", "443"),
-	CHECKDATA("ingress", "00:24:14:01:02:03",
-		"2001:0428:ff00:0000:0000:0000:0000:0001",
-			NULL,
-			NULL,
-		"2001:0428:ff00:0000:0000:0000:0000:0002",
-			NULL,
-			NULL,
-		"54713", "443"),
-	CHECKDATA("egress", "00:24:1d:04:05:06",
-		"2001:0428:ff00:0000:0000:0000:0000:0002",
-			NULL,
-			NULL,
-		"2001:0428:ff00:0000:0000:0000:0000:0001",
-			NULL,
-			NULL,
-		"443", "54713"),
+	EXPECTED_RESULTS_BASE(V6_NO_SPAN_NORMALIZE_CHECKDATA)
 };
 
 static int prepare_test_nf10_mac_direction(void **state) {
