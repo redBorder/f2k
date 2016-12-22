@@ -181,8 +181,8 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, FLOW_SAMPLER_ID, 48, DONT_QUOTE_OUTPUT, "FLOW_SAMPLER_ID", "flow_sampler_id", "flowSamplerId", "Flow sampler ID", NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, MIN_TTL, 52, DONT_QUOTE_OUTPUT, "MIN_TTL", "min_ttl", "minimumTTL", "Min flow TTL",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, MAX_TTL, 53, DONT_QUOTE_OUTPUT, "MAX_TTL", "max_ttl", "maximumTTL", "Max flow TTL",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IN_SRC_MAC, 56, QUOTE_OUTPUT, "IN_SRC_MAC", "in_src_mac", "sourceMacAddress", "Source MAC Address", process_src_mac, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, OUT_SRC_MAC, 81, QUOTE_OUTPUT, "OUT_SRC_MAC", "out_src_mac", "sourceMacAddress", "Source MAC Address after observation point", process_post_src_mac, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IN_SRC_MAC, 56, QUOTE_OUTPUT, "IN_SRC_MAC", "src_mac", "sourceMacAddress", "Source MAC Address", process_src_mac, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, OUT_SRC_MAC, 81, QUOTE_OUTPUT, "OUT_SRC_MAC", "post_dst_mac", "sourceMacAddress", "Source MAC Address after observation point", process_post_src_mac, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IN_SRC_MAC_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IN_SRC_MAC_MAP", "in_src_mac_name", "sourceMacAddress", "Name of Source MAC Address",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, OUT_SRC_MAC_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "OUT_SRC_MAC_MAP", "out_src_mac_name", "sourceMacAddress", "Name of Source MAC Address after observation point",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, SRC_VLAN, 58, DONT_QUOTE_OUTPUT, "CISCO_SRC_VLAN", "cisco_src_vlan", "preVlanId", "Source VLAN", print_number, NO_CHILDS)\
@@ -205,11 +205,11 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, MPLS_LABEL_8, 77, DONT_QUOTE_OUTPUT, "MPLS_LABEL_8", "mpls_label_8", "mplsLabelStackSection8", "MPLS label at position 8",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, MPLS_LABEL_9, 78, DONT_QUOTE_OUTPUT, "MPLS_LABEL_9", "mpls_label_9", "mplsLabelStackSection9", "MPLS label at position 9",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, MPLS_LABEL_10, 79, DONT_QUOTE_OUTPUT, "MPLS_LABEL_10", "mpls_label_10", "mplsLabelStackSection10", "MPLS label at position 10",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, IN_DST_MAC, 80, QUOTE_OUTPUT, "IN_DST_MAC", "in_dst_mac", "destinationMacAddress", "Destination MAC Address", process_dst_mac, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, IN_DST_MAC, 80, QUOTE_OUTPUT, "IN_DST_MAC", "dst_mac", "destinationMacAddress", "Destination MAC Address", process_dst_mac, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IF_NAME, 82, QUOTE_OUTPUT, "IF_NAME", NULL, NULL, "Interface name",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IF_DESCRIPTION, 83, QUOTE_OUTPUT, "IF_NAME", NULL, NULL, "Interface description",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IN_DST_MAC_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "IN_DST_MAC_MAP", "in_dst_mac_name", "destinationMacAddress", "Name Destination MAC Address",NO_FN, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, OUT_DST_MAC, 57, QUOTE_OUTPUT, "OUT_DST_MAC", "out_dst_mac", "PostdestinationMacAddress", "Destination MAC Address after observation point", process_post_dst_mac, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, OUT_DST_MAC, 57, QUOTE_OUTPUT, "OUT_DST_MAC", "post_dst_mac", "PostdestinationMacAddress", "Destination MAC Address after observation point", process_post_dst_mac, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, OUT_DST_MAC_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "OUT_DST_MAC_MAP", "out_dst_mac_name", "PostdestinationMacAddress", "Name Destination MAC Address after observation point",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, APPLICATION_ID, 95, QUOTE_OUTPUT, "APPLICATION_ID", "application_id",  "application_id", "Cisco NBAR Application Id",NO_FN, C(APPLICATION_NAME, ENGINE_ID))\
 	X(STANDARD_ENTERPRISE_ID, APPLICATION_NAME, 96, QUOTE_OUTPUT, "APPLICATION_NAME", "application_id_name",  "application_name", "Cisco NBAR Application Name",print_application_id_name, NO_CHILDS)\
