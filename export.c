@@ -539,36 +539,32 @@ size_t process_src_mac(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flow_cache) {
   unused_params(flow_cache);
-  process_mac0(flow_cache->macs.src_mac, "Source mac",
+  return process_mac0(flow_cache->macs.src_mac, "Source mac",
     kafka_line_buffer, buffer, real_field_len, real_field_offset);
-  return 0;
 }
 
 size_t process_post_src_mac(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flow_cache) {
   unused_params(flow_cache);
-  process_mac0(flow_cache->macs.post_src_mac, "PST Source mac",
+  return process_mac0(flow_cache->macs.post_src_mac, "PST Source mac",
     kafka_line_buffer, buffer, real_field_len, real_field_offset);
-  return 0;
 }
 
 size_t process_dst_mac(struct printbuf *kafka_line_buffer, const void *buffer,
     const size_t real_field_len, const size_t real_field_offset,
     struct flowCache *flow_cache) {
   unused_params(flow_cache);
-  process_mac0(flow_cache->macs.dst_mac, "DST mac",
+  return process_mac0(flow_cache->macs.dst_mac, "DST mac",
     kafka_line_buffer, buffer, real_field_len, real_field_offset);
-  return 0;
 }
 
 size_t process_post_dst_mac(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flow_cache) {
   unused_params(flow_cache);
-  process_mac0(flow_cache->macs.post_dst_mac, "POST DST mac",
+  return process_mac0(flow_cache->macs.post_dst_mac, "POST DST mac",
     kafka_line_buffer, buffer, real_field_len, real_field_offset);
-  return 0;
 }
 
 static size_t print_ssid_name0(struct printbuf *kafka_line_buffer,const void *buffer,const uint16_t real_field_len){
