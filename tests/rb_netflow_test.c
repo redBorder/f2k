@@ -517,41 +517,41 @@ void testFlow(void **state) {
   }
 
   // F2K: Consume Netflow test data from "rb_flow_pre"
-  // if (st->params.records->kafka_consumer_url) {
-  //   char *group_id = rand_tmpl("test");
-	//
-  //   readOnlyGlobals.kafka_consumer.topic_conf = rd_kafka_topic_conf_new();
-  //   readOnlyGlobals.kafka_consumer.conf = rd_kafka_conf_new();
-	//
-  //   char errstr[512];
-  //   if (rd_kafka_conf_set(readOnlyGlobals.kafka_consumer.conf, "group.id",
-  //                         group_id, errstr,
-  //                         sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-  //     traceEvent(TRACE_ERROR, "%% %s\n", errstr);
-  //   }
-	//
-  //   if (rd_kafka_conf_set(readOnlyGlobals.kafka_consumer.conf,
-  //                         "metadata.broker.list",
-  //                         st->params.records->kafka_consumer_url, errstr,
-  //                         sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-  //     traceEvent(TRACE_ERROR, "%% %s\n", errstr);
-  //   }
-	//
-  //   if (rd_kafka_topic_conf_set(readOnlyGlobals.kafka_consumer.topic_conf,
-  //                               "offset.store.method", "broker", errstr,
-  //                               sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-  //     traceEvent(TRACE_ERROR, "%% %s\n", errstr);
-  //   }
-	//
-  //   if (rd_kafka_topic_conf_set(readOnlyGlobals.kafka_consumer.topic_conf,
-  //                               "auto.offset.reset", "smallest", errstr,
-  //                               sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-  //     traceEvent(TRACE_ERROR, "%% %s\n", errstr);
-  //   }
-	//
-  //   readOnlyGlobals.kafka_consumer.topic = input_topic;
-	// 	free(group_id);
-  // }
+  if (st->params.records->kafka_consumer_url) {
+    char *group_id = rand_tmpl("test");
+
+    readOnlyGlobals.kafka_consumer.topic_conf = rd_kafka_topic_conf_new();
+    readOnlyGlobals.kafka_consumer.conf = rd_kafka_conf_new();
+
+    char errstr[512];
+    if (rd_kafka_conf_set(readOnlyGlobals.kafka_consumer.conf, "group.id",
+                          group_id, errstr,
+                          sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+      traceEvent(TRACE_ERROR, "%% %s\n", errstr);
+    }
+
+    if (rd_kafka_conf_set(readOnlyGlobals.kafka_consumer.conf,
+                          "metadata.broker.list",
+                          st->params.records->kafka_consumer_url, errstr,
+                          sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+      traceEvent(TRACE_ERROR, "%% %s\n", errstr);
+    }
+
+    if (rd_kafka_topic_conf_set(readOnlyGlobals.kafka_consumer.topic_conf,
+                                "offset.store.method", "broker", errstr,
+                                sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+      traceEvent(TRACE_ERROR, "%% %s\n", errstr);
+    }
+
+    if (rd_kafka_topic_conf_set(readOnlyGlobals.kafka_consumer.topic_conf,
+                                "auto.offset.reset", "smallest", errstr,
+                                sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+      traceEvent(TRACE_ERROR, "%% %s\n", errstr);
+    }
+
+    readOnlyGlobals.kafka_consumer.topic = input_topic;
+		free(group_id);
+  }
 
   // F2K: Produce JSON test data to "rb_flow"
   if (st->params.records->kafka_producer_url) {
