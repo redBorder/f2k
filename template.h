@@ -223,6 +223,7 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, DROPPED_BYTES_TOTAL, 134, DONT_QUOTE_OUTPUT, "DROPPED_BYTES_TOTAL", "dropped_bytes_total",  "dropped_bytes_total", "number of octets dropped", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, DROPPED_PACKETS_TOTAL, 135, DONT_QUOTE_OUTPUT, "DROPPED_PACKETS_TOTAL", "dropped_pkts_total",  "dropped_pkts_total", "number of packets dropped", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, FLOW_END_REASON, 136, QUOTE_OUTPUT, "FLOW_END_REASON", "flow_end_reason",  "flowEndReason", "Exporter IPv6 Address", print_flow_end_reason, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, EXPORTING_PROCESS_ID, 144, DONT_QUOTE_OUTPUT, "EXPORTING_PROCESS_ID", "exporting_process_id", "exporting_process_id", "Exporting Process Identifier", print_number, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, FLOW_ID, 148, DONT_QUOTE_OUTPUT, "FLOW_ID", "flow_id", "flowId", "Serial Flow Identifier", NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, FLOW_START_SEC, 150, DONT_QUOTE_OUTPUT, "FLOW_START_SEC", "flow_start_sec", "flowStartSeconds", "Seconds (epoch) of the first flow packet",save_first_second, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, FLOW_END_SEC, 151, DONT_QUOTE_OUTPUT, "FLOW_END_SEC", "flow_end_sec",  "flowEndSeconds",  "Seconds (epoch) of the last flow packet",save_last_second, NO_CHILDS)\
