@@ -34,82 +34,139 @@ struct rb_netflow_test {
 
 static struct dns_ctx *dns_ctx;
 
-static rd_kafka_t *init_kafka_consumer(const char *kafka_url) {
-  rd_kafka_t *rk = NULL;
-  const char *brokers = kafka_url;
-  char errstr[2048];
+static rd_kafka_t *test_consumer_rk = NULL;
+static rd_kafka_t *test_producer_rk = NULL;
+static rd_kafka_topic_t *test_producer_rkt = NULL;
 
+static char *rand_tmpl(const char *preffix) {
+	char *template = calloc(strlen(preffix) + 1 + 6, sizeof(char));
+	strcat(template, preffix);
+	strcat(template, "XXXXXX");
+  int mktmp_fd = mkstemp(template);
+  close(mktmp_fd);
+  remove(template);
+
+	return template;
+}
+
+/**
+ * Initializes a Kafka consumer for obtain the output of f2k and verify the
+ * data.
+ *
+ * @param  kafka_url URL of the Kafka broker
+ */
+static void init_test_kafka_consumer(const char *brokers, const char *topic) {
   rd_kafka_topic_conf_t *topic_conf = rd_kafka_topic_conf_new();
+  rd_kafka_conf_t *conf = rd_kafka_conf_new();
   rd_kafka_topic_partition_list_t *topics;
   rd_kafka_resp_err_t err;
-  rd_kafka_conf_t *conf = rd_kafka_conf_new();
+  char errstr[2048];
 
-  if (rd_kafka_conf_set(conf, "group.id", "tester", errstr, sizeof(errstr)) !=
+  if (rd_kafka_conf_set(conf, "group.id", "tests", errstr, sizeof(errstr)) !=
       RD_KAFKA_CONF_OK) {
     fprintf(stderr, "%% %s\n", errstr);
-    exit(1);
+    return;
   }
 
   if (rd_kafka_topic_conf_set(topic_conf, "offset.store.method", "broker",
                               errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
     fprintf(stderr, "%% %s\n", errstr);
-    exit(1);
+    return;
   }
 
   rd_kafka_conf_set_default_topic_conf(conf, topic_conf);
 
-  if (!(rk = rd_kafka_new(RD_KAFKA_CONSUMER, conf, errstr, sizeof(errstr)))) {
+  if (!(test_consumer_rk =
+            rd_kafka_new(RD_KAFKA_CONSUMER, conf, errstr, sizeof(errstr)))) {
     fprintf(stderr, "%% Failed to create new consumer: %s\n", errstr);
-    exit(1);
+    return;
   }
 
-  if (rd_kafka_brokers_add(rk, brokers) == 0) {
+  if (rd_kafka_brokers_add(test_consumer_rk, brokers) == 0) {
     fprintf(stderr, "%% No valid brokers specified\n");
-    exit(1);
+    return;
   }
 
-  rd_kafka_poll_set_consumer(rk);
+  rd_kafka_poll_set_consumer(test_consumer_rk);
 
   topics = rd_kafka_topic_partition_list_new(1);
-  rd_kafka_topic_partition_list_add(topics, "rb_flow", 0);
+  rd_kafka_topic_partition_list_add(topics, topic, 0);
 
-  if ((err = rd_kafka_assign(rk, topics))) {
+  if ((err = rd_kafka_assign(test_consumer_rk, topics))) {
     fprintf(stderr, "%% Failed to assign partitions: %s\n",
             rd_kafka_err2str(err));
   }
 
   rd_kafka_topic_partition_list_destroy(topics);
-
-  return rk;
 }
 
-static void init_kafka_producer(const char *kafka_url) {
-  char errstr[2048];
-  const char *brokers = kafka_url;
-
-  rd_kafka_conf_t *rk_conf = rd_kafka_conf_new();
+/**
+ * Initializes a Kafka producer for sending test data to f2k
+ *
+ * @param  kafka_url URL of the Kafka broker
+ */
+static void init_test_kafka_producer(const char *brokers, const char *topic) {
   rd_kafka_topic_conf_t *rkt_conf = rd_kafka_topic_conf_new();
+  rd_kafka_conf_t *rk_conf = rd_kafka_conf_new();
+  char errstr[2048];
+
+  if (!(test_producer_rk =
+            rd_kafka_new(RD_KAFKA_PRODUCER, rk_conf, errstr, sizeof(errstr)))) {
+    fprintf(stderr, "%% Failed to create new consumer: %s\n", errstr);
+    return;
+  }
+
+  if (rd_kafka_brokers_add(test_producer_rk, brokers) == 0) {
+    fprintf(stderr, "%% No valid brokers specified\n");
+    return;
+  }
+
+  if (test_producer_rk != NULL) {
+    test_producer_rkt =
+        rd_kafka_topic_new(test_producer_rk, topic, rkt_conf);
+    if (test_producer_rkt != NULL) {
+      rkt_conf = NULL;
+    } else {
+      traceEvent(TRACE_ERROR, "Unable to create a kafka topic");
+      rd_kafka_destroy(test_producer_rk);
+      test_producer_rk = NULL;
+      return;
+    }
+  }
+}
+
+/**
+ * Initializes internal f2k Kafka producer for sending processed netflow
+ *
+ * @param  kafka_url URL of the Kafka broker
+ */
+static void init_kafka_producer() {
+  rd_kafka_topic_conf_t *rkt_conf = rd_kafka_topic_conf_new();
+  rd_kafka_conf_t *rk_conf = rd_kafka_conf_new();
+  char errstr[2048];
 
   if (!(readWriteGlobals->kafka.rk =
             rd_kafka_new(RD_KAFKA_PRODUCER, rk_conf, errstr, sizeof(errstr)))) {
     fprintf(stderr, "%% Failed to create new consumer: %s\n", errstr);
-    exit(1);
+    return;
   }
 
-  if (rd_kafka_brokers_add(readWriteGlobals->kafka.rk, brokers) == 0) {
+  if (rd_kafka_brokers_add(readWriteGlobals->kafka.rk,
+                           readOnlyGlobals.kafka.broker_ip) == 0) {
     fprintf(stderr, "%% No valid brokers specified\n");
-    exit(1);
+    return;
   }
 
   if (readWriteGlobals->kafka.rk != NULL) {
     readWriteGlobals->kafka.rkt =
-        rd_kafka_topic_new(readWriteGlobals->kafka.rk, "rb_flow", rkt_conf);
+        rd_kafka_topic_new(readWriteGlobals->kafka.rk, readOnlyGlobals.kafka.topic, rkt_conf);
     if (readWriteGlobals->kafka.rkt != NULL) {
       rkt_conf = NULL;
     } else {
       traceEvent(TRACE_ERROR, "Unable to create a kafka topic");
       rd_kafka_destroy(readWriteGlobals->kafka.rk);
       readWriteGlobals->kafka.rk = NULL;
+      return;
     }
   }
 }
@@ -340,48 +397,61 @@ static struct string_list *test_flow_i(const struct test_params *params,
   }
 #endif
 
-  if (params->kafka_url) {
-    init_kafka_producer(params->kafka_url);
-  }
+  if (test_producer_rkt) {
+    char *buf = calloc(params->record_size, sizeof(char));
+    memcpy(buf, params->record, params->record_size);
+    if (rd_kafka_produce(test_producer_rkt, 0, RD_KAFKA_MSG_F_COPY, buf,
+                         params->record_size, &params->netflow_src_ip,
+                         sizeof(uint32_t), NULL) == -1) {
+      fprintf(stderr, "%% Failed to produce to topic %s "
+                      "partition %i: %s\n",
+              rd_kafka_topic_name(test_producer_rkt), 0,
+              rd_kafka_err2str(rd_kafka_last_error()));
+    }
+    free(buf);
+  } else {
+    check_if_reload(&readOnlyGlobals.rb_databases);
 
-  check_if_reload(&readOnlyGlobals.rb_databases);
+    const uint32_t netflow_device_ip = params->netflow_src_ip;
+    const uint8_t *record = params->record;
+    const size_t record_len = params->record_size;
 
-  const uint32_t netflow_device_ip = params->netflow_src_ip;
-  const uint8_t *record = params->record;
-  const size_t record_len = params->record_size;
+    struct sensor *sensor_object = get_sensor(
+        readOnlyGlobals.rb_databases.sensors_info, netflow_device_ip);
 
-  struct sensor *sensor_object = get_sensor(
-    readOnlyGlobals.rb_databases.sensors_info, netflow_device_ip);
+    if (sensor_object) {
+      // wait until worker end to process all templates
+      while (true) {
+        pthread_mutex_lock(&worker->templates_queue.rfq_lock);
+        const int cnt = worker->templates_queue.rfq_cnt;
+        pthread_mutex_unlock(&worker->templates_queue.rfq_lock);
 
-  if (sensor_object) {
-    // wait until worker end to process all templates
-    while (true) {
+        if (cnt > 0) {
+          usleep(1);
+        } else {
+          break;
+        }
+      }
+
+      // Let's lock to make drd & helgrind happy
       pthread_mutex_lock(&worker->templates_queue.rfq_lock);
-      const int cnt = worker->templates_queue.rfq_cnt;
+      pthread_mutex_lock(&worker->packetsQueue.rfq_lock);
+
+      mem_wraps_set_fail_in(mem_stash); // fail beyond this point
+      struct string_list *ret = dissectNetFlow(
+          worker, sensor_object, netflow_device_ip, record, record_len);
+      rb_sensor_decref(sensor_object);
+
+      pthread_mutex_unlock(&worker->packetsQueue.rfq_lock);
       pthread_mutex_unlock(&worker->templates_queue.rfq_lock);
 
-      if (cnt > 0) {
-        usleep(1);
-      } else {
-        break;
-      }
+      return ret;
     }
 
-    // Let's lock to make drd & helgrind happy
-    pthread_mutex_lock(&worker->templates_queue.rfq_lock);
-    pthread_mutex_lock(&worker->packetsQueue.rfq_lock);
-
-    mem_wraps_set_fail_in(mem_stash); // fail beyond this point
-    struct string_list *ret = dissectNetFlow(worker, sensor_object,
-      netflow_device_ip, record, record_len);
-    rb_sensor_decref(sensor_object);
-
-    pthread_mutex_unlock(&worker->packetsQueue.rfq_lock);
-    pthread_mutex_unlock(&worker->templates_queue.rfq_lock);
-    return ret;
-  } else {
     return NULL;
   }
+
+  return NULL;
 }
 
 static void check_string_list(struct string_list *sl,
@@ -433,6 +503,77 @@ void testFlow(void **state) {
   size_t i;
   struct nf_test_state *st = *state;
   assert_true(st->magic == NF_TEST_STATE_MAGIC);
+  char *input_topic = rand_tmpl("rb_flow_pre");
+  char *output_topic = rand_tmpl("rb_flow");
+
+  // TESTER: Produce Netflow test data to "rb_flow_pre"
+  if (st->params.records->kafka_test_producer_url) {
+    init_test_kafka_producer(st->params.records->kafka_test_producer_url,
+                             input_topic);
+    if (NULL == test_producer_rkt) {
+      printf("TEST Producer: Can't connect to Kafka broker\n");
+      exit(1);
+    }
+  }
+
+  // F2K: Consume Netflow test data from "rb_flow_pre"
+  // if (st->params.records->kafka_consumer_url) {
+  //   char *group_id = rand_tmpl("test");
+	//
+  //   readOnlyGlobals.kafka_consumer.topic_conf = rd_kafka_topic_conf_new();
+  //   readOnlyGlobals.kafka_consumer.conf = rd_kafka_conf_new();
+	//
+  //   char errstr[512];
+  //   if (rd_kafka_conf_set(readOnlyGlobals.kafka_consumer.conf, "group.id",
+  //                         group_id, errstr,
+  //                         sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+  //     traceEvent(TRACE_ERROR, "%% %s\n", errstr);
+  //   }
+	//
+  //   if (rd_kafka_conf_set(readOnlyGlobals.kafka_consumer.conf,
+  //                         "metadata.broker.list",
+  //                         st->params.records->kafka_consumer_url, errstr,
+  //                         sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+  //     traceEvent(TRACE_ERROR, "%% %s\n", errstr);
+  //   }
+	//
+  //   if (rd_kafka_topic_conf_set(readOnlyGlobals.kafka_consumer.topic_conf,
+  //                               "offset.store.method", "broker", errstr,
+  //                               sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+  //     traceEvent(TRACE_ERROR, "%% %s\n", errstr);
+  //   }
+	//
+  //   if (rd_kafka_topic_conf_set(readOnlyGlobals.kafka_consumer.topic_conf,
+  //                               "auto.offset.reset", "smallest", errstr,
+  //                               sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+  //     traceEvent(TRACE_ERROR, "%% %s\n", errstr);
+  //   }
+	//
+  //   readOnlyGlobals.kafka_consumer.topic = input_topic;
+	// 	free(group_id);
+  // }
+
+  // F2K: Produce JSON test data to "rb_flow"
+  if (st->params.records->kafka_producer_url) {
+    readOnlyGlobals.kafka.broker_ip =
+        strdup(st->params.records->kafka_producer_url);
+    readOnlyGlobals.kafka.topic = output_topic;
+    init_kafka_producer();
+    if (NULL == readWriteGlobals->kafka.rkt) {
+      printf("F2K Producer: Can't connect to Kafka broker\n");
+      exit(1);
+    }
+  }
+
+  // TESTER: Consume JSON test data from "rb_flow"
+  if (st->params.records->kafka_test_consumer_url) {
+    init_test_kafka_consumer(st->params.records->kafka_test_consumer_url,
+                             output_topic);
+    if (NULL == test_consumer_rk) {
+      printf("TEST Consumer: Can't connect to Kafka broker\n");
+      exit(1);
+    }
+  }
 
   worker_t *worker = NULL;
   // Repeat if we are testing memory
@@ -440,18 +581,13 @@ void testFlow(void **state) {
     worker = new_collect_worker();
   }
 
-  if (st->params.records->kafka_url) {
+  // Consume f2k output messages to verify them
+  if (test_consumer_rk) {
     rd_kafka_message_t *rkmessage;
-
-    rd_kafka_t *rk = init_kafka_consumer(st->params.records->kafka_url);
-    if (NULL == rk) {
-      printf("Can't connect to Kafka broker\n");
-      exit(1);
-    }
 
     // Discard all messages in the queue and go to the last offset
     while (true) {
-      rkmessage = rd_kafka_consumer_poll(rk, 100);
+      rkmessage = rd_kafka_consumer_poll(test_consumer_rk, 100);
       if (rkmessage) {
         const rd_kafka_resp_err_t err = rkmessage->err;
         rd_kafka_message_destroy(rkmessage);
@@ -466,7 +602,7 @@ void testFlow(void **state) {
       test_flow_i(&st->params.records[i], worker);
     }
 
-    rkmessage = rd_kafka_consumer_poll(rk, 2000);
+    rkmessage = rd_kafka_consumer_poll(test_consumer_rk, 2000);
     if (rkmessage) {
       st->ret.sl[1] =
           (struct string_list *)calloc(1, sizeof(struct string_list));
@@ -475,12 +611,9 @@ void testFlow(void **state) {
       st->ret.sl[1]->string->buf = (char *)calloc(rkmessage->len, sizeof(char));
       st->ret.sl[1]->string->bpos = rkmessage->len;
       st->ret.sl[1]->string->size = rkmessage->len;
-      memmove(st->ret.sl[1]->string->buf, rkmessage->payload, rkmessage->len);
+      memcpy(st->ret.sl[1]->string->buf, rkmessage->payload, rkmessage->len);
       rd_kafka_message_destroy(rkmessage);
     }
-
-    rd_kafka_consumer_close(rk);
-    rd_kafka_destroy(rk);
   } else {
     for (i = 0; i < st->params.records_size; ++i) {
       st->ret.sl[i] = test_flow_i(&st->params.records[i], worker);
@@ -488,8 +621,33 @@ void testFlow(void **state) {
   }
 
   collect_worker_done(worker);
-
   check_flow(st);
+
+  if (test_producer_rkt) {
+    rd_kafka_topic_destroy(test_producer_rkt);
+  }
+
+  if (test_producer_rk) {
+    rd_kafka_destroy(test_producer_rk);
+  }
+
+  if (readOnlyGlobals.kafka.broker_ip) {
+    free(readOnlyGlobals.kafka.broker_ip);
+  }
+
+  if (test_consumer_rk) {
+    rd_kafka_consumer_close(test_consumer_rk);
+    rd_kafka_destroy(test_consumer_rk);
+  }
+
+  if (input_topic) {
+    free(input_topic);
+  }
+
+  if (output_topic) {
+    free(output_topic);
+  }
+
   free_state_returned_string_lists(st);
   free(st);
 }
