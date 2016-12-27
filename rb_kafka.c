@@ -69,7 +69,7 @@ void parse_kafka_config(rd_kafka_conf_t *rk_conf,rd_kafka_topic_conf_t *rkt_conf
 
   if (!(val = strchr(name, '='))) {
     traceEvent(TRACE_ERROR, "rdkafka config: Expected "
-      "-X property=value, not %s, ",name);
+      "-X/Y property=value, not %s, ",name);
     free(name);
     return;
   }

@@ -243,6 +243,12 @@ typedef struct {
     char *topic;
     bool use_client_mac_partitioner;
   } kafka;
+
+  struct {
+    rd_kafka_topic_conf_t *topic_conf;
+    rd_kafka_conf_t *conf;
+    char *topic;
+  } kafka_consumer;
 #endif
 
 #ifdef HAVE_ZOOKEEPER

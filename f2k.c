@@ -133,7 +133,9 @@ static const struct option long_options[] = {
   { "event-log",                        required_argument,       NULL, '+'  },
 #ifdef HAVE_LIBRDKAFKA
   { "kafka",                            required_argument,       NULL, 229 },
+  { "kafka-netflow-consumer",           required_argument,       NULL, 230 },
   { "rdkafka-opt",                      required_argument,       NULL, 'X' },
+  { "rdkafka-netflow-consumer-opt",     required_argument,       NULL, 'Y' },
   { "use-kafka-random-partitioner",     no_argument,             NULL, 'p' },
 #endif
 
@@ -879,6 +881,15 @@ static void initDefaults(void) {
   readOnlyGlobals.pcapFileList = NULL;
   readOnlyGlobals.pcapFile = NULL;
   readOnlyGlobals.unprivilegedUser = strdup("nobody");
+  readOnlyGlobals.kafka_consumer.topic_conf = rd_kafka_topic_conf_new();
+  readOnlyGlobals.kafka_consumer.conf = rd_kafka_conf_new();
+
+  char errstr[512];
+  if (rd_kafka_topic_conf_set(readOnlyGlobals.kafka_consumer.topic_conf,
+                              "offset.store.method", "broker", errstr,
+                              sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+    traceEvent(TRACE_ERROR, "%% %s\n", errstr);
+  }
 
 #ifdef HAVE_PF_RING
   readOnlyGlobals.cluster_id = -1;
@@ -1031,7 +1042,7 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
                            "n:O:s:S:T:u:U:x:vz:"
                            "G"
 #ifdef HAVE_LIBRDKAFKA
-                           "X:p"
+                           "X:Y:p\xe6"
 #endif
 #ifdef HAVE_ZOOKEEPER
                            "Z:"
@@ -1289,8 +1300,42 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
       }
       break;
 
+    case 230:
+      {
+        char *strtok_kafka_aux = NULL;
+        char *_optarg = strdup(optarg);
+        char *kafka_netflow_consumer_broker;
+        char *config = NULL;
+
+        kafka_netflow_consumer_broker = strtok_r(_optarg, "@", &strtok_kafka_aux);
+        readOnlyGlobals.kafka_consumer.topic = strtok_r(NULL, "", &strtok_kafka_aux);
+
+        if (kafka_netflow_consumer_broker && readOnlyGlobals.kafka_consumer.topic) {
+          kafka_netflow_consumer_broker = strdup(kafka_netflow_consumer_broker);
+          readOnlyGlobals.kafka_consumer.topic = strdup(readOnlyGlobals.kafka_consumer.topic);
+        } else {
+          traceEvent(TRACE_ERROR,
+                     "Invalid format for --kafka-netflow-consumer parameter");
+          usage();
+          kafka_netflow_consumer_broker = NULL;
+          readOnlyGlobals.kafka_consumer.topic = NULL;
+        }
+
+        asprintf(&config, "metadata.broker.list=%s", kafka_netflow_consumer_broker);
+        parse_kafka_config(readOnlyGlobals.kafka_consumer.conf, NULL, config);
+
+        free(_optarg);
+        free(kafka_netflow_consumer_broker);
+        free(config);
+      }
+      break;
+
     case 'X':
       parse_kafka_config(rk_conf,rkt_conf,optarg);
+      break;
+
+    case 'Y':
+      parse_kafka_config(readOnlyGlobals.kafka_consumer.conf,readOnlyGlobals.kafka_consumer.topic_conf,optarg);
       break;
 
 #endif /* HAVE_LIBRDKAFKA */

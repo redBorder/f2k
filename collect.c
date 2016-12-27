@@ -139,6 +139,49 @@ struct worker_s {
 
 /* ********************************************************* */
 
+/**
+ * Initializes a Kafka consumer that f2k will use internally to consume
+ * messages.
+ *
+ * @return           Kafka handler
+ */
+static rd_kafka_t *init_kafka_consumer() {
+  rd_kafka_t *rk = NULL;
+
+  char errstr[512];
+  rd_kafka_topic_partition_list_t *topics;
+  rd_kafka_resp_err_t err;
+
+  rd_kafka_conf_t *conf =
+      rd_kafka_conf_dup(readOnlyGlobals.kafka_consumer.conf);
+  rd_kafka_topic_conf_t *topic_conf =
+      rd_kafka_topic_conf_dup(readOnlyGlobals.kafka_consumer.topic_conf);
+
+  rd_kafka_conf_set_default_topic_conf(conf, topic_conf);
+
+  if (!(rk = rd_kafka_new(RD_KAFKA_CONSUMER, conf, errstr, sizeof(errstr)))) {
+    fprintf(stderr, "F2K Consumer: Failed to create new consumer: %s\n",
+            errstr);
+    return NULL;
+  }
+
+  rd_kafka_poll_set_consumer(rk);
+
+  topics = rd_kafka_topic_partition_list_new(1);
+  rd_kafka_topic_partition_list_add(topics,
+                                    readOnlyGlobals.kafka_consumer.topic, -1);
+
+  if ((err = rd_kafka_subscribe(rk, topics))) {
+    fprintf(stderr, "F2K Consumer: Failed to subscribe partitions: %s\n",
+            rd_kafka_err2str(err));
+    return NULL;
+  }
+
+  rd_kafka_topic_partition_list_destroy(topics);
+
+  return rk;
+}
+
 static void kafka_produce(struct printbuf *kafka_line_buffer, uint64_t client_mac){
   //if(unlikely(readOnlyGlobals.enable_debug))
   //  traceEvent(TRACE_WARNING,"[KAFKA] line buffer: [len=%d] %s \n",kafka_line_buffer->bpos,kafka_line_buffer->buf);
@@ -1861,14 +1904,64 @@ static void pop_all_templates(template_queue_t *template_queue) {
   }
 }
 
+static QueuedPacket *get_packet(worker_t *worker, rd_kafka_t *rk) {
+  QueuedPacket *packet = NULL;
+  static const time_t timeout_ms = 800;
+
+  if (rk) {
+    rd_kafka_message_t *rkmessage = rd_kafka_consumer_poll(rk, timeout_ms);
+    if (NULL == rkmessage) {
+      return NULL;
+    }
+
+    if (rkmessage->err && rkmessage->err == RD_KAFKA_RESP_ERR__PARTITION_EOF) {
+      goto clean_rk_message;
+    }
+
+    if (rkmessage->len == 0 || NULL == rkmessage->key) {
+      goto clean_rk_message;
+    }
+
+    const uint32_t sensor_ip = *(const uint32_t *)rkmessage->key;
+    struct sensor *sensor =
+        get_sensor(readOnlyGlobals.rb_databases.sensors_info, sensor_ip);
+
+    if (!sensor) {
+      goto clean_rk_message;
+    }
+
+    packet = calloc(1, sizeof(QueuedPacket));
+    if (NULL == packet) {
+      goto clean_rk_message;
+    }
+
+    packet->buffer = rkmessage->payload;
+    packet->buffer_len = rkmessage->len;
+    packet->original_message = rkmessage;
+    packet->netflow_device_ip = sensor_ip;
+    packet->sensor = sensor;
+
+    return packet;
+
+  clean_rk_message:
+    rd_kafka_message_destroy(rkmessage);
+    return NULL;
+  } else {
+    return popPacketFromQueue_timedwait(&worker->packetsQueue, timeout_ms);
+  }
+}
+
 static void *netFlowConsumerLoop(void *vworker) {
   worker_t *worker = vworker;
-  static const time_t timeout_ms = 800;
+  rd_kafka_t *rk = NULL;
   // traceEvent(TRACE_NORMAL,"Creating consumer loop");
 
+  if (readOnlyGlobals.kafka_consumer.topic) {
+    rk = init_kafka_consumer();
+  }
+
   while(true) {
-    QueuedPacket *packet = popPacketFromQueue_timedwait(&worker->packetsQueue,
-                                                                    timeout_ms);
+    QueuedPacket *packet = get_packet(worker, rk);
     pop_all_templates(&worker->templates_queue);
 
     if (packet) {
@@ -1900,6 +1993,11 @@ static void *netFlowConsumerLoop(void *vworker) {
       worker->stats.last_flow_processed_timestamp = time(NULL);
       break;
     }
+  }
+
+  if (rk) {
+    rd_kafka_consumer_close(rk);
+    rd_kafka_destroy(rk);
   }
 
   return NULL;

@@ -30,6 +30,8 @@
 #endif
 #include <endian.h>
 
+#include <librdkafka/rdkafka.h>
+
 #include "librd/rdmem.h"
 #include "librd/rdqueue.h"
 
@@ -59,6 +61,7 @@ typedef struct queued_packet_s {
   uint8_t *buffer;
   ssize_t buffer_len;
   struct sensor *sensor;
+  rd_kafka_message_t *original_message;
 } QueuedPacket;
 
 static inline QueuedPacket *newQueuedPacket(size_t allocated_buffer_len) {
@@ -72,6 +75,9 @@ static inline QueuedPacket *newQueuedPacket(size_t allocated_buffer_len) {
 
 static inline void freeQueuedPacket(QueuedPacket *packet){
   // fprintf(stderr,"Freeing packet %p\n",packet);
+  if (packet->original_message) {
+    rd_kafka_message_destroy(packet->original_message);
+  }
   free(packet);
 }
 
