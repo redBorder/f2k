@@ -851,7 +851,7 @@ static size_t dissect_nf9_option_template_params(FlowSetV9Ipfix *new_template,
   const V9OptionTemplate *option_template = buffer;
 
   assert(new_template);
-  assert(scope_count);
+  assert(scope_field_count);
   assert(field_count);
 
   if (buffer_size < sizeof(*option_template)) {
@@ -886,7 +886,7 @@ static size_t dissect_ipfix_option_template_params(FlowSetV9Ipfix *new_template,
   const IPFIXOptionsTemplate *option_template = buffer;
 
   assert(new_template);
-  assert(scope_count);
+  assert(scope_field_count);
   assert(field_count);
 
   if (buffer_size < sizeof(*option_template)) {
@@ -1104,7 +1104,7 @@ static size_t dissect_flow_template(worker_t *worker,
     worker->stats.num_good_templates_received++;
 
     // Save template for future use
-    if(readOnlyGlobals.templates_database_path && strlen(readOnlyGlobals.templates_database_path) > 0)
+    if(strlen(readOnlyGlobals.templates_database_path) > 0)
       saveGoodTemplateInFile(&template);
 #ifdef HAVE_ZOOKEEPER
     if(readOnlyGlobals.zk.zh)
