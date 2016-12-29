@@ -68,4 +68,4 @@ void add_template_to_worker(struct flowSetV9Ipfix *template,
 void get_worker_stats(worker_t *worker, struct worker_stats *stats);
 
 /** Free worker's allocated resources */
-void collect_worker_done(worker_t *);
+void collect_worker_done(worker_t *worker, struct worker_stats *stats);

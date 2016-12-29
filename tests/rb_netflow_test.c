@@ -498,7 +498,7 @@ void testFlow(void **state) {
     }
   }
 
-  collect_worker_done(worker);
+  collect_worker_done(worker, NULL);
 
   check_flow(st);
   free_state_returned_string_lists(st);
