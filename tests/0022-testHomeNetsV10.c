@@ -297,7 +297,7 @@ static int prepare_test_nf10_home_nets_normalize(void **state) {
 		  "wan_ip", "66.220.152.19",
 			    NULL,
 			    NULL,
-			    "ingress");
+			    "upstream");
 
 	static const struct checkdata_value checkdata_values_v6_1[] =
 	CHECKDATA("lan_ip", "2001:0428:ce00:2011:0d5a:6069:2467:9bd1",
@@ -306,7 +306,7 @@ static int prepare_test_nf10_home_nets_normalize(void **state) {
 		  "wan_ip", "2001:0008:0000:0000:0000:0000:0000:0001",
 			    NULL,
 			    NULL,
-			    "ingress");
+			    "upstream");
 
 	static const struct checkdata_value checkdata_values_v6_2[] =
 	CHECKDATA("wan_ip", "2001:0008:0000:0000:0000:0000:0000:0001",
@@ -315,7 +315,7 @@ static int prepare_test_nf10_home_nets_normalize(void **state) {
 		  "lan_ip", "2001:0428:ce00:2011:0d5a:6069:2467:9bd1",
 			    "2001:0428:ce00:0000:0000:0000:0000:0000/48",
 			    "users6",
-			    "egress");
+			    "downstream");
 
 	static const struct checkdata checkdata_v4[] = {
 		CHECKS(checkdata_values1),

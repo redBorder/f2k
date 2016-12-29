@@ -317,7 +317,7 @@ static int prepare_test_nf5_home_nets_normalize(void *state) {
 	/* src is in lan */
 	static const struct checkdata_value checkdata_values1_1[] =
 		CHECKDATA("lan_ip", "10.0.30.10", "10.0.30.0/24", "users",
-			  "wan_ip", "192.168.1.2", NULL, NULL, "ingress");
+			  "wan_ip", "192.168.1.2", NULL, NULL, "upstream");
 
 	/* src is in net objects, but not in home net => LAN is src,
 	WAN is dst*/
@@ -329,7 +329,7 @@ static int prepare_test_nf5_home_nets_normalize(void *state) {
 	static const struct checkdata_value checkdata_values1_3[] =
 		CHECKDATA("wan_ip", "192.168.1.2", NULL, NULL,
 			  "lan_ip", "10.0.30.10", "10.0.30.0/24", "users",
-			  "egress");
+			  "downstream");
 
 	/* dst is in nets, but src/dst are not in home nets */
 	static const struct checkdata_value checkdata_values1_4[] =
@@ -339,7 +339,7 @@ static int prepare_test_nf5_home_nets_normalize(void *state) {
 	/* src in home nets & nets objects => prioritize home nets */
 	static const struct checkdata_value checkdata_values1_5[] =
 		CHECKDATA("lan_ip", "10.0.150.10", "10.0.150.0/24", "lab",
-			  "wan_ip", "192.168.1.2", NULL, NULL, "ingress");
+			  "wan_ip", "192.168.1.2", NULL, NULL, "upstream");
 
 	/* Other sensor, with no home nets */
 	static const struct checkdata_value checkdata_values2_0[] =

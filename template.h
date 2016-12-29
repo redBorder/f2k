@@ -192,8 +192,8 @@ const char* getStandardFieldId(size_t id);
 	X(STANDARD_ENTERPRISE_ID, DOT_1Q_VLANID_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "SRC_VLAN_MAP", "src_vlan_name", "preVlanId_map", "Source VLAN name",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, POST_DOT_1Q_VLANID_MAP, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DST_VLAN_MAP", "dst_vlan_name", "postVlanId_map", "Destination VLAN name",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IP_PROTOCOL_VERSION, 60, DONT_QUOTE_OUTPUT, "IP_PROTOCOL_VERSION", "ip_protocol_version", "ipVersion", "[4=IPv4][6=IPv6]", print_number, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, DIRECTION, 61, QUOTE_OUTPUT, "DIRECTION", "direction", "direction", "Flow direction", save_direction, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, PRINT_DIRECTION, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DIRECTION", "direction", "flowDirection", "Indicates flow direction", print_direction,NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, DIRECTION, 61, QUOTE_OUTPUT, "DIRECTION", "direction", "direction", "Flow direction", process_direction, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, PRINT_DIRECTION, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DIRECTION", "direction", "flowDirection", "Indicates flow direction", print_flow_cache_direction,NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, IPV6_NEXT_HOP, 62, QUOTE_OUTPUT, "IPV6_NEXT_HOP", "ipv6_next_hop", "ipNextHopIPv6Address", "IPv6 next hop address",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, MPLS_LABEL_1, 70, DONT_QUOTE_OUTPUT, "MPLS_LABEL_1", "mpls_label_1", "mplsTopLabelStackSection", "MPLS label at position 1",NO_FN, NO_CHILDS)\
 	X(STANDARD_ENTERPRISE_ID, MPLS_LABEL_2, 71, DONT_QUOTE_OUTPUT, "MPLS_LABEL_2", "mpls_label_2", "mplsLabelStackSection2", "MPLS label at position 2",NO_FN, NO_CHILDS)\
