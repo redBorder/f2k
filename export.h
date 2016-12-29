@@ -166,11 +166,11 @@ size_t print_biflow_direction(struct printbuf * kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
 
-size_t print_direction(struct printbuf *kafka_line_buffer,
+size_t print_flow_cache_direction(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
 
-size_t save_direction(struct printbuf *kafka_line_buffer,
+size_t process_direction(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_len_offset, struct flowCache *flowCache);
 

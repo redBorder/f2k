@@ -46,11 +46,11 @@ typedef size_t (*entity_fn)(struct printbuf *kafka_line_buffer,
 static void unused_params0(const void *p,...) {(void)p;}
 #define unused_params(p...) unused_params0(&p)
 
-typedef enum{
-  DIRECTION_UNSET,
-  DIRECTION_INGRESS,
-  DIRECTION_EGRESS,
-  DIRECTION_INTERNAL,
+typedef enum {
+  DIRECTION_UNSET,      ///< Unknown traffic direction
+  DIRECTION_UPSTREAM,   ///< Traffic goes from LAN to WAN
+  DIRECTION_DOWNSTREAM, ///< Traffic goes from WAN to LAN
+  DIRECTION_INTERNAL,   ///< Traffic is home_net internal
 } direction_t;
 
 struct flowCache *new_flowCache(){
@@ -69,9 +69,9 @@ void free_flowCache(struct flowCache *cache){
 
 static int ip_direction(int known_src,int known_dst) {
   if(!known_src && known_dst) {
-    return DIRECTION_EGRESS;
+    return DIRECTION_DOWNSTREAM;
   } else if(known_src && !known_dst) {
-    return DIRECTION_INGRESS;
+    return DIRECTION_UPSTREAM;
   } else if(known_src && known_dst) {
     return DIRECTION_INTERNAL;
   }
@@ -439,30 +439,33 @@ static size_t print_netflow_direction(struct printbuf *kafka_line_buffer,
     "");
 }
 
-size_t print_direction(struct printbuf *kafka_line_buffer,
+size_t print_flow_cache_direction(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     const size_t real_field_offset, struct flowCache *flow_cache) {
   assert_multi(kafka_line_buffer, flow_cache);
   unused_params(buffer, real_field_len, real_field_offset);
 
-  if (flow_cache->macs.direction == DIRECTION_UNSET) {
-    /* Sorry, can't do nothing */
-    return 0;
+  const char *to_print = "";
+  switch (flow_cache->macs.direction) {
+  case DIRECTION_UPSTREAM:
+    to_print = "upstream";
+    break;
+  case DIRECTION_DOWNSTREAM:
+    to_print = "downstream";
+    break;
+  case DIRECTION_INTERNAL:
+    to_print = "internal";
+    break;
+  default:
+    break;
   }
 
-  if (flow_cache->macs.direction == DIRECTION_INGRESS) {
-    return print_netflow_direction(kafka_line_buffer,
-      NETFLOW_DIRECTION_INGRESS);
-  } else if (flow_cache->macs.direction == DIRECTION_EGRESS) {
-    return print_netflow_direction(kafka_line_buffer, NETFLOW_DIRECTION_EGRESS);
-  }
-
-  return printbuf_memappend_fast_string(kafka_line_buffer,"internal");
+  return printbuf_memappend_fast_string(kafka_line_buffer, to_print);
 }
 
-size_t save_direction(struct printbuf *kafka_line_buffer, const void *vbuffer,
-    const size_t real_field_len, const size_t real_field_offset,
-    struct flowCache *flow_cache) {
+size_t process_direction(struct printbuf *kafka_line_buffer,
+    const void *vbuffer, const size_t real_field_len,
+    const size_t real_field_offset, struct flowCache *flow_cache) {
   const uint8_t *buffer = vbuffer;
   assert_multi(buffer);
   unused_params(real_field_len, kafka_line_buffer);
@@ -480,8 +483,8 @@ size_t save_direction(struct printbuf *kafka_line_buffer, const void *vbuffer,
       netflow_direction = !netflow_direction;
     }
     flow_cache->macs.direction =
-      (netflow_direction == NETFLOW_DIRECTION_INGRESS) ? DIRECTION_INGRESS :
-        DIRECTION_EGRESS;
+      (netflow_direction == NETFLOW_DIRECTION_INGRESS) ? DIRECTION_UPSTREAM :
+        DIRECTION_DOWNSTREAM;
     return 0; /* nothing printed */
   } else {
     return print_netflow_direction(kafka_line_buffer, direction);
@@ -1005,17 +1008,11 @@ static bool empty_ipv6_addr(const uint8_t *addr) {
   return !memcmp(addr, ipv6, sizeof(ipv6));
 }
 
-/*
-  Netflow probe point of view
-
-  (client) -> (probe) traffic => ingress -> client_mac is src mac
-  (client) <- (probe) traffic => egress  -> client_mac is dst mac
-*/
 #define GET_CLIENT_ENDPOINT(t_direction, t_src, t_dst) ({                      \
   const typeof(t_src) src = (t_src), dst = (t_dst);                            \
   /* Default exporter position is LAN side */                                  \
   const uint8_t direction = (t_direction);                                     \
-  (direction == DIRECTION_EGRESS) ? dst : src;})
+  (direction == DIRECTION_DOWNSTREAM) ? dst : src;})
 
 static const uint8_t *get_direction_based_client_mac(struct flowCache *flowCache){
   assert(flowCache);

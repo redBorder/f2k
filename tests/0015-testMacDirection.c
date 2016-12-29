@@ -171,7 +171,7 @@
   dst_ip, dst_net, dst_net_name, dst_v6_ip, dst_v6_net, dst_v6_net_name,
   src_port, dst_port) */
 #define EXPECTED_RESULTS_BASE(X)                                               \
-  X("ingress", ingress, ingress,                                               \
+  X("ingress", upstream, upstream,                                             \
     "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "10.13.30.44", "10.13.30.0/16", "users",                                   \
     "2001:0428:ce00:0000:0000:0000:0000:0001",                                 \
@@ -182,7 +182,7 @@
       NULL,                                                                    \
       NULL,                                                                    \
       "54713", "443")                                                          \
-  X("egress", ingress, ingress,                                                \
+  X("egress", upstream, upstream,                                              \
     "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "10.13.30.44", "10.13.30.0/16", "users",                                   \
     "2001:0428:ce00:0000:0000:0000:0000:0001",                                 \
@@ -193,7 +193,7 @@
       NULL,                                                                    \
       NULL,                                                                    \
       "54713", "443")                                                          \
-  X("ingress", egress, egress,                                                 \
+  X("ingress", downstream, downstream,                                         \
     "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "66.220.152.19", NULL, NULL,                                               \
       "2001:0428:ff00:0000:0000:0000:0000:0002",                               \
@@ -204,7 +204,7 @@
       "2001:0428:ce00:0000:0000:0000:0000:0000/48",                            \
       "users6",                                                                \
     "54713", "443")                                                            \
-  X("egress", egress, egress,                                                  \
+  X("egress", downstream, downstream,                                          \
     "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "66.220.152.19", NULL, NULL,                                               \
       "2001:0428:ff00:0000:0000:0000:0000:0002",                               \
@@ -237,7 +237,7 @@
       "2001:0428:ce00:0000:0000:0000:0000:0000/48",                            \
       "users6",                                                                \
     "54713", "443")                                                            \
-  X("ingress", ingress, egress,                                                \
+  X("ingress", upstream, downstream,                                           \
     "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "66.220.152.19", NULL, NULL,                                               \
       "2001:0428:ff00:0000:0000:0000:0000:0001",                               \
@@ -248,7 +248,7 @@
         NULL,                                                                  \
         NULL,                                                                  \
         "54713", "443")                                                        \
-  X("egress", egress, ingress,                                                 \
+  X("egress", downstream, upstream,                                            \
     "00:24:14:01:02:03", "00:22:55:04:05:06", "00:24:1d:04:05:06",             \
     "66.220.152.19", NULL, NULL,                                               \
       "2001:0428:ff00:0000:0000:0000:0000:0001",                               \
@@ -324,20 +324,20 @@
         {.key = "wan_l4_port", .value=wan_port}}},
 
 
-#define CHECKDATA_NORMALIZE_ingress(t_src_mac, t_dst_mac,                      \
+#define CHECKDATA_NORMALIZE_upstream(t_src_mac, t_dst_mac,                     \
 		t_src_ip, t_src_net, t_src_net_name,                           \
 		t_dst_ip, t_dst_net, t_dst_net_name,                           \
 		t_src_port, dst_port)                                          \
-	NORMALIZED_CHECKDATA("ingress", t_src_mac,                             \
+	NORMALIZED_CHECKDATA("upstream", t_src_mac,                            \
 		t_src_ip, t_src_net, t_src_net_name,                           \
 		t_dst_ip, t_dst_net, t_dst_net_name,                           \
 		t_src_port, dst_port)
 
-#define CHECKDATA_NORMALIZE_egress(t_src_mac, t_dst_mac,                       \
+#define CHECKDATA_NORMALIZE_downstream(t_src_mac, t_dst_mac,                   \
 		t_src_ip, t_src_net, t_src_net_name,                           \
 		t_dst_ip, t_dst_net, t_dst_net_name,                           \
 		t_src_port, dst_port)                                          \
-	NORMALIZED_CHECKDATA("egress", t_dst_mac,                              \
+	NORMALIZED_CHECKDATA("downstream", t_dst_mac,                          \
 		t_dst_ip, t_dst_net, t_dst_net_name,                           \
 		t_src_ip, t_src_net, t_src_net_name,                           \
 		dst_port, t_src_port)
@@ -671,8 +671,8 @@ static const struct checkdata checkdata_span_false_v6[] = {
 };
 
 // In WAN mode, we just need to reverse expected directions
-#define WAN_DIRECTION_OF_LAN_ingress egress
-#define WAN_DIRECTION_OF_LAN_egress ingress
+#define WAN_DIRECTION_OF_LAN_upstream downstream
+#define WAN_DIRECTION_OF_LAN_downstream upstream
 #define WAN_DIRECTION_OF_LAN_internal internal
 
 static const struct checkdata wan_checkdata_span_true_v4[] = {
