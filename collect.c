@@ -2101,10 +2101,14 @@ void get_worker_stats(worker_t *worker, struct worker_stats *stats) {
 }
 
 /** Free worker's allocated resources */
-void collect_worker_done(worker_t *worker) {
+void collect_worker_done(worker_t *worker, struct worker_stats *stats) {
   ATOMIC_OP(fetch,and,&worker->run.value,0);
   pthread_join(worker->tid, NULL);
   template_queue_destroy(&worker->templates_queue);
   rd_fifoq_destroy(&worker->packetsQueue);
+
+  if (stats) {
+    get_worker_stats(worker, stats);
+  }
   free(worker);
 }

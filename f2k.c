@@ -703,32 +703,34 @@ static void usage() {
 
 /* ****************************************************** */
 
-static void printProcessingStats(void) {
+static void printProcessingStats(const struct worker_stats *worker_stats,
+    const size_t num_workers) {
   struct worker_stats all_stats = {0};
 
   size_t i = 0;
   uint32_t tot_pkts = 0;
 
-  for (i=0; i<=readOnlyGlobals.numProcessThreads; ++i) {
-    struct worker_stats w_stats;
-    if (i < readOnlyGlobals.numProcessThreads) {
-      get_worker_stats(readOnlyGlobals.packetProcessThread[i], &w_stats);
-      sum_worker_stats(&all_stats, &w_stats);
+  for (i=0; i<=num_workers; ++i) {
+    const struct worker_stats *w_stats = &worker_stats[i];
+    if (i < num_workers) {
+      sum_worker_stats(&all_stats, &worker_stats[i]);
     } else {
-      memcpy(&w_stats, &all_stats, sizeof(w_stats));
+      w_stats = &all_stats;
     }
 
-    const uint64_t num_collected_pkts = w_stats.num_packets_received;
-    const double delta_seconds = difftime(w_stats.last_flow_processed_timestamp,
-                                        w_stats.first_flow_processed_timestamp);
-    const double flows_per_second = w_stats.num_flows_processed / delta_seconds;
+    const uint64_t num_collected_pkts = w_stats->num_packets_received;
+    const double delta_seconds = difftime(
+      w_stats->last_flow_processed_timestamp,
+      w_stats->first_flow_processed_timestamp);
+    const double flows_per_second =
+      w_stats->num_flows_processed / delta_seconds;
     const double pkts_per_second = num_collected_pkts / delta_seconds;
 
     traceEvent(TRACE_NORMAL, "[W:%zu/%zu] "
       "Flow collection: [collected pkts: %"PRIu64" (%lf pkts/s)]"
       "[processed flows: %"PRIu64" (%lf flows/s)]",
       i, readOnlyGlobals.numProcessThreads,
-      num_collected_pkts, pkts_per_second, w_stats.num_flows_processed,
+      num_collected_pkts, pkts_per_second, w_stats->num_flows_processed,
                                                               flows_per_second);
 
   }
@@ -1660,13 +1662,15 @@ static void stopCaptureFlushAll(void) {
 
   readWriteGlobals->shutdownInProgress = 1;
 
-  printProcessingStats();
 
-  for(i=0;i<readOnlyGlobals.numProcessThreads;++i) {
-    collect_worker_done(readOnlyGlobals.packetProcessThread[i]);
+  struct worker_stats worker_stats[readOnlyGlobals.numProcessThreads];
+  for (i=0; i<readOnlyGlobals.numProcessThreads; ++i) {
+    collect_worker_done(readOnlyGlobals.packetProcessThread[i],
+      &worker_stats[i]);
   }
   free(readOnlyGlobals.packetProcessThread);
 
+  printProcessingStats(worker_stats, readOnlyGlobals.numProcessThreads);
 #ifdef HAVE_LIBRDKAFKA
   if(readWriteGlobals->kafka.rk) {
     /* Steps of librdkafka wiki */
@@ -1758,9 +1762,6 @@ static void shutdown_f2k(void) {
   free(readOnlyGlobals.unprivilegedUser);
 
   // free(readOnlyGlobals.packetProcessThread);
-
-  if(readOnlyGlobals.tracePerformance)
-    printProcessingStats();
 
   if(readOnlyGlobals.pidPath) {
     const int rc = unlink(readOnlyGlobals.pidPath);

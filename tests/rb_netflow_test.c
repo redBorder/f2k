@@ -628,7 +628,7 @@ void testFlow(void **state) {
     }
   }
 
-  collect_worker_done(worker);
+  collect_worker_done(worker, NULL);
   check_flow(st);
 
   if (test_producer_rkt) {
