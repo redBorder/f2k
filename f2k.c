@@ -381,7 +381,7 @@ static void deepPacketDecode(u_short thread_id __attribute__((unused)),
   size_t plen, hlen = 0, ip_len = 0;
 
   const uint16_t eth_type = _eth_type((const struct ether_header *)qpacket->buffer);
-  const size_t   ehshift = _eth_shift(qpacket->buffer);
+  const size_t   ehshift = _eth_shift();
 
   switch(eth_type) {
   case ETHERTYPE_VLAN:
@@ -1203,7 +1203,7 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
       break;
 
     case 'h':
-      usage(1);
+      usage();
       return(-1);
 
     case 'i':
@@ -1280,7 +1280,7 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
           kafka_topic = strdup(kafka_topic);
         } else {
           traceEvent(TRACE_ERROR, "Invalid format for --kafka parameter");
-          usage(0);
+          usage();
           kafka_brokers = NULL;
           kafka_topic = NULL;
         }
@@ -1361,6 +1361,8 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
 
     mergeNetFlowListenerList(&readOnlyGlobals.listeners,&new_listeners_list);
     wakeUpListenerList(&readOnlyGlobals.listeners);
+
+    free(collector_ports);
   }
 
 #ifdef HAVE_LIBRDKAFKA
@@ -2314,12 +2316,12 @@ int main(int argc, char *argv[]) {
 
   if((readOnlyGlobals.pcapFile == NULL)
      && (readOnlyGlobals.captureDev != NULL)) {
-    if((readOnlyGlobals.pcapPtr == NULL)
+    if (readOnlyGlobals.pcapPtr == NULL
 #ifdef HAVE_PF_RING
-       && (readWriteGlobals->ring == NULL)
+       && readWriteGlobals->ring == NULL
 #endif
 #ifdef HAVE_NETFILTER
-       && (readOnlyGlobals.nf.h == NULL)
+       && readOnlyGlobals.nf.h == NULL
 #endif
        )
       traceEvent(TRACE_NORMAL, "Not capturing packet from interface (collector mode)");
