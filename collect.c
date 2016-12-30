@@ -336,14 +336,14 @@ static struct string_list *time_split_flow(struct printbuf *kafka_line_buffer,
     const uint64_t pkts_sw = ntohll(pkts);
     printNetflowRecordWithTemplate(kafka_line_buffer,
       TEMPLATE_OF(PRINT_FIRST_SWITCHED), &first_timestamp_sw,
-      sizeof(first_timestamp_sw), 0, flowCache);
+      sizeof(first_timestamp_sw), flowCache);
     printNetflowRecordWithTemplate(kafka_line_buffer,
       TEMPLATE_OF(PRINT_LAST_SWITCHED), &last_timestamp_sw,
-      sizeof(last_timestamp_sw), 0, flowCache);
+      sizeof(last_timestamp_sw), flowCache);
     printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(PRINT_IN_BYTES), &bytes_sw, sizeof(bytes_sw), 0, flowCache);
+      TEMPLATE_OF(PRINT_IN_BYTES), &bytes_sw, sizeof(bytes_sw), flowCache);
     printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(PRINT_IN_PKTS), &pkts_sw, sizeof(pkts_sw), 0, flowCache);
+      TEMPLATE_OF(PRINT_IN_PKTS), &pkts_sw, sizeof(pkts_sw), flowCache);
     printbuf_memappend_fast(kafka_line_buffer, "}", strlen("}"));
     /// @TODO make a function that create a list with 1 node
     ret = calloc(1,sizeof(ret[0]));
@@ -451,7 +451,7 @@ static void dissectNetFlowV5Field(const NetFlow5Record *the5Record,
 
   const int start_bpos = kafka_line_buffer->bpos;
   value_ret = printNetflowRecordWithTemplate(kafka_line_buffer,
-    v5TemplateFields[field_idx], buffer, real_field_len, 0, flowCache);
+    v5TemplateFields[field_idx], buffer, real_field_len, flowCache);
   if (value_ret == 0) {
     kafka_line_buffer->bpos = start_bpos;
     kafka_line_buffer->buf[start_bpos] = '\0';
@@ -507,9 +507,9 @@ static struct string_list *dissectNetFlowV5Record(const NetFlow5Record *the5Reco
   };
   uint64_t field_idx=0;
   printNetflowRecordWithTemplate(kafka_line_buffer, TEMPLATE_OF(REDBORDER_TYPE),
-    flowVersion, 2, 0, &flowCache);
+    flowVersion, 2, &flowCache);
   printNetflowRecordWithTemplate(kafka_line_buffer, TEMPLATE_OF(FLOW_SEQUENCE),
-    &flowSecuence, sizeof(flowSecuence), 0, &flowCache);
+    &flowSecuence, sizeof(flowSecuence), &flowCache);
 
   flow_export_timestamp_uptime(false, the5Record,
     &flowCache.time.export_timestamp_s, &flowCache.time.sys_uptime_s);
@@ -522,9 +522,9 @@ static struct string_list *dissectNetFlowV5Record(const NetFlow5Record *the5Reco
   // Simulate ingress direction
 
   printNetflowRecordWithTemplate(kafka_line_buffer,
-    TEMPLATE_OF(HOST), NULL, 0, 0, &flowCache);
+    TEMPLATE_OF(HOST), NULL, 0, &flowCache);
   printNetflowRecordWithTemplate(kafka_line_buffer,
-    TEMPLATE_OF(REFERER), NULL, 0, 0, &flowCache);
+    TEMPLATE_OF(REFERER), NULL, 0, &flowCache);
   if (readOnlyGlobals.normalize_directions) {
     guessDirection(&flowCache);
     static const V9V10TemplateElementId *post_templates[] = {
@@ -541,7 +541,7 @@ static struct string_list *dissectNetFlowV5Record(const NetFlow5Record *the5Reco
     size_t i;
     for (i=0; i<RD_ARRAYSIZE(post_templates); ++i) {
       printNetflowRecordWithTemplate(kafka_line_buffer,
-        post_templates[i], NULL, 0, 0, &flowCache);
+        post_templates[i], NULL, 0, &flowCache);
     }
   }
   print_sensor_enrichment(kafka_line_buffer, &flowCache);
@@ -742,9 +742,9 @@ static void split_after_dns_query_completed(struct dns_ctx *ctx,
     struct udns_opaque *opaque) {
   (void)ctx;
   printNetflowRecordWithTemplate(opaque->curr_printbuf,
-    TEMPLATE_OF(DNS_CLIENT_NAME),NULL,0,0,opaque->flowCache);
+    TEMPLATE_OF(DNS_CLIENT_NAME),NULL,0,opaque->flowCache);
   printNetflowRecordWithTemplate(opaque->curr_printbuf,
-    TEMPLATE_OF(DNS_TARGET_NAME),NULL,0,0,opaque->flowCache);
+    TEMPLATE_OF(DNS_TARGET_NAME),NULL,0,opaque->flowCache);
 
   struct string_list *string_list = time_split_flow(opaque->curr_printbuf,
     opaque->flowCache);
@@ -1317,10 +1317,10 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
 
     printNetflowRecordWithTemplate(kafka_line_buffer,
       TEMPLATE_OF(REDBORDER_TYPE), &flowVersion_sw,
-      sizeof(flowVersion_sw), 0, flowCache);
+      sizeof(flowVersion_sw), flowCache);
     printNetflowRecordWithTemplate(kafka_line_buffer,
         TEMPLATE_OF(FLOW_SEQUENCE), &_flowSequence,
-        sizeof(_flowSequence), 0, flowCache);
+        sizeof(_flowSequence), flowCache);
 
     for(fieldId=0; fieldId<cursor->templateInfo.fieldCount; fieldId++) {
       uint16_t real_field_len = 0, real_field_len_offset = 0;
@@ -1337,8 +1337,6 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
 
           memcpy(&len16, &buffer[displ+1], 2);
           len16 = ntohs(len16);
-          // REDBORDER commented this. flows with len>255 doesn't work if executed.
-          //len16 += 1 /* 255 */ + 2 /* len */;
           real_field_len = len16, real_field_len_offset = 3;
         }
       } else
@@ -1361,8 +1359,8 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
 
       if (fields[fieldId].v9_template) {
         printNetflowRecordWithTemplate(kafka_line_buffer,
-          fields[fieldId].v9_template, &buffer[displ],
-          real_field_len, real_field_len_offset, flowCache);
+          fields[fieldId].v9_template, &buffer[displ + real_field_len_offset],
+          real_field_len, flowCache);
       } else if(unlikely(readOnlyGlobals.enable_debug)) {
         traceEvent(TRACE_WARNING, "Unknown template id (%d)",fields[fieldId].fieldId);
       }
@@ -1373,9 +1371,9 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
     worker->stats.num_flows_processed++;
 
     printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(HOST), NULL, 0, 0, flowCache);
+      TEMPLATE_OF(HOST), NULL, 0, flowCache);
     printNetflowRecordWithTemplate(kafka_line_buffer,
-      TEMPLATE_OF(REFERER), NULL, 0, 0, flowCache);
+      TEMPLATE_OF(REFERER), NULL, 0, flowCache);
     if (readOnlyGlobals.normalize_directions) {
       guessDirection(flowCache);
       static const V9V10TemplateElementId *post_templates[] = {
@@ -1392,7 +1390,7 @@ static struct string_list *dissectNetFlowV9V10FlowSetWithTemplate(
       size_t i;
       for (i=0; i<RD_ARRAYSIZE(post_templates); ++i) {
         printNetflowRecordWithTemplate(kafka_line_buffer,
-          post_templates[i], NULL, 0, 0, flowCache);
+          post_templates[i], NULL, 0, flowCache);
       }
     }
     print_sensor_enrichment(kafka_line_buffer,flowCache);

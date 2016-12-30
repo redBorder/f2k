@@ -35,7 +35,7 @@
 
 typedef size_t (*entity_fn)(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache);
+    struct flowCache *flowCache);
 
 #define assert_multi(...) do {size_t assert_i; \
   for(assert_i=0; \
@@ -175,82 +175,80 @@ static size_t printbuf_memappend_fast_n10(struct printbuf *kafka_line_buffer,con
 
 size_t print_string(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    struct flowCache *flowCache){
   const char *buffer = vbuffer;
   assert_multi(kafka_line_buffer, vbuffer);
   unused_params(flowCache);
 
   const size_t bef_len = kafka_line_buffer->bpos;
-  printbuf_memappend_fast(kafka_line_buffer, buffer + real_field_offset,
-                                                                real_field_len);
+  printbuf_memappend_fast(kafka_line_buffer, buffer, real_field_len);
   return kafka_line_buffer->bpos - bef_len;
 }
 
 #define SAVE_FLOWCACHE_NUMBER_PARAMETER(kafka_line_buffer, buffer,             \
-                real_field_len, real_field_offset, flowCache, parameter) do {  \
+                real_field_len, flowCache, parameter) do {                     \
   assert_multi(buffer, flowCache); unused_params(kafka_line_buffer);           \
   flowCache->parameter = net2number(                                           \
-    (const uint8_t *)buffer + real_field_offset, real_field_len);              \
+    (const uint8_t *)buffer, real_field_len);                                  \
   return 0; } while(0)
 
 size_t save_first_second(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   SAVE_FLOWCACHE_NUMBER_PARAMETER(kafka_line_buffer, buffer,
-      real_field_len, real_field_offset, flowCache, time.first_timestamp_s);
+      real_field_len, flowCache, time.first_timestamp_s);
 }
 
 size_t save_last_second(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   SAVE_FLOWCACHE_NUMBER_PARAMETER(kafka_line_buffer, buffer,
-      real_field_len, real_field_offset, flowCache, time.last_timestamp_s);
+      real_field_len, flowCache, time.last_timestamp_s);
 }
 
 /** Auxiliar function for first/last switched
  * @param  dst               Destination to save buffer
  * @param  buffer            Uptime buffer
  * @param  real_field_len    Buffer length
- * @param  real_field_offset Uptime offset in the buffer
  */
 static void save_x_switched(uint64_t *dst, const void *vbuffer,
-    const size_t real_field_len, const size_t real_field_offset) {
+    const size_t real_field_len) {
   const uint8_t *buffer = vbuffer;
   assert_multi(dst, buffer);
   // uptime switched in miliseconds
-  *dst = net2number(buffer + real_field_offset, real_field_len)/1000;
+  *dst = net2number(buffer, real_field_len)/1000;
 }
 
 size_t save_first_switched(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   unused_params(kafka_line_buffer);
   save_x_switched(&flowCache->time.first_switched_uptime_s,
-    buffer, real_field_len, real_field_offset);
+    buffer, real_field_len);
   return 0;
 }
 
 size_t save_last_switched(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   unused_params(kafka_line_buffer);
   save_x_switched(&flowCache->time.last_switched_uptime_s,
-    buffer, real_field_len, real_field_offset);
+    buffer, real_field_len);
   return 0;
 }
 
 size_t save_flow_bytes(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
-  SAVE_FLOWCACHE_NUMBER_PARAMETER(kafka_line_buffer, buffer,
-                  real_field_len, real_field_offset, flowCache, bytes);
+    struct flowCache *flowCache) {
+  SAVE_FLOWCACHE_NUMBER_PARAMETER(kafka_line_buffer, buffer, real_field_len,
+    flowCache, bytes);
 }
 
 size_t save_flow_pkts(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
-  SAVE_FLOWCACHE_NUMBER_PARAMETER(kafka_line_buffer, buffer,
-                  real_field_len, real_field_offset, flowCache, packets);
+    struct flowCache *flowCache) {
+  SAVE_FLOWCACHE_NUMBER_PARAMETER(kafka_line_buffer, buffer, real_field_len,
+    flowCache, packets);
 }
 
 /** Calls cb assuming that buffers brings the number in mili(units)
@@ -258,40 +256,38 @@ size_t save_flow_pkts(struct printbuf *kafka_line_buffer,
  * @param  kafka_line_buffer Kafka line buffer to use with cb
  * @param  buffer            Buffer that contains the mili-value
  * @param  real_field_len    Length of buffer
- * @param  real_field_offset Offset of value in buffer
  * @param  flowCache         Flow cache to call with number(buffer)/1000
  * @return                   Callback return
  */
 static size_t callback_mili_buffer(entity_fn cb,
     struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   const uint8_t *buffer = vbuffer;
   assert_multi(buffer);
 
-  const uint64_t number = net2number(buffer + real_field_offset,
-                                                                real_field_len);
+  const uint64_t number = net2number(buffer, real_field_len);
   const uint64_t be_number = htonll(number);
-  return cb(kafka_line_buffer, &be_number, sizeof(be_number), 0, flowCache);
+  return cb(kafka_line_buffer, &be_number, sizeof(be_number), flowCache);
 }
 
 size_t save_first_msecond(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   return callback_mili_buffer(save_first_second, kafka_line_buffer,
-    buffer, real_field_len, real_field_offset, flowCache);
+    buffer, real_field_len, flowCache);
 }
 
 size_t save_last_msecond(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   return callback_mili_buffer(save_last_second, kafka_line_buffer,
-    buffer, real_field_len, real_field_offset, flowCache);
+    buffer, real_field_len, flowCache);
 }
 
 size_t print_tcp_flags(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_len_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   // Avoid warning storm
   static bool warned = false;
 
@@ -310,9 +306,8 @@ size_t print_tcp_flags(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  const uint8_t tcp_flags = 1==real_field_len ?
-                            ((const uint8_t *)buffer)[real_field_len_offset] :
-                            ((const uint8_t *)buffer)[real_field_len_offset+1];
+  const uint8_t tcp_flags = 1==real_field_len ? ((const uint8_t *)buffer)[0] :
+    ((const uint8_t *)buffer)[1];
 
   if (0 == tcp_flags) {
     // Not interesting
@@ -338,21 +333,19 @@ size_t print_tcp_flags(struct printbuf *kafka_line_buffer,
 }
 
 
-size_t print_number(struct printbuf *kafka_line_buffer,
-    const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+size_t print_number(struct printbuf *kafka_line_buffer, const void *vbuffer,
+    const size_t real_field_len, struct flowCache *flowCache) {
   const uint8_t *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer);
   unused_params(flowCache);
 
-  const uint64_t number = net2number(buffer+real_field_offset,real_field_len);
-
+  const uint64_t number = net2number(buffer, real_field_len);
   return printbuf_memappend_fast_n10(kafka_line_buffer,number);
 }
 
 size_t print_netflow_type(struct printbuf *kafka_line_buffer,
-    const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    const void *vbuffer, const size_t real_field_len,
+    struct flowCache *flowCache) {
 
     static const char *type_msg = "netflowv";
     const uint8_t *buffer = vbuffer;
@@ -361,7 +354,7 @@ size_t print_netflow_type(struct printbuf *kafka_line_buffer,
     unused_params(flowCache);
 
     const size_t start_bpos = kafka_line_buffer->bpos;
-    const uint64_t type = net2number(buffer+real_field_offset,real_field_len);
+    const uint64_t type = net2number(buffer, real_field_len);
     printbuf_memappend_fast(kafka_line_buffer,type_msg,strlen(type_msg));
     printbuf_memappend_fast_n10(kafka_line_buffer,type);
     return kafka_line_buffer->bpos - start_bpos;
@@ -381,8 +374,8 @@ static size_t printbuf_memappend_fast_string(struct printbuf *kafka_line_buffer,
 }
 
 size_t print_flow_end_reason(struct printbuf *kafka_line_buffer,
-    const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    const void *vbuffer, const size_t real_field_len,
+    struct flowCache *flowCache) {
   const char *buffer = vbuffer;
   static const char *reasons[] = {
     [1] = "idle timeout",
@@ -391,7 +384,7 @@ size_t print_flow_end_reason(struct printbuf *kafka_line_buffer,
     [4] = "forced end",
     [5] = "lack of resources",
   };
-  const uint8_t reason = (buffer + real_field_offset)[0];
+  const uint8_t reason = buffer[0];
   assert_multi(kafka_line_buffer, buffer);
   unused_params(real_field_len, flowCache);
   assert(real_field_len > 0);
@@ -405,8 +398,8 @@ size_t print_flow_end_reason(struct printbuf *kafka_line_buffer,
 }
 
 size_t print_biflow_direction(struct printbuf *kafka_line_buffer,
-    const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    const void *vbuffer, const size_t real_field_len,
+    struct flowCache *flowCache) {
 
   static const char *directions[] = {
     [0] = "arbitrary",
@@ -415,7 +408,7 @@ size_t print_biflow_direction(struct printbuf *kafka_line_buffer,
     [3] = "perimeter",
   };
   const uint8_t *buffer = vbuffer;
-  const uint8_t direction = (buffer + real_field_offset)[0];
+  const uint8_t direction = buffer[0];
 
   assert(real_field_len > 0);
   unused_params(real_field_len, flowCache);
@@ -441,9 +434,9 @@ static size_t print_netflow_direction(struct printbuf *kafka_line_buffer,
 
 size_t print_flow_cache_direction(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
+    struct flowCache *flow_cache) {
   assert_multi(kafka_line_buffer, flow_cache);
-  unused_params(buffer, real_field_len, real_field_offset);
+  unused_params(buffer, real_field_len);
 
   const char *to_print = "";
   switch (flow_cache->macs.direction) {
@@ -465,12 +458,11 @@ size_t print_flow_cache_direction(struct printbuf *kafka_line_buffer,
 
 size_t process_direction(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
+    struct flowCache *flow_cache) {
   const uint8_t *buffer = vbuffer;
   assert_multi(buffer);
   unused_params(real_field_len, kafka_line_buffer);
-  const uint64_t direction = net2number(buffer + real_field_offset,
-    real_field_len);
+  const uint64_t direction = net2number(buffer, real_field_len);
 
   if (unlikely(direction > 1)) {
     traceEvent(TRACE_ERROR, "Unknown netflow direction %"PRIu64, direction);
@@ -502,14 +494,13 @@ size_t process_direction(struct printbuf *kafka_line_buffer,
  * @param flowCache           unused
  */
 static void save_mac(uint8_t *dst_buffer, const char *src_buffer_mac_name,
-    const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset) {
+    const void *vbuffer, const size_t real_field_len) {
 
   const uint8_t *buffer = vbuffer;
   assert_multi(buffer);
 
   if (likely(real_field_len == 6)) {
-    memcpy(dst_buffer, buffer + real_field_offset, 6);
+    memcpy(dst_buffer, buffer, 6);
   } else {
     traceEvent(TRACE_WARNING, "%s length != 6.", src_buffer_mac_name);
   }
@@ -528,48 +519,44 @@ static void save_mac(uint8_t *dst_buffer, const char *src_buffer_mac_name,
  */
 static size_t process_mac0(uint8_t *dst_buffer, const char *src_buffer_mac_name,
     struct printbuf *kafka_line_buffer,
-    const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset) {
+    const void *vbuffer, const size_t real_field_len) {
   if (readOnlyGlobals.normalize_directions) {
-    save_mac(dst_buffer, src_buffer_mac_name, vbuffer, real_field_len,
-      real_field_offset);
+    save_mac(dst_buffer, src_buffer_mac_name, vbuffer, real_field_len);
     return 0;
   } else {
-    return print_mac(kafka_line_buffer, vbuffer, real_field_len,
-      real_field_offset, NULL);
+    return print_mac(kafka_line_buffer, vbuffer, real_field_len, NULL);
   }
 }
 
 size_t process_src_mac(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
+    struct flowCache *flow_cache) {
   unused_params(flow_cache);
   return process_mac0(flow_cache->macs.src_mac, "Source mac",
-    kafka_line_buffer, buffer, real_field_len, real_field_offset);
+    kafka_line_buffer, buffer, real_field_len);
 }
 
 size_t process_post_src_mac(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
+    struct flowCache *flow_cache) {
   unused_params(flow_cache);
   return process_mac0(flow_cache->macs.post_src_mac, "PST Source mac",
-    kafka_line_buffer, buffer, real_field_len, real_field_offset);
+    kafka_line_buffer, buffer, real_field_len);
 }
 
 size_t process_dst_mac(struct printbuf *kafka_line_buffer, const void *buffer,
-    const size_t real_field_len, const size_t real_field_offset,
-    struct flowCache *flow_cache) {
+    const size_t real_field_len, struct flowCache *flow_cache) {
   unused_params(flow_cache);
   return process_mac0(flow_cache->macs.dst_mac, "DST mac",
-    kafka_line_buffer, buffer, real_field_len, real_field_offset);
+    kafka_line_buffer, buffer, real_field_len);
 }
 
 size_t process_post_dst_mac(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
+    struct flowCache *flow_cache) {
   unused_params(flow_cache);
   return process_mac0(flow_cache->macs.post_dst_mac, "POST DST mac",
-    kafka_line_buffer, buffer, real_field_len, real_field_offset);
+    kafka_line_buffer, buffer, real_field_len);
 }
 
 static size_t print_ssid_name0(struct printbuf *kafka_line_buffer,const void *buffer,const uint16_t real_field_len){
@@ -580,14 +567,13 @@ static size_t print_ssid_name0(struct printbuf *kafka_line_buffer,const void *bu
 
 size_t print_ssid_name(struct printbuf *kafka_line_buffer,
     const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    struct flowCache *flowCache) {
   const uint8_t *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer);
   unused_params(flowCache);
 
 
-  return print_ssid_name0(kafka_line_buffer,buffer + real_field_offset,
-    real_field_len);
+  return print_ssid_name0(kafka_line_buffer, buffer, real_field_len);
 }
 
 /** Transforms ipv4 buffer in ipv6
@@ -622,9 +608,9 @@ static void ipv4buf_to_6(uint8_t ipv6[16],const void *vbuffer){
 
 static size_t print_net0(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache,
+    struct flowCache *flowCache,
     const char *(*sensor_list_search_cb)(observation_id_t *,const uint8_t[16]),
-    const char *(*global_net_list_cb)(const IPNameAssoc *)) {
+      const char *(*global_net_list_cb)(const IPNameAssoc *)) {
   const uint8_t *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer, flowCache);
 
@@ -635,13 +621,13 @@ static size_t print_net0(struct printbuf *kafka_line_buffer,
 
   /* First try: Has the observation id a home net that contains this ip? */
   const char *sensor_home_net = sensor_list_search_cb(flowCache->observation_id,
-                                                    buffer + real_field_offset);
+                                                      buffer);
   if(sensor_home_net){
     return printbuf_memappend_fast_string(kafka_line_buffer, sensor_home_net);
   }
 
   /* Second try: General nets ip list */
-  const IPNameAssoc *ip_name_as = ipInList(buffer + real_field_offset,
+  const IPNameAssoc *ip_name_as = ipInList(buffer,
     readOnlyGlobals.rb_databases.nets_name_as_list);
 
   if (ip_name_as) {
@@ -663,34 +649,31 @@ static const char *global_net_list_name(const IPNameAssoc *assoc) {
 
 static size_t print_net_v6_0(struct printbuf *kafka_line_buffer,
     const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
-  return print_net0(kafka_line_buffer, vbuffer, real_field_len,
-      real_field_offset, flowCache, network_ip, global_net_list_number);
+    struct flowCache *flowCache) {
+  return print_net0(kafka_line_buffer, vbuffer, real_field_len, flowCache,
+    network_ip, global_net_list_number);
 }
 
 static size_t print_net_name_v6_0(struct printbuf *kafka_line_buffer,
     const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
-  return print_net0(kafka_line_buffer, vbuffer, real_field_len,
-      real_field_offset, flowCache, network_name, global_net_list_name);
+    struct flowCache *flowCache) {
+  return print_net0(kafka_line_buffer, vbuffer, real_field_len, flowCache,
+    network_name, global_net_list_name);
 }
 
 size_t print_net_v6(struct printbuf *kafka_line_buffer,
     const void *buffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
+    struct flowCache *flow_cache) {
   return (!readOnlyGlobals.normalize_directions) ?
-    print_net_v6_0(kafka_line_buffer, buffer, real_field_len,
-      real_field_offset, flow_cache) :
-      0; // Not needed
+    print_net_v6_0(kafka_line_buffer, buffer, real_field_len, flow_cache) : 0;
 }
 
 size_t print_net_name_v6(struct printbuf *kafka_line_buffer,
     const void *buffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
+    struct flowCache *flow_cache) {
   return (!readOnlyGlobals.normalize_directions) ?
-    print_net_name_v6_0(kafka_line_buffer, buffer, real_field_len,
-      real_field_offset, flow_cache) :
-      0; // Not needed
+    print_net_name_v6_0(kafka_line_buffer, buffer, real_field_len, flow_cache) :
+      0;
 }
 
 /** Decorate a function making an ipv6 function be called over an ipv4 buffer
@@ -704,8 +687,8 @@ size_t print_net_name_v6(struct printbuf *kafka_line_buffer,
  */
 static size_t ipv4_to_6_decorator(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache,
-    size_t (cb)(struct printbuf *, const void *, const size_t, const size_t,
+    struct flowCache *flowCache,
+    size_t (cb)(struct printbuf *, const void *, const size_t,
                                                           struct flowCache *)) {
   const uint8_t *buffer = vbuffer;
   assert(buffer);
@@ -715,22 +698,22 @@ static size_t ipv4_to_6_decorator(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  ipv4buf_to_6(ipv6, buffer + real_field_offset);
-  return cb(kafka_line_buffer, ipv6, sizeof(ipv6), 0, flowCache);
+  ipv4buf_to_6(ipv6, buffer);
+  return cb(kafka_line_buffer, ipv6, sizeof(ipv6), flowCache);
 }
 
 size_t print_net(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    struct flowCache *flowCache) {
   return ipv4_to_6_decorator(kafka_line_buffer, buffer, real_field_len,
-            real_field_offset, flowCache, print_net_v6);
+            flowCache, print_net_v6);
 }
 
 size_t print_net_name(struct printbuf *kafka_line_buffer,
     const void *buffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   return ipv4_to_6_decorator(kafka_line_buffer, buffer, real_field_len,
-            real_field_offset, flowCache, print_net_name_v6);
+            flowCache, print_net_name_v6);
 }
 
 static size_t print_ipv4_addr0(struct printbuf *kafka_line_buffer,
@@ -762,7 +745,7 @@ static size_t print_ipv6_addr0(struct printbuf *kafka_line_buffer,
 
 static size_t print_ipv4_addr(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, const struct flowCache *flow_cache) {
+    const struct flowCache *flow_cache) {
   const char *buffer = vbuffer;
   (void)flow_cache;
   assert_multi(kafka_line_buffer, buffer);
@@ -772,49 +755,48 @@ static size_t print_ipv4_addr(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  const uint32_t ipv4 = net2number(buffer + real_field_offset,4);
+  const uint32_t ipv4 = net2number(buffer, 4);
   return print_ipv4_addr0(kafka_line_buffer, ipv4);
 }
 
 static void flow_cache_save_ipv4(void *dst_buf, const void *vbuffer,
-    const size_t real_field_len, const size_t real_field_offset) {
+    const size_t real_field_len) {
   const uint8_t *buffer = vbuffer;
   if (unlikely(real_field_len != 4)) {
     traceEvent(TRACE_ERROR, "ipv4 length != 4");
     return;
   }
 
-  ipv4buf_to_6(dst_buf, buffer + real_field_offset);
+  ipv4buf_to_6(dst_buf, buffer);
 }
 
 static size_t process_ipv4_addr0(void *dst_buf,
                                  struct printbuf *kafka_line_buffer,
                                  const void *buffer,
                                  const size_t real_field_len,
-                                 const size_t real_field_offset,
                                  struct flowCache *flowCache) {
   if (readOnlyGlobals.normalize_directions) {
-    flow_cache_save_ipv4(dst_buf, buffer, real_field_len, real_field_offset);
+    flow_cache_save_ipv4(dst_buf, buffer, real_field_len);
     return 0;
   } else {
     return print_ipv4_addr(kafka_line_buffer, buffer, real_field_len,
-      real_field_offset, flowCache);
+      flowCache);
   }
 }
 
 size_t print_ipv4_src_addr(struct printbuf *kafka_line_buffer,
     const void *buffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
+    struct flowCache *flow_cache) {
   return process_ipv4_addr0(flow_cache->address.src, kafka_line_buffer, buffer,
-    real_field_len, real_field_offset, flow_cache);
+    real_field_len, flow_cache);
 }
 
 size_t print_ipv4_dst_addr(struct printbuf *kafka_line_buffer,
     const void *buffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache){
+    struct flowCache *flow_cache) {
 
   return process_ipv4_addr0(flow_cache->address.dst, kafka_line_buffer, buffer,
-    real_field_len, real_field_offset, flow_cache);
+    real_field_len, flow_cache);
 }
 
 static bool is_ipv4_mapped(const void *ipv6) {
@@ -853,12 +835,10 @@ static size_t print_flow_cache_addr(struct printbuf *kafka_line_buffer,
 static size_t print_flow_cache_net0(struct printbuf *kafka_line_buffer,
     const void *vip_addr, struct flowCache *flow_cache,
     size_t (*print_net_cb)(struct printbuf *kafka_line_buffer,
-      const void *vip_addr, size_t len, size_t off,
+      const void *vip_addr, const size_t len,
       struct flowCache *flow_cache)) {
   static const size_t addr_len = 16;
-  static const size_t addr_off = 0;
-  return print_net_cb(kafka_line_buffer, vip_addr, addr_len, addr_off,
-    flow_cache);
+  return print_net_cb(kafka_line_buffer, vip_addr, addr_len, flow_cache);
 }
 
 static size_t print_flow_cache_net(struct printbuf *kafka_line_buffer,
@@ -875,7 +855,6 @@ static size_t print_flow_cache_net_name(struct printbuf *kafka_line_buffer,
 
 size_t print_sta_ipv4_address(struct printbuf *kafka_line_buffer,
                               const void *vbuffer, const size_t real_field_len,
-                              const size_t real_field_offset,
                               struct flowCache *flow_cache) {
   const char *buffer = vbuffer;
   if (unlikely(real_field_len != 4)) {
@@ -888,15 +867,14 @@ size_t print_sta_ipv4_address(struct printbuf *kafka_line_buffer,
   memcpy(&flow_cache->address.client[12], buffer, 4);
 
   /* print */
-  const uint32_t addr = net2number(buffer + real_field_offset, real_field_len);
+  const uint32_t addr = net2number(buffer, real_field_len);
   return print_ipv4_addr0(kafka_line_buffer, addr);
 }
 
 size_t print_lan_addr(struct printbuf *kafka_line_buffer,
                       const void *buffer, const size_t real_field_len,
-                      const size_t real_field_offset,
                       struct flowCache *flow_cache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+  unused_params(buffer, real_field_len);
 
   if (!readOnlyGlobals.normalize_directions) {
     return 0;
@@ -908,9 +886,8 @@ size_t print_lan_addr(struct printbuf *kafka_line_buffer,
 
 size_t print_lan_addr_net(struct printbuf *kafka_line_buffer,
                             const void *buffer, const size_t real_field_len,
-                            const size_t real_field_offset,
                             struct flowCache *flowCache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+  unused_params(buffer, real_field_len);
   assert_multi(kafka_line_buffer, flowCache);
   return print_flow_cache_address(kafka_line_buffer, flowCache,
     get_direction_based_client_ip, print_flow_cache_net);
@@ -918,9 +895,8 @@ size_t print_lan_addr_net(struct printbuf *kafka_line_buffer,
 
 size_t print_wan_addr_net(struct printbuf *kafka_line_buffer,
                             const void *buffer, const size_t real_field_len,
-                            const size_t real_field_offset,
                             struct flowCache *flowCache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+  unused_params(buffer, real_field_len);
   assert_multi(kafka_line_buffer, flowCache);
   return print_flow_cache_address(kafka_line_buffer, flowCache,
     get_direction_based_target_ip, print_flow_cache_net);
@@ -928,9 +904,8 @@ size_t print_wan_addr_net(struct printbuf *kafka_line_buffer,
 
 size_t print_lan_addr_net_name(struct printbuf *kafka_line_buffer,
                             const void *buffer, const size_t real_field_len,
-                            const size_t real_field_offset,
                             struct flowCache *flowCache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+  unused_params(buffer, real_field_len);
   assert_multi(kafka_line_buffer, flowCache);
   return print_flow_cache_address(kafka_line_buffer, flowCache,
     get_direction_based_client_ip, print_flow_cache_net_name);
@@ -938,9 +913,8 @@ size_t print_lan_addr_net_name(struct printbuf *kafka_line_buffer,
 
 size_t print_wan_addr_net_name(struct printbuf *kafka_line_buffer,
                             const void *buffer, const size_t real_field_len,
-                            const size_t real_field_offset,
                             struct flowCache *flowCache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+  unused_params(buffer, real_field_len);
   assert_multi(kafka_line_buffer, flowCache);
   return print_flow_cache_address(kafka_line_buffer, flowCache,
     get_direction_based_target_ip, print_flow_cache_net_name);
@@ -948,9 +922,8 @@ size_t print_wan_addr_net_name(struct printbuf *kafka_line_buffer,
 
 size_t print_wan_addr(struct printbuf *kafka_line_buffer,
                             const void *buffer, const size_t real_field_len,
-                            const size_t real_field_offset,
                             struct flowCache *flowCache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+  unused_params(buffer, real_field_len);
   return print_flow_cache_address(kafka_line_buffer, flowCache,
     get_direction_based_target_ip, print_flow_cache_addr);
 }
@@ -971,7 +944,7 @@ static size_t print_mac0(struct printbuf *kafka_line_buffer,
 
 size_t print_mac(struct printbuf *kafka_line_buffer,
     const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   const char *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer);
   unused_params(flowCache);
@@ -981,7 +954,7 @@ size_t print_mac(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  return print_mac0(kafka_line_buffer, buffer + real_field_offset);
+  return print_mac0(kafka_line_buffer, buffer);
 }
 
 static size_t print_mac_vendor0(struct printbuf *kafka_line_buffer,const void *buffer){
@@ -1042,9 +1015,10 @@ static uint64_t get_direction_based_target_port(
     flow_cache->ports.src;
 }
 
-size_t print_direction_based_client_mac(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
-  const size_t real_field_offset, struct flowCache *flowCache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+size_t print_direction_based_client_mac(struct printbuf *kafka_line_buffer,
+    const void *buffer, const size_t real_field_len,
+    struct flowCache *flowCache) {
+  unused_params(buffer, real_field_len);
   assert_multi(kafka_line_buffer, flowCache);
 
   if (flowCache->client_mac != 0) {
@@ -1061,7 +1035,7 @@ size_t print_direction_based_client_mac(struct printbuf *kafka_line_buffer,const
 }
 
 size_t print_client_mac(struct printbuf *kafka_line_buffer,const void *vbuffer,const size_t real_field_len,
-  const size_t real_field_offset, struct flowCache *flowCache) {
+  struct flowCache *flowCache) {
   static const size_t mac_length = 6;
   const char *buffer = vbuffer;
 
@@ -1076,13 +1050,14 @@ size_t print_client_mac(struct printbuf *kafka_line_buffer,const void *vbuffer,c
     return 0;
   }
 
-  flowCache->client_mac = net2number(buffer + real_field_offset, mac_length);
+  flowCache->client_mac = net2number(buffer, mac_length);
   return print_mac0(kafka_line_buffer,buffer);
 }
 
-size_t print_direction_based_client_mac_vendor(struct printbuf *kafka_line_buffer,const void *buffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
-  unused_params(buffer, real_field_len, real_field_offset);
+size_t print_direction_based_client_mac_vendor(
+    struct printbuf *kafka_line_buffer, const void *buffer,
+    const size_t real_field_len, struct flowCache *flowCache) {
+  unused_params(buffer, real_field_len);
 
   const uint8_t *mac = get_direction_based_client_mac(flowCache);
   if(mac!=NULL)
@@ -1127,8 +1102,8 @@ static size_t print_mac_map0(struct printbuf *kafka_line_buffer,const void *buff
 }
 
 size_t print_mac_map(struct printbuf *kafka_line_buffer,
-    const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    const void *vbuffer, const size_t real_field_len,
+    struct flowCache *flowCache) {
   const uint8_t *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer);
   unused_params(flowCache);
@@ -1137,12 +1112,12 @@ size_t print_mac_map(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  return print_mac_map0(kafka_line_buffer, buffer + real_field_offset);
+  return print_mac_map0(kafka_line_buffer, buffer);
 }
 
 size_t print_mac_vendor(struct printbuf *kafka_line_buffer,
-    const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    const void *vbuffer, const size_t real_field_len,
+    struct flowCache *flowCache) {
   const uint8_t *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer);
   unused_params(flowCache);
@@ -1151,7 +1126,7 @@ size_t print_mac_vendor(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  return print_mac_vendor0(kafka_line_buffer, buffer + real_field_offset);
+  return print_mac_vendor0(kafka_line_buffer, buffer);
 }
 
 static size_t print_engine_id(struct printbuf *kafka_line_buffer,
@@ -1183,13 +1158,13 @@ static size_t print_engine_id_name0(struct printbuf *kafka_line_buffer,const uin
 
 size_t print_engine_id_name(struct printbuf *kafka_line_buffer,
     const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    struct flowCache *flowCache) {
   const uint8_t *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer);
   unused_params(real_field_len, flowCache);
 
 
-  const uint8_t engine_id = net2number(buffer + real_field_offset,1);
+  const uint8_t engine_id = net2number(buffer, 1);
   return print_engine_id_name0(kafka_line_buffer,engine_id);
 }
 
@@ -1245,21 +1220,21 @@ static size_t print_application_id_name0(struct printbuf *kafka_line_buffer,
 
 size_t print_application_id(struct printbuf *kafka_line_buffer,
     const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    struct flowCache *flowCache) {
   const char *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer);
   unused_params(flowCache);
-  return print_application_id0(kafka_line_buffer, buffer + real_field_offset,
+  return print_application_id0(kafka_line_buffer, buffer,
     real_field_len);
 }
 
 size_t print_application_id_name(struct printbuf *kafka_line_buffer,
     const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    struct flowCache *flowCache) {
   const char *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer, flowCache);
   return print_application_id_name0(kafka_line_buffer,
-    buffer + real_field_offset, real_field_len, flowCache->observation_id);
+    buffer, real_field_len, flowCache->observation_id);
 }
 
 static size_t print_port0(struct printbuf *kafka_line_buffer,const uint16_t port){
@@ -1269,7 +1244,7 @@ static size_t print_port0(struct printbuf *kafka_line_buffer,const uint16_t port
 static size_t process_port0(uint16_t *save_port, const char *port_type,
     struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   const uint8_t *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer, flowCache);
 
@@ -1278,7 +1253,7 @@ static size_t process_port0(uint16_t *save_port, const char *port_type,
     return 0;
   }
 
-  const uint16_t port = net2number(buffer + real_field_offset, real_field_len);
+  const uint16_t port = net2number(buffer, real_field_len);
   if (readOnlyGlobals.normalize_directions) {
     *save_port = port;
     return 0;
@@ -1289,18 +1264,18 @@ static size_t process_port0(uint16_t *save_port, const char *port_type,
 
 size_t process_src_port(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
 
   return process_port0(&flowCache->ports.src, "SRC PORT", kafka_line_buffer,
-    buffer, real_field_len, real_field_offset, flowCache);
+    buffer, real_field_len, flowCache);
 }
 
 size_t process_dst_port(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    struct flowCache *flowCache) {
 
   return process_port0(&flowCache->ports.dst, "DST PORT", kafka_line_buffer,
-    buffer, real_field_len, real_field_offset, flowCache);
+    buffer, real_field_len, flowCache);
 }
 
 static size_t print_flow_cache_number(struct printbuf *kafka_line_buffer,
@@ -1312,11 +1287,10 @@ static size_t print_flow_cache_number(struct printbuf *kafka_line_buffer,
 
 size_t print_lan_port(struct printbuf *kafka_line_buffer, const void *buffer,
                       const size_t real_field_len,
-                      const size_t real_field_offset,
                       struct flowCache *flow_cache) {
 
   assert_multi(kafka_line_buffer, flow_cache);
-  unused_params(buffer, real_field_len, real_field_offset);
+  unused_params(buffer, real_field_len);
 
   return print_flow_cache_number(kafka_line_buffer, flow_cache,
     get_direction_based_client_port);
@@ -1324,11 +1298,10 @@ size_t print_lan_port(struct printbuf *kafka_line_buffer, const void *buffer,
 
 size_t print_wan_port(struct printbuf *kafka_line_buffer, const void *buffer,
                          const size_t real_field_len,
-                         const size_t real_field_offset,
                          struct flowCache *flow_cache) {
 
   assert_multi(kafka_line_buffer, flow_cache);
-  unused_params(buffer, real_field_len, real_field_offset);
+  unused_params(buffer, real_field_len);
 
   return print_flow_cache_number(kafka_line_buffer, flow_cache,
     get_direction_based_target_port);
@@ -1339,15 +1312,13 @@ size_t print_wan_port(struct printbuf *kafka_line_buffer, const void *buffer,
  * @param  kafka_line_buffer buffer to print ipv6
  * @param  vbuffer           IPv6 Buffer
  * @param  real_field_len    IPv6 length in bytes
- * @param  real_field_offset IPv6 offset in buffer
  * @param  flowCache         Flow cache
  * @return                   Bytes written in kafka_line_buffer
  */
-size_t print_ipv6(void *vdst_buf, struct printbuf *kafka_line_buffer,
-      const void *vbuffer, const size_t real_field_len,
-      const size_t real_field_offset) {
+static size_t print_ipv6(void *vdst_buf, struct printbuf *kafka_line_buffer,
+      const void *vbuffer, const size_t real_field_len) {
 
-  const uint8_t *buffer = (const uint8_t *)vbuffer + real_field_offset;
+  const uint8_t *buffer = vbuffer;
   uint8_t *dst_buf = vdst_buf;
   size_t i;
   assert_multi(kafka_line_buffer, buffer);
@@ -1369,30 +1340,30 @@ size_t print_ipv6(void *vdst_buf, struct printbuf *kafka_line_buffer,
 
 size_t print_ipv6_src_addr(struct printbuf *kafka_line_buffer,
       const void *buffer, const size_t real_field_len,
-      const size_t real_field_offset, struct flowCache *flowCache) {
+      struct flowCache *flowCache) {
   assert_multi(flowCache);
 
   return print_ipv6(flowCache->address.src, kafka_line_buffer, buffer,
-    real_field_len, real_field_offset);
+    real_field_len);
 }
 
 size_t print_ipv6_dst_addr(struct printbuf *kafka_line_buffer,
     const void *buffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   assert_multi(flowCache);
 
   return print_ipv6(flowCache->address.dst, kafka_line_buffer, buffer,
-    real_field_len, real_field_offset);
+    real_field_len);
 }
 
 #ifdef HAVE_GEOIP
 
 size_t print_country_code(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    struct flowCache *flowCache) {
 
   assert(buffer);
-  unused_params(real_field_offset, flowCache);
+  unused_params(flowCache);
 
   if (readOnlyGlobals.normalize_directions) {
     /* Nothing to do */
@@ -1440,7 +1411,7 @@ static struct AS_info extract_as_from_geoip_response(char *rsp) {
 
 size_t print_AS_ipv4(struct printbuf *kafka_line_buffer,
     const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    struct flowCache *flowCache) {
 
   const uint8_t *buffer = vbuffer;
   assert(buffer);
@@ -1451,7 +1422,7 @@ size_t print_AS_ipv4(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  const unsigned long ipv4 = net2number(buffer + real_field_offset, 4);
+  const unsigned long ipv4 = net2number(buffer, 4);
   size_t written_len = 0;
 
   if(ipv4){
@@ -1509,7 +1480,7 @@ static size_t print_AS_ipv4_name0(struct printbuf *kafka_line_buffer, const void
 
 size_t print_AS_ipv4_name(struct printbuf *kafka_line_buffer,
     const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    struct flowCache *flowCache) {
   const uint8_t *buffer = vbuffer;
   assert(buffer);
   (void)flowCache;
@@ -1520,8 +1491,7 @@ size_t print_AS_ipv4_name(struct printbuf *kafka_line_buffer,
   }
 
   if (likely(real_field_len==4)) {
-    return print_AS_ipv4_name0(kafka_line_buffer, buffer + real_field_offset,
-                                                                real_field_len);
+    return print_AS_ipv4_name0(kafka_line_buffer, buffer, real_field_len);
   } else {
     traceEvent(TRACE_ERROR,"IPv4 with len %zu != 4.", real_field_len);
     return 0;
@@ -1556,7 +1526,7 @@ static size_t print_AS6_name0(struct printbuf *kafka_line_buffer,const struct in
 
 size_t print_AS6_name(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache){
+    struct flowCache *flowCache) {
   const uint8_t *buffer = vbuffer;
   assert(buffer);
   (void)flowCache;
@@ -1566,7 +1536,7 @@ size_t print_AS6_name(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  const struct in6_addr ipv6 = get_ipv6(buffer + real_field_offset);
+  const struct in6_addr ipv6 = get_ipv6(buffer);
   return print_AS6_name0(kafka_line_buffer,&ipv6);
 }
 
@@ -1595,7 +1565,7 @@ static size_t print_AS6_0(struct printbuf *kafka_line_buffer,const struct in6_ad
 
 size_t print_AS6(struct printbuf *kafka_line_buffer,
     const void *vbuffer,const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   const uint8_t *buffer = vbuffer;
   (void)flowCache;
 
@@ -1604,7 +1574,7 @@ size_t print_AS6(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  const struct in6_addr ipv6 = get_ipv6(buffer + real_field_offset);
+  const struct in6_addr ipv6 = get_ipv6(buffer);
   return print_AS6_0(kafka_line_buffer,&ipv6);
 }
 
@@ -1629,7 +1599,7 @@ static size_t print_country6_code_fc(struct printbuf *kafka_line_buffer,
 
 size_t print_country6_code(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   const uint8_t *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer);
   (void)flowCache;
@@ -1639,22 +1609,22 @@ size_t print_country6_code(struct printbuf *kafka_line_buffer,
     return 0;
   }
 
-  const struct in6_addr ipv6 = get_ipv6(buffer + real_field_offset);
+  const struct in6_addr ipv6 = get_ipv6(buffer);
   return print_country6_code0(kafka_line_buffer,&ipv6);
 }
 
 size_t print_lan_country_code(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+    struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len);
   return print_flow_cache_address(kafka_line_buffer, flow_cache,
     get_direction_based_client_ip, print_country6_code_fc);
 }
 
 size_t print_wan_country_code(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+    struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len);
   return print_flow_cache_address(kafka_line_buffer, flow_cache,
     get_direction_based_target_ip, print_country6_code_fc);
 }
@@ -1668,16 +1638,16 @@ static size_t print_AS6_name_fc(struct printbuf *kafka_line_buffer,
 
 size_t print_lan_AS_name(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+    struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len);
   return print_flow_cache_address(kafka_line_buffer, flow_cache,
     get_direction_based_client_ip, print_AS6_name_fc);
 }
 
 size_t print_wan_AS_name(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+    struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len);
   return print_flow_cache_address(kafka_line_buffer, flow_cache,
     get_direction_based_target_ip, print_AS6_name_fc);
 }
@@ -1713,7 +1683,7 @@ static const uint8_t http_host_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x02};
  */
 static size_t cisco_private_decorator(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache,
+    struct flowCache *flowCache,
     const void *expected_identifier, size_t expected_identifier_length,
     size_t (*cb)(struct printbuf *, const void *, size_t, struct flowCache *)) {
   const char *buffer = vbuffer;
@@ -1724,13 +1694,11 @@ static size_t cisco_private_decorator(struct printbuf *kafka_line_buffer,
     return 0; /* nothing to do */
   }
 
-  if(0!=memcmp(expected_identifier,&buffer[real_field_offset],
-                                     expected_identifier_length)) {
+  if (0!=memcmp(expected_identifier,buffer, expected_identifier_length)) {
     return 0;
   }
 
-  const char *buffer_content = buffer + real_field_offset
-    + expected_identifier_length;
+  const char *buffer_content = buffer + expected_identifier_length;
   const size_t buffer_len = real_field_len - expected_identifier_length;
   return cb(kafka_line_buffer, buffer_content, buffer_len, flowCache);
 }
@@ -1744,21 +1712,20 @@ static size_t cisco_private_field_append(struct printbuf *kafka_line_buffer,
 
 static size_t print_cisco_private_buffer(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache,
+    struct flowCache *flowCache,
     const uint8_t *expected_identifier, size_t expected_identifier_length) {
   return cisco_private_decorator(kafka_line_buffer, vbuffer, real_field_len,
-    real_field_offset, flowCache, expected_identifier,
+    flowCache, expected_identifier,
     expected_identifier_length, cisco_private_field_append);
 }
 
 size_t print_http_url(struct printbuf *kafka_line_buffer,
-  const void *buffer,const size_t real_field_len,
-  const size_t real_field_offset,struct flowCache *flowCache) {
+  const void *buffer, const size_t real_field_len,
+  struct flowCache *flowCache) {
 
   static const uint8_t http_url_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x01};
-  return print_cisco_private_buffer(kafka_line_buffer,
-    buffer, real_field_len, real_field_offset, flowCache,
-    http_url_id, sizeof(http_url_id));
+  return print_cisco_private_buffer(kafka_line_buffer, buffer,
+    real_field_len, flowCache, http_url_id, sizeof(http_url_id));
 }
 
 static void save_cisco_http_private_field(const void *buffer, size_t buffer_len,
@@ -1802,15 +1769,14 @@ static size_t save_cisco_https_common_name0(struct printbuf *kafka_line_buffer,
 
 size_t print_http_host(struct printbuf *kafka_line_buffer,
   const void *buffer, const size_t real_field_len,
-  const size_t real_field_offset, struct flowCache *flowCache) {
+  struct flowCache *flowCache) {
 
   cisco_private_decorator(kafka_line_buffer, buffer, real_field_len,
-    real_field_offset, flowCache, http_host_id, sizeof(http_host_id),
+    flowCache, http_host_id, sizeof(http_host_id),
     save_cisco_http_host0);
 
-  return print_cisco_private_buffer(kafka_line_buffer,
-    buffer, real_field_len, real_field_offset, flowCache,
-    http_host_id, sizeof(http_host_id));
+  return print_cisco_private_buffer(kafka_line_buffer, buffer, real_field_len,
+    flowCache, http_host_id, sizeof(http_host_id));
 }
 
 static bool buffer_is_ip(const char *buf, size_t bufsiz) {
@@ -1897,12 +1863,10 @@ static size_t print_http_host_l2_0(struct printbuf *kafka_line_buffer,
 
 size_t print_http_host_l2(struct printbuf *kafka_line_buffer,
                           const void *vbuffer, const size_t real_field_len,
-                          const size_t real_field_offset,
                           struct flowCache *flowCache) {
 
     return cisco_private_decorator(kafka_line_buffer, vbuffer, real_field_len,
-    real_field_offset, flowCache, http_host_id, sizeof(http_host_id),
-    print_http_host_l2_0);
+    flowCache, http_host_id, sizeof(http_host_id), print_http_host_l2_0);
 
 }
 
@@ -1929,11 +1893,10 @@ static void extract_flowcache_referer(const struct flowCache *flow_cache,
 
 size_t print_host(struct printbuf *kafka_line_buffer,
                           const void *vbuffer, const size_t real_field_len,
-                          const size_t real_field_offset,
                           struct flowCache *flow_cache) {
   const char *to_print = NULL;
   size_t to_print_size = 0;
-  unused_params(vbuffer, real_field_len, real_field_offset);
+  unused_params(vbuffer, real_field_len);
 
   extract_flowcache_host(flow_cache, &to_print, &to_print_size);
   return append_escaped(kafka_line_buffer, to_print, to_print_size);
@@ -1941,74 +1904,69 @@ size_t print_host(struct printbuf *kafka_line_buffer,
 
 size_t print_referer(struct printbuf *kafka_line_buffer,
                           const void *vbuffer, const size_t real_field_len,
-                          const size_t real_field_offset,
                           struct flowCache *flow_cache) {
   return flow_cache->http_referer.str ?
     append_escaped(kafka_line_buffer, flow_cache->http_referer.str,
       flow_cache->http_referer.str_size) :
-    print_host(kafka_line_buffer, vbuffer, real_field_len, real_field_offset,
-      flow_cache);
+    print_host(kafka_line_buffer, vbuffer, real_field_len, flow_cache);
 }
 
 size_t print_host_l2(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
+    struct flowCache *flow_cache) {
   const char *host = NULL;
   size_t host_size = 0;
-  unused_params(buffer, real_field_len, real_field_offset);
+  unused_params(buffer, real_field_len);
   extract_flowcache_host(flow_cache, &host, &host_size);
   return print_http_l2_domain(kafka_line_buffer, host, host_size);
 }
 
 size_t print_referer_l2(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
+    struct flowCache *flow_cache) {
   const char *referer = NULL;
   size_t referer_size = 0;
-  unused_params(buffer, real_field_len, real_field_offset);
+  unused_params(buffer, real_field_len);
   extract_flowcache_referer(flow_cache, &referer, &referer_size);
   return print_http_l2_domain(kafka_line_buffer, referer, referer_size);
 }
 
 size_t print_http_user_agent(struct printbuf *kafka_line_buffer,
-  const void *buffer,const size_t real_field_len,
-  const size_t real_field_offset,struct flowCache *flowCache) {
+    const void *buffer, const size_t real_field_len,
+    struct flowCache *flowCache) {
 
   static const uint8_t http_ua_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x03};
-  return print_cisco_private_buffer(kafka_line_buffer,
-    buffer, real_field_len, real_field_offset, flowCache,
-    http_ua_id, sizeof(http_ua_id));
+  return print_cisco_private_buffer(kafka_line_buffer, buffer, real_field_len,
+    flowCache, http_ua_id, sizeof(http_ua_id));
 }
 
 size_t print_http_referer(struct printbuf *kafka_line_buffer,
-  const void *buffer,const size_t real_field_len,
-  const size_t real_field_offset,struct flowCache *flowCache) {
+    const void *buffer, const size_t real_field_len,
+    struct flowCache *flowCache) {
 
   static const uint8_t http_referer_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x04};
 
   cisco_private_decorator(kafka_line_buffer, buffer, real_field_len,
-    real_field_offset, flowCache, http_referer_id, sizeof(http_referer_id),
+    flowCache, http_referer_id, sizeof(http_referer_id),
     save_cisco_http_referer0);
 
-  return print_cisco_private_buffer(kafka_line_buffer,
-    buffer, real_field_len, real_field_offset, flowCache,
-    http_referer_id, sizeof(http_referer_id));
+  return print_cisco_private_buffer(kafka_line_buffer, buffer, real_field_len,
+    flowCache, http_referer_id, sizeof(http_referer_id));
 }
 
 size_t print_https_common_name(struct printbuf *kafka_line_buffer,
-  const void *buffer,const size_t real_field_len,
-  const size_t real_field_offset,struct flowCache *flowCache) {
+    const void *buffer, const size_t real_field_len,
+    struct flowCache *flowCache) {
 
   static const uint8_t https_common_name_nbar_id[] = {0x0d, 0x00, 0x01, 0xc5,
     0x34, 0x01};
 
   cisco_private_decorator(kafka_line_buffer, buffer, real_field_len,
-    real_field_offset, flowCache, https_common_name_nbar_id,
-    sizeof(https_common_name_nbar_id), save_cisco_https_common_name0);
+    flowCache, https_common_name_nbar_id, sizeof(https_common_name_nbar_id),
+    save_cisco_https_common_name0);
 
-  return print_cisco_private_buffer(kafka_line_buffer,
-    buffer,real_field_len,real_field_offset,flowCache,
-    https_common_name_nbar_id,sizeof(https_common_name_nbar_id));
+  return print_cisco_private_buffer(kafka_line_buffer, buffer,real_field_len,
+    flowCache, https_common_name_nbar_id, sizeof(https_common_name_nbar_id));
 }
 
 #ifdef HAVE_UDNS
@@ -2063,18 +2021,18 @@ const uint8_t *get_direction_based_target_ip(
 
 /// @TODO difference client/target src/dst
 size_t print_client_name(struct printbuf *kafka_line_buffer,
-    const void *buffer,const size_t real_field_len,
-    const size_t real_field_offset,struct flowCache *flowCache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+    const void *buffer, const size_t real_field_len,
+    struct flowCache *flowCache) {
+  unused_params(buffer, real_field_len);
 
   return print_dns_obtained_hostname(kafka_line_buffer,
     get_direction_based_client_hostname(flowCache));
 }
 
 size_t print_target_name(struct printbuf *kafka_line_buffer,
-    const void *buffer,const size_t real_field_len,
-    const size_t real_field_offset,struct flowCache *flowCache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+    const void *buffer, const size_t real_field_len,
+    struct flowCache *flowCache) {
+  unused_params(buffer, real_field_len);
 
   return print_dns_obtained_hostname(kafka_line_buffer,
     get_direction_based_target_hostname(flowCache));
@@ -2085,7 +2043,7 @@ size_t print_target_name(struct printbuf *kafka_line_buffer,
 size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
     const V9V10TemplateElementId *templateElement,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_len_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   const int start_bpos = kafka_line_buffer->bpos;
   int value_ret=0;
   if(0!=strcmp(kafka_line_buffer->buf,"{")){
@@ -2109,7 +2067,7 @@ size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
 #endif
 
     value_ret = templateElement->export_fn(kafka_line_buffer, buffer,
-      real_field_len, real_field_len_offset, flowCache);
+      real_field_len, flowCache);
 
 #ifdef WITH_PRINT_BOUND_CHECKS
     free(buffer_heap_copy);
@@ -2280,8 +2238,7 @@ size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
   for(i=0; templateElement->postTemplate != NULL
                           && templateElement->postTemplate[i] != NULL; ++i) {
         printNetflowRecordWithTemplate(kafka_line_buffer,
-          templateElement->postTemplate[i], buffer, real_field_len,
-          real_field_len_offset, flowCache);
+          templateElement->postTemplate[i], buffer, real_field_len, flowCache);
   }
   return value_ret;
 }
@@ -2355,10 +2312,10 @@ struct string_list *rb_separate_long_time_flow(
       node->string = kafka_line_buffer;
       printNetflowRecordWithTemplate(node->string, TEMPLATE_OF(PRINT_IN_BYTES),
         (const char *)&first_interval_bytes_sw,
-        sizeof(first_interval_bytes_sw), 0, NULL);
+        sizeof(first_interval_bytes_sw), NULL);
       printNetflowRecordWithTemplate(node->string, TEMPLATE_OF(PRINT_IN_PKTS),
         (const char *)&first_interval_pkts_sw,
-        sizeof(first_interval_pkts_sw), 0, NULL);
+        sizeof(first_interval_pkts_sw), NULL);
     }else{
       /* Not last interval -> we need to clone the buffer */
       node->string = printbuf_new();
@@ -2374,10 +2331,10 @@ struct string_list *rb_separate_long_time_flow(
         printbuf_memappend(node->string,kafka_line_buffer->buf,kafka_line_buffer->bpos);
         printNetflowRecordWithTemplate(node->string, TEMPLATE_OF(PRINT_IN_BYTES),
           (const char *)&bytes_per_interval_sw,
-          sizeof(bytes_per_interval_sw), 0, NULL);
+          sizeof(bytes_per_interval_sw), NULL);
         printNetflowRecordWithTemplate(node->string, TEMPLATE_OF(PRINT_IN_PKTS),
           (const char *)&packets_per_interval_sw,
-          sizeof(packets_per_interval_sw), 0, NULL);
+          sizeof(packets_per_interval_sw), NULL);
         last_sentmsg = node->string->buf;
         last_sentmsg_useful_bpos = node->string->bpos;
       }else{
@@ -2389,7 +2346,7 @@ struct string_list *rb_separate_long_time_flow(
     const uint64_t interval_timestamp_sw = htonll(current_timestamp_s);
     printNetflowRecordWithTemplate(node->string, TEMPLATE_OF(PRINT_LAST_SWITCHED),
       (const char *)&interval_timestamp_sw, sizeof(interval_timestamp_sw),
-      0, NULL);
+      NULL);
 
     current_timestamp_s += dInterval;
 
@@ -2401,15 +2358,14 @@ struct string_list *rb_separate_long_time_flow(
 
 static size_t print_observation_id_attribute(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache,
+    struct flowCache *flowCache,
     const char *(*observation_id_get_attribute_cb)(observation_id_t *,
       uint64_t attribute_id)) {
   const uint8_t *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer, flowCache);
-  unused_params(buffer, real_field_len, real_field_offset);
+  unused_params(buffer, real_field_len);
 
-  const uint64_t attribute_id = net2number(buffer + real_field_offset,
-    real_field_len);
+  const uint64_t attribute_id = net2number(buffer, real_field_len);
 
   const char *attribute_str = observation_id_get_attribute_cb(
     flowCache->observation_id, attribute_id);
@@ -2423,22 +2379,19 @@ static size_t print_observation_id_attribute(struct printbuf *kafka_line_buffer,
 
 size_t print_selector_name(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   return print_observation_id_attribute(kafka_line_buffer, vbuffer, real_field_len,
-    real_field_offset, flowCache, observation_id_selector_name);
+    flowCache, observation_id_selector_name);
 }
 
 static size_t process_snmp_interface(uint64_t *save,
-    struct printbuf *kafka_line_buffer, const void *vbuffer,
-    const size_t real_field_len, const size_t real_field_offset,
-    struct flowCache *flowCache) {
-  const uint8_t *buffer = vbuffer;
+    struct printbuf *kafka_line_buffer, const void *buffer,
+    const size_t real_field_len, struct flowCache *flowCache) {
   if (readOnlyGlobals.normalize_directions) {
-    *save = net2number(buffer + real_field_offset, real_field_len);
+    *save = net2number(buffer, real_field_len);
     return 0;
   } else {
-    return print_number(kafka_line_buffer, vbuffer, real_field_len,
-      real_field_offset, flowCache);
+    return print_number(kafka_line_buffer, buffer, real_field_len, flowCache);
   }
 }
 
@@ -2458,8 +2411,8 @@ static uint64_t get_direction_based_target_interface(
 
 size_t print_lan_interface(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+    struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len);
 
   return print_flow_cache_number(kafka_line_buffer, flow_cache,
     get_direction_based_client_interface);
@@ -2467,8 +2420,8 @@ size_t print_lan_interface(struct printbuf *kafka_line_buffer,
 
 size_t print_wan_interface(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+    struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len);
 
   return print_flow_cache_number(kafka_line_buffer, flow_cache,
     get_direction_based_target_interface);
@@ -2476,43 +2429,40 @@ size_t print_wan_interface(struct printbuf *kafka_line_buffer,
 
 size_t process_input_snmp(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
+    struct flowCache *flow_cache) {
   return process_snmp_interface(&flow_cache->interfaces.input,
-    kafka_line_buffer, buffer, real_field_len, real_field_offset,
-    flow_cache);
+    kafka_line_buffer, buffer, real_field_len, flow_cache);
 }
 
 size_t process_output_snmp(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
+    struct flowCache *flow_cache) {
   return process_snmp_interface(&flow_cache->interfaces.output,
-    kafka_line_buffer, buffer, real_field_len, real_field_offset,
-    flow_cache);
+    kafka_line_buffer, buffer, real_field_len, flow_cache);
 }
 
 // Do not check if we are normalizing directions
 static size_t print_interface_name0(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
-  return print_observation_id_attribute(kafka_line_buffer, vbuffer, real_field_len,
-      real_field_offset, flowCache, observation_id_interface_name);
+    struct flowCache *flowCache) {
+  return print_observation_id_attribute(kafka_line_buffer, vbuffer,
+    real_field_len, flowCache, observation_id_interface_name);
 }
 
 size_t print_interface_name(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   return !readOnlyGlobals.normalize_directions ?
     print_interface_name0(kafka_line_buffer, vbuffer, real_field_len,
-      real_field_offset, flowCache) :
-    0;
+      flowCache) : 0;
 }
 
 size_t print_interface_description(struct printbuf *kafka_line_buffer,
     const void *vbuffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flowCache) {
+    struct flowCache *flowCache) {
   return !readOnlyGlobals.normalize_directions ?
     print_observation_id_attribute(kafka_line_buffer, vbuffer, real_field_len,
-      real_field_offset, flowCache, observation_id_interface_description) : 0;
+      flowCache, observation_id_interface_description) : 0;
 }
 
 static size_t print_flow_cache_interface_str(struct printbuf *kafka_line_buffer,
@@ -2528,24 +2478,24 @@ static size_t print_flow_cache_interface_str(struct printbuf *kafka_line_buffer,
 
 size_t print_lan_interface_name(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+    struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len);
   return print_flow_cache_interface_str(kafka_line_buffer, flow_cache,
     get_direction_based_client_interface, observation_id_interface_name);
 
 }
 size_t print_wan_interface_name(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+    struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len);
   return print_flow_cache_interface_str(kafka_line_buffer, flow_cache,
     get_direction_based_target_interface, observation_id_interface_name);
 }
 
 size_t print_lan_interface_description(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+    struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len);
   return print_flow_cache_interface_str(kafka_line_buffer, flow_cache,
     get_direction_based_client_interface, observation_id_interface_description);
 
@@ -2553,8 +2503,8 @@ size_t print_lan_interface_description(struct printbuf *kafka_line_buffer,
 
 size_t print_wan_interface_description(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
-    const size_t real_field_offset, struct flowCache *flow_cache) {
-  unused_params(buffer, real_field_len, real_field_offset);
+    struct flowCache *flow_cache) {
+  unused_params(buffer, real_field_len);
   return print_flow_cache_interface_str(kafka_line_buffer, flow_cache,
     get_direction_based_target_interface, observation_id_interface_description);
 }
