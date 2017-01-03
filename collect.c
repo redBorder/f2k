@@ -154,13 +154,9 @@ static rd_kafka_t *init_kafka_consumer() {
 
   rd_kafka_conf_t *conf =
       rd_kafka_conf_dup(readOnlyGlobals.kafka_consumer.conf);
-  rd_kafka_topic_conf_t *topic_conf =
-      rd_kafka_topic_conf_dup(readOnlyGlobals.kafka_consumer.topic_conf);
-
-  rd_kafka_conf_set_default_topic_conf(conf, topic_conf);
 
   if (!(rk = rd_kafka_new(RD_KAFKA_CONSUMER, conf, errstr, sizeof(errstr)))) {
-    fprintf(stderr, "F2K Consumer: Failed to create new consumer: %s\n",
+    traceEvent(TRACE_ERROR, "F2K Consumer: Failed to create new consumer: %s\n",
             errstr);
     return NULL;
   }
@@ -172,8 +168,9 @@ static rd_kafka_t *init_kafka_consumer() {
                                     readOnlyGlobals.kafka_consumer.topic, -1);
 
   if ((err = rd_kafka_subscribe(rk, topics))) {
-    fprintf(stderr, "F2K Consumer: Failed to subscribe partitions: %s\n",
-            rd_kafka_err2str(err));
+    traceEvent(TRACE_ERROR,
+      "F2K Consumer: Failed to subscribe partitions: %s\n",
+      rd_kafka_err2str(err));
     return NULL;
   }
 
@@ -186,8 +183,7 @@ static void kafka_produce(struct printbuf *kafka_line_buffer, uint64_t client_ma
   //if(unlikely(readOnlyGlobals.enable_debug))
   //  traceEvent(TRACE_WARNING,"[KAFKA] line buffer: [len=%d] %s \n",kafka_line_buffer->bpos,kafka_line_buffer->buf);
 
-  pthread_rwlock_rdlock(&readWriteGlobals->kafka.rwlock);
-  const int produce_ret = rd_kafka_produce(readWriteGlobals->kafka.rkt, RD_KAFKA_PARTITION_UA,
+  const int produce_ret = rd_kafka_produce(readOnlyGlobals.kafka.rkt, RD_KAFKA_PARTITION_UA,
     RD_KAFKA_MSG_F_FREE,
     /* Payload and length */
     kafka_line_buffer->buf, kafka_line_buffer->bpos,
@@ -198,7 +194,6 @@ static void kafka_produce(struct printbuf *kafka_line_buffer, uint64_t client_ma
      * msg_opaque. */
     // WARN! if you change this behavior, you need to change the partitioner too.
     (void *)(intptr_t)client_mac);
-  pthread_rwlock_unlock(&readWriteGlobals->kafka.rwlock);
 
 
   if(unlikely(produce_ret<0)){

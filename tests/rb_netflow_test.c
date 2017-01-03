@@ -140,32 +140,31 @@ static void init_test_kafka_producer(const char *brokers, const char *topic) {
  *
  * @param  kafka_url URL of the Kafka broker
  */
-static void init_kafka_producer() {
+static void init_kafka_producer(const char *broker_ip, const char *topic) {
   rd_kafka_topic_conf_t *rkt_conf = rd_kafka_topic_conf_new();
   rd_kafka_conf_t *rk_conf = rd_kafka_conf_new();
   char errstr[2048];
 
-  if (!(readWriteGlobals->kafka.rk =
+  if (!(readOnlyGlobals.kafka.rk =
             rd_kafka_new(RD_KAFKA_PRODUCER, rk_conf, errstr, sizeof(errstr)))) {
     fprintf(stderr, "%% Failed to create new consumer: %s\n", errstr);
     return;
   }
 
-  if (rd_kafka_brokers_add(readWriteGlobals->kafka.rk,
-                           readOnlyGlobals.kafka.broker_ip) == 0) {
+  if (rd_kafka_brokers_add(readOnlyGlobals.kafka.rk, broker_ip) == 0) {
     fprintf(stderr, "%% No valid brokers specified\n");
     return;
   }
 
-  if (readWriteGlobals->kafka.rk != NULL) {
-    readWriteGlobals->kafka.rkt =
-        rd_kafka_topic_new(readWriteGlobals->kafka.rk, readOnlyGlobals.kafka.topic, rkt_conf);
-    if (readWriteGlobals->kafka.rkt != NULL) {
+  if (readOnlyGlobals.kafka.rk != NULL) {
+    readOnlyGlobals.kafka.rkt =
+        rd_kafka_topic_new(readOnlyGlobals.kafka.rk, topic, rkt_conf);
+    if (readOnlyGlobals.kafka.rkt != NULL) {
       rkt_conf = NULL;
     } else {
       traceEvent(TRACE_ERROR, "Unable to create a kafka topic");
-      rd_kafka_destroy(readWriteGlobals->kafka.rk);
-      readWriteGlobals->kafka.rk = NULL;
+      rd_kafka_destroy(readOnlyGlobals.kafka.rk);
+      readOnlyGlobals.kafka.rk = NULL;
       return;
     }
   }
@@ -223,16 +222,16 @@ int nf_test_teardown(void **state) {
 	}
 #endif
 
-  if (readWriteGlobals->kafka.rk) {
-    while (rd_kafka_outq_len(readWriteGlobals->kafka.rk) > 0) {
-      rd_kafka_poll(readWriteGlobals->kafka.rk, 50);
+  if (readOnlyGlobals.kafka.rk) {
+    while (rd_kafka_outq_len(readOnlyGlobals.kafka.rk) > 0) {
+      rd_kafka_poll(readOnlyGlobals.kafka.rk, 50);
     }
 
-    rd_kafka_topic_destroy(readWriteGlobals->kafka.rkt);
-    rd_kafka_destroy(readWriteGlobals->kafka.rk);
-    // rd_kafka_wait_destroyed(readWriteGlobals->kafka.rk);
-    readWriteGlobals->kafka.rk = NULL;
-    readWriteGlobals->kafka.rkt = NULL;
+    rd_kafka_topic_destroy(readOnlyGlobals.kafka.rkt);
+    rd_kafka_destroy(readOnlyGlobals.kafka.rk);
+    // rd_kafka_wait_destroyed(readOnlyGlobals.kafka.rk);
+    readOnlyGlobals.kafka.rk = NULL;
+    readOnlyGlobals.kafka.rkt = NULL;
   }
 
   free(readWriteGlobals);
@@ -528,8 +527,8 @@ void testFlow(void **state) {
   if (st->params.records->kafka_consumer_url) {
     char *group_id = rand_tmpl("test");
 
-    readOnlyGlobals.kafka_consumer.topic_conf = rd_kafka_topic_conf_new();
     readOnlyGlobals.kafka_consumer.conf = rd_kafka_conf_new();
+    rd_kafka_topic_conf_t *default_topic_conf = rd_kafka_topic_conf_new();
 
     char errstr[512];
     if (rd_kafka_conf_set(readOnlyGlobals.kafka_consumer.conf, "group.id",
@@ -545,14 +544,14 @@ void testFlow(void **state) {
       traceEvent(TRACE_ERROR, "%% %s\n", errstr);
     }
 
-    if (rd_kafka_topic_conf_set(readOnlyGlobals.kafka_consumer.topic_conf,
-                                "offset.store.method", "broker", errstr,
+    if (rd_kafka_topic_conf_set(default_topic_conf, "offset.store.method",
+                                "broker", errstr,
                                 sizeof(errstr)) != RD_KAFKA_CONF_OK) {
       traceEvent(TRACE_ERROR, "%% %s\n", errstr);
     }
 
-    if (rd_kafka_topic_conf_set(readOnlyGlobals.kafka_consumer.topic_conf,
-                                "auto.offset.reset", "smallest", errstr,
+    if (rd_kafka_topic_conf_set(default_topic_conf, "auto.offset.reset",
+                                "smallest", errstr,
                                 sizeof(errstr)) != RD_KAFKA_CONF_OK) {
       traceEvent(TRACE_ERROR, "%% %s\n", errstr);
     }
@@ -563,11 +562,8 @@ void testFlow(void **state) {
 
   // F2K: Produce JSON test data to "rb_flow"
   if (st->params.records->kafka_producer_url) {
-    readOnlyGlobals.kafka.broker_ip =
-        strdup(st->params.records->kafka_producer_url);
-    readOnlyGlobals.kafka.topic = output_topic;
-    init_kafka_producer();
-    if (NULL == readWriteGlobals->kafka.rkt) {
+    init_kafka_producer(st->params.records->kafka_producer_url, output_topic);
+    if (NULL == readOnlyGlobals.kafka.rkt) {
       printf("F2K Producer: Can't connect to Kafka broker\n");
       exit(1);
     }
@@ -637,10 +633,6 @@ void testFlow(void **state) {
 
   if (test_producer_rk) {
     rd_kafka_destroy(test_producer_rk);
-  }
-
-  if (readOnlyGlobals.kafka.broker_ip) {
-    free(readOnlyGlobals.kafka.broker_ip);
   }
 
   if (test_consumer_rk) {

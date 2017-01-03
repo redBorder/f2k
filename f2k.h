@@ -240,13 +240,12 @@ typedef struct {
 
 #ifdef HAVE_LIBRDKAFKA
   struct {
-    char *broker_ip;
-    char *topic;
+    rd_kafka_t            *rk;
+    rd_kafka_topic_t      *rkt;
     bool use_client_mac_partitioner;
   } kafka;
 
   struct {
-    rd_kafka_topic_conf_t *topic_conf;
     rd_kafka_conf_t *conf;
     char *topic;
   } kafka_consumer;
@@ -302,14 +301,6 @@ typedef struct {
 #ifdef HAVE_PF_RING
   bool ring_enabled;
   pfring *ring;
-#endif
-
-#ifdef HAVE_LIBRDKAFKA
-  struct{
-    pthread_rwlock_t      rwlock;
-    rd_kafka_t            *rk;
-    rd_kafka_topic_t      *rkt;
-  } kafka;
 #endif
 
   /* Stats */

@@ -85,7 +85,7 @@ static void initDefaults(void);
 /* ****************************************************** */
 
 /* Forward */
-static int parseOptions(int argc, char* argv[], uint8_t reparse_options);
+static int parseOptions(int argc, char* argv[], const bool reparse_options);
 
 static int argc_;
 static char **argv_;
@@ -879,15 +879,6 @@ static void initDefaults(void) {
   readOnlyGlobals.pcapFileList = NULL;
   readOnlyGlobals.pcapFile = NULL;
   readOnlyGlobals.unprivilegedUser = strdup("nobody");
-  readOnlyGlobals.kafka_consumer.topic_conf = rd_kafka_topic_conf_new();
-  readOnlyGlobals.kafka_consumer.conf = rd_kafka_conf_new();
-
-  char errstr[512];
-  if (rd_kafka_topic_conf_set(readOnlyGlobals.kafka_consumer.topic_conf,
-                              "offset.store.method", "broker", errstr,
-                              sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-    traceEvent(TRACE_ERROR, "%% %s\n", errstr);
-  }
 
 #ifdef HAVE_PF_RING
   readOnlyGlobals.cluster_id = -1;
@@ -902,7 +893,43 @@ static void printArgv(int argc,char *argv[]){
     traceEvent(TRACE_ERROR, "[%d][%s]", i, argv[i]);
 }
 
-static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
+/**
+ * Parse kafka <broker>@<topic> argument
+ * @param  arg Text argument
+ * @param  rk_config Config to save broker
+ * @param  topic name: Place to save topic
+ * @return true if success, false in other case
+ */
+static bool parse_kafka_broker_topic_arg(const char *const_arg,
+    rd_kafka_conf_t *rk_conf, char **ret_topic) {
+  assert(const_arg);
+  assert(rk_conf);
+  assert(ret_topic);
+
+  char *strtok_aux = NULL;
+  const size_t const_arg_len = strlen(const_arg);
+  char optarg[const_arg_len + 1];
+  memcpy(optarg, const_arg, const_arg_len);
+  optarg[const_arg_len] = '\0';
+
+  const char *broker = strtok_r(optarg, "@", &strtok_aux);
+  const char *topic = strtok_r(NULL, "", &strtok_aux);
+
+  if (!broker || !topic) {
+    traceEvent(TRACE_ERROR,
+      "Invalid format for --kafka-netflow-consumer parameter");
+    return false;
+  }
+
+  char *config = NULL;
+  asprintf(&config, "metadata.broker.list=%s", broker);
+  parse_kafka_config(rk_conf, NULL, config);
+
+  *ret_topic = strdup(topic);
+  return true;
+}
+
+static int parseOptions(int argc, char* argv[], const bool reparse_options) {
   char line[2048];
   FILE *fd;
   int opt, i, option_index;
@@ -912,9 +939,16 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
 #endif
 #ifdef HAVE_LIBRDKAFKA
   readOnlyGlobals.kafka.use_client_mac_partitioner = 1;
-  char *kafka_topic=NULL,*kafka_brokers=NULL;
-  rd_kafka_conf_t *rk_conf        = rd_kafka_conf_new();
-  rd_kafka_topic_conf_t *rkt_conf = rd_kafka_topic_conf_new();
+  char *kafka_topic = NULL;
+  rd_kafka_conf_t *rk_conf = reparse_options ? NULL : rd_kafka_conf_new();
+  rd_kafka_topic_conf_t *rk_nf_consumer_topic_conf = reparse_options ? NULL :
+    rd_kafka_topic_conf_new();
+  rd_kafka_topic_conf_t *rkt_conf = reparse_options ? NULL :
+    rd_kafka_topic_conf_new();
+  if (!reparse_options) {
+    readOnlyGlobals.kafka_consumer.conf = rd_kafka_conf_new();
+  }
+
 #endif
 #ifdef HAVE_UDNS
   char *new_dns_servers = NULL;
@@ -1071,8 +1105,6 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
       case '+':
       case 'A': /* as-list */
       case 259: /* country-list */
-      case 229: /* kafka opts */
-      case 'X': /* kafka modifiers */
       case 256: /* hosts-list options */
       case 258: /* rb-config file */
       case 'z': /* zk-host */
@@ -1276,62 +1308,32 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
 
     case 229:
       {
-        char *strtok_kafka_aux=NULL;
-        char *_optarg = strdup(optarg);
-
-        kafka_brokers = strtok_r(_optarg, "@",&strtok_kafka_aux);
-        kafka_topic = strtok_r(NULL,"",&strtok_kafka_aux);
-
-        if(kafka_brokers && kafka_topic) {
-          kafka_brokers = strdup(kafka_brokers);
-          kafka_topic = strdup(kafka_topic);
-        } else {
-          traceEvent(TRACE_ERROR, "Invalid format for --kafka parameter");
-          usage();
-          kafka_brokers = NULL;
-          kafka_topic = NULL;
+        const bool rc = parse_kafka_broker_topic_arg(optarg, rk_conf,
+          &kafka_topic);
+        if (!rc) {
+          exit(0);
         }
-
-        free(_optarg);
       }
       break;
 
     case 230:
       {
-        char *strtok_kafka_aux = NULL;
-        char *_optarg = strdup(optarg);
-        char *kafka_netflow_consumer_broker;
-        char *config = NULL;
-
-        kafka_netflow_consumer_broker = strtok_r(_optarg, "@", &strtok_kafka_aux);
-        readOnlyGlobals.kafka_consumer.topic = strtok_r(NULL, "", &strtok_kafka_aux);
-
-        if (kafka_netflow_consumer_broker && readOnlyGlobals.kafka_consumer.topic) {
-          kafka_netflow_consumer_broker = strdup(kafka_netflow_consumer_broker);
-          readOnlyGlobals.kafka_consumer.topic = strdup(readOnlyGlobals.kafka_consumer.topic);
-        } else {
-          traceEvent(TRACE_ERROR,
-                     "Invalid format for --kafka-netflow-consumer parameter");
-          usage();
-          kafka_netflow_consumer_broker = NULL;
-          readOnlyGlobals.kafka_consumer.topic = NULL;
+        const bool rc = parse_kafka_broker_topic_arg(optarg,
+          readOnlyGlobals.kafka_consumer.conf,
+          &readOnlyGlobals.kafka_consumer.topic);
+        if (!rc) {
+          exit(0);
         }
-
-        asprintf(&config, "metadata.broker.list=%s", kafka_netflow_consumer_broker);
-        parse_kafka_config(readOnlyGlobals.kafka_consumer.conf, NULL, config);
-
-        free(_optarg);
-        free(kafka_netflow_consumer_broker);
-        free(config);
       }
       break;
 
     case 'X':
-      parse_kafka_config(rk_conf,rkt_conf,optarg);
+      parse_kafka_config(rk_conf, rkt_conf, optarg);
       break;
 
     case 'Y':
-      parse_kafka_config(readOnlyGlobals.kafka_consumer.conf,readOnlyGlobals.kafka_consumer.topic_conf,optarg);
+      parse_kafka_config(readOnlyGlobals.kafka_consumer.conf,
+        rk_nf_consumer_topic_conf, optarg);
       break;
 
 #endif /* HAVE_LIBRDKAFKA */
@@ -1406,82 +1408,6 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
     free(collector_ports);
   }
 
-#ifdef HAVE_LIBRDKAFKA
-  if(kafka_brokers && kafka_topic) {
-    rd_kafka_t *rk = NULL,*rk_old=NULL;
-    rd_kafka_topic_t *rkt = NULL,*rkt_old=NULL;
-    /* @TODO duplicated code in main function. rd_kafka_new cannot be called before daemon fork(), because
-     * then the child process cannot make calls to kafka thread.
-     */
-
-    char errstr[2048];
-
-    // @TODO workaround. Allow pass kafka parameters.
-    parse_kafka_config(rk_conf, rkt_conf, "socket.keepalive.enable=true");
-    parse_kafka_config(rk_conf, rkt_conf, "socket.max.fails=3");
-    if(readOnlyGlobals.kafka.use_client_mac_partitioner)
-      rd_kafka_topic_conf_set_partitioner_cb(rkt_conf, rb_client_mac_partitioner);
-    // @TODO end of workaround
-
-
-    rk = rd_kafka_new(RD_KAFKA_PRODUCER, rk_conf, errstr, sizeof(errstr));
-    if(NULL == rk){
-      traceEvent(TRACE_ERROR, "Unable to connect to kafka brokers %s:%s",
-        kafka_brokers,errstr);
-    } else {
-      rk_conf = NULL;
-    }
-
-    if (rk != NULL && rd_kafka_brokers_add(rk, kafka_brokers) == 0) {
-      traceEvent(TRACE_ERROR, "No valid kafka brokers specified: %s\n",kafka_brokers);
-      rd_kafka_destroy(rk);
-      rk = NULL;
-    }
-
-    if(rk != NULL){
-      rkt = rd_kafka_topic_new(rk, kafka_topic, rkt_conf);
-      if(rkt != NULL){
-        rkt_conf = NULL;
-      } else {
-        traceEvent(TRACE_ERROR, "Unable to create a kafka topic");
-        rd_kafka_destroy(rk);
-        rk = NULL;
-      }
-    }
-
-    rk_old = readWriteGlobals->kafka.rk;
-    rkt_old = readWriteGlobals->kafka.rkt;
-
-    /* Can't create new handlers */
-    if(rk == NULL && rkt == NULL) {
-      /* First running: Can't connect */
-      if(NULL == rk_old && NULL == rkt_old) {
-        traceEvent(TRACE_ERROR, "No valid kafka brokers specified => Can't start f2k");
-        exit(-1);
-      } else {
-        traceEvent(TRACE_ERROR, "No valid kafka brokers specified => Using values before reload");
-      }
-    } else {
-      pthread_rwlock_wrlock(&readWriteGlobals->kafka.rwlock);
-      readWriteGlobals->kafka.rk = rk;
-      readWriteGlobals->kafka.rkt = rkt;
-      pthread_rwlock_unlock(&readWriteGlobals->kafka.rwlock);
-    }
-
-    if(NULL != rk_old)
-      rd_kafka_destroy(rk_old);
-    if(NULL != rkt_old)
-      rd_kafka_topic_destroy(rkt_old);
-    if(NULL != rk_conf)
-      rd_kafka_conf_destroy(rk_conf);
-    if(NULL != rkt_conf)
-      rd_kafka_topic_conf_destroy(rkt_conf);
-  }
-
-  free(kafka_brokers);
-  free(kafka_topic);
-#endif
-
 #ifdef HAVE_UDNS
   if(new_dns_servers) {
     /* Have to create a new DNS context */
@@ -1551,7 +1477,55 @@ static int parseOptions(int argc, char* argv[], uint8_t reparse_options) {
 udns_config_err:
 #endif
 
+  // Only non-reloadable options from this point to the end of the function
   if (!reparse_options) {
+
+#ifdef HAVE_LIBRDKAFKA
+    char errstr[2048];
+
+    if (!kafka_topic) {
+      traceEvent(TRACE_ERROR,
+        "No kafka broker@topic specified for produce. Exiting");
+      exit(0);
+    }
+
+    parse_kafka_config(rk_conf, NULL, "socket.keepalive.enable=true");
+    parse_kafka_config(rk_conf, NULL, "socket.max.fails=3");
+
+    if (readOnlyGlobals.kafka.use_client_mac_partitioner) {
+      rd_kafka_topic_conf_set_partitioner_cb(rkt_conf,
+        rb_client_mac_partitioner);
+    }
+
+    readOnlyGlobals.kafka.rk = rd_kafka_new(RD_KAFKA_PRODUCER, rk_conf,
+      errstr, sizeof(errstr));
+    if (unlikely(NULL == readOnlyGlobals.kafka.rk)) {
+      traceEvent(TRACE_ERROR, "Unable to create kafka handler: %s",
+        errstr);
+      exit(0);
+    }
+
+    readOnlyGlobals.kafka.rkt = rd_kafka_topic_new(readOnlyGlobals.kafka.rk,
+      kafka_topic, rkt_conf);
+    if (unlikely(NULL == readOnlyGlobals.kafka.rkt)) {
+      traceEvent(TRACE_ERROR, "Unable to create a kafka topic");
+      rd_kafka_destroy(readOnlyGlobals.kafka.rk);
+      readOnlyGlobals.kafka.rk = NULL;
+      exit(0);
+    }
+
+    free(kafka_topic);
+
+    if (rd_kafka_topic_conf_set(rk_nf_consumer_topic_conf,
+                                "offset.store.method", "broker", errstr,
+                                sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+      traceEvent(TRACE_ERROR, "%% %s\n", errstr);
+    }
+
+    rd_kafka_conf_set_default_topic_conf(readOnlyGlobals.kafka_consumer.conf,
+      rk_nf_consumer_topic_conf);
+#endif
+
     size_t idx = 0;
     /* Start a pool of threads */
     if((readOnlyGlobals.packetProcessThread = calloc(
@@ -1672,18 +1646,18 @@ static void stopCaptureFlushAll(void) {
 
   printProcessingStats(worker_stats, readOnlyGlobals.numProcessThreads);
 #ifdef HAVE_LIBRDKAFKA
-  if(readWriteGlobals->kafka.rk) {
+  if (readOnlyGlobals.kafka.rk) {
     /* Steps of librdkafka wiki */
 
     /* 1) Make sure all outstanding requests are transmitted and handled. */
     traceEvent(TRACE_INFO, "Flushing pending kafka messages...");
-    while (rd_kafka_outq_len(readWriteGlobals->kafka.rk) > 0) {
-      rd_kafka_poll(readWriteGlobals->kafka.rk, 50);
+    while (rd_kafka_outq_len(readOnlyGlobals.kafka.rk) > 0) {
+      rd_kafka_poll(readOnlyGlobals.kafka.rk, 50);
     }
 
     /* 2) Destroy the topic and handle objects */
-    rd_kafka_topic_destroy(readWriteGlobals->kafka.rkt);
-    rd_kafka_destroy(readWriteGlobals->kafka.rk);
+    rd_kafka_topic_destroy(readOnlyGlobals.kafka.rkt);
+    rd_kafka_destroy(readOnlyGlobals.kafka.rk);
 
     traceEvent(TRACE_INFO, "Disconnected from Kafka ...");
   }
@@ -2255,10 +2229,6 @@ static void init_globals(void) {
   readOnlyGlobals.pcapPtr = NULL;
   readOnlyGlobals.reforgeTimestamps = 1;
 
-#ifdef HAVE_LIBRDKAFKA
-  pthread_rwlock_init(&readWriteGlobals->kafka.rwlock,NULL);
-#endif
-
 #ifdef HAVE_ZOOKEEPER
   init_zookeeper();
 #endif
@@ -2467,7 +2437,7 @@ int main(int argc, char *argv[]) {
     while(readOnlyGlobals.f2k_up) {
       // sleep(5); break;
       check_for_database_reloads();
-      rd_kafka_poll(readWriteGlobals->kafka.rk, 1000/* 1sec */);
+      rd_kafka_poll(readOnlyGlobals.kafka.rk, 1000/* 1sec */);
     }
   }
 
