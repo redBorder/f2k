@@ -1458,11 +1458,10 @@ static size_t print_buffer_geoip_AS_name(struct printbuf *kafka_line_buffer,char
   return written_len;
 }
 
-static size_t print_AS_ipv4_name0(struct printbuf *kafka_line_buffer, const void *buffer, const uint16_t real_field_len){
-  assert_multi(kafka_line_buffer, buffer);
-
-  const uint64_t ipv4 = net2number(buffer,real_field_len);
+static size_t print_AS_ipv4_name0(struct printbuf *kafka_line_buffer,
+    const uint32_t ipv4){
   size_t written_len = 0;
+  assert(kafka_line_buffer);
 
   char * rsp=NULL;
   if(readOnlyGlobals.geo_ip_asn_db){
@@ -1491,7 +1490,8 @@ size_t print_AS_ipv4_name(struct printbuf *kafka_line_buffer,
   }
 
   if (likely(real_field_len==4)) {
-    return print_AS_ipv4_name0(kafka_line_buffer, buffer, real_field_len);
+    const uint32_t ipv4 = net2number(buffer, 4);
+    return print_AS_ipv4_name0(kafka_line_buffer, ipv4);
   } else {
     traceEvent(TRACE_ERROR,"IPv4 with len %zu != 4.", real_field_len);
     return 0;
@@ -1505,23 +1505,66 @@ static struct in6_addr get_ipv6(const uint8_t *buffer){
   return ipv6;
 }
 
-static size_t print_AS6_name0(struct printbuf *kafka_line_buffer,const struct in6_addr *ipv6){
+static bool is_private_v4(const uint32_t ipv4) {
+  return (ipv4 & 0xff000000) == 0x0a000000 || // 10.X.X.X/10
+         (ipv4 & 0xfff00000) == 0xac100000 || // 172.16.X.X/12
+         (ipv4 & 0xffff0000) == 0xc0a80000;   // 192.168.X.X/16
+}
+
+static bool is_private_v6(const struct in6_addr ipv6) {
+  return (ipv6.s6_addr[0] & 0x30) == 0x20;
+}
+
+static uint32_t ipv6_to_v4(const struct in6_addr ipv6) {
+  return net2number(&ipv6.s6_addr[12], 4);
+}
+
+static bool is_private(const struct in6_addr ipv6) {
+  if (is_ipv4_mapped(&ipv6)) {
+    const uint32_t ipv4 = ipv6_to_v4(ipv6);
+    return is_private_v4(ipv4);
+  }
+
+  return is_private_v6(ipv6);
+}
+
+/// Decorate geoip call
+static size_t geoip_decorator(struct printbuf *kafka_line_buffer,
+    const struct in6_addr ipv6,
+    size_t (*print_geoip_cb)(struct printbuf *kafka_line_buffer,
+      const struct in6_addr ipv6)) {
   assert(kafka_line_buffer);
-  assert(ipv6);
 
-  char * rsp=NULL;
-  size_t written_len = 0;
-  if(readOnlyGlobals.geo_ip_asn_db_v6){
-    pthread_rwlock_rdlock(&readWriteGlobals->geoipRwLock);
-    rsp = GeoIP_name_by_ipnum_v6(readOnlyGlobals.geo_ip_asn_db_v6, *ipv6);
-    pthread_rwlock_unlock(&readWriteGlobals->geoipRwLock);
+  if (is_private(ipv6)) {
+    return 0;
   }
 
-  if(rsp){
-    written_len = print_buffer_geoip_AS_name(kafka_line_buffer,rsp);
-  }
+  pthread_rwlock_rdlock(&readWriteGlobals->geoipRwLock);
+  const size_t written_len = print_geoip_cb(kafka_line_buffer, ipv6);
+  pthread_rwlock_unlock(&readWriteGlobals->geoipRwLock);
 
   return written_len;
+}
+
+/**
+ * Print ipv6 AS name with no locking or checking
+ * @param  kafka_line_buffer Line buffer to print AS name
+ * @param  ipv6              IPv6 to print
+ * @return                   Bytes printed
+ */
+static size_t print_AS6_name_nl(struct printbuf *kafka_line_buffer,
+    const struct in6_addr ipv6){
+  if (!readOnlyGlobals.geo_ip_asn_db_v6) {
+    return 0;
+  }
+
+  char *rsp=NULL;
+  rsp = GeoIP_name_by_ipnum_v6(readOnlyGlobals.geo_ip_asn_db_v6, ipv6);
+  if (!rsp) {
+    return 0;
+  }
+
+  return print_buffer_geoip_AS_name(kafka_line_buffer, rsp);
 }
 
 size_t print_AS6_name(struct printbuf *kafka_line_buffer,
@@ -1537,7 +1580,7 @@ size_t print_AS6_name(struct printbuf *kafka_line_buffer,
   }
 
   const struct in6_addr ipv6 = get_ipv6(buffer);
-  return print_AS6_name0(kafka_line_buffer,&ipv6);
+  return geoip_decorator(kafka_line_buffer, ipv6, print_AS6_name_nl);
 }
 
 static size_t print_AS6_0(struct printbuf *kafka_line_buffer,const struct in6_addr *ipv6){
@@ -1578,23 +1621,35 @@ size_t print_AS6(struct printbuf *kafka_line_buffer,
   return print_AS6_0(kafka_line_buffer,&ipv6);
 }
 
-static size_t print_country6_code0(struct printbuf *kafka_line_buffer, const struct in6_addr *ipv6){
-  if(readOnlyGlobals.geo_ip_country_db_v6){
-    pthread_rwlock_rdlock(&readWriteGlobals->geoipRwLock);
-    const char *country = GeoIP_country_code_by_ipnum_v6(readOnlyGlobals.geo_ip_country_db_v6,*ipv6);
-    pthread_rwlock_unlock(&readWriteGlobals->geoipRwLock);
-    if (country) {
-      return append_escaped(kafka_line_buffer, country, strlen(country));
-    }
+/**
+ * Print ipv6 country code with no locking or checking
+ * @param  kafka_line_buffer Line buffer to print country code
+ * @param  ipv6              IPv6 to print
+ * @return                   Bytes printed
+ */
+static size_t print_country6_code_nl(struct printbuf *kafka_line_buffer,
+    const struct in6_addr ipv6) {
+  if (!readOnlyGlobals.geo_ip_country_db_v6) {
+    return 0;
   }
-  return 0;
+
+  const char *country = is_ipv4_mapped(&ipv6) ?
+    GeoIP_country_code_by_ipnum(readOnlyGlobals.geo_ip_country_db,
+      ipv6_to_v4(ipv6)) :
+    GeoIP_country_code_by_ipnum_v6(readOnlyGlobals.geo_ip_country_db_v6, ipv6);
+  if (!country) {
+    return 0;
+  }
+
+  return append_escaped(kafka_line_buffer, country, strlen(country));
 }
 
 // Same function as print_country6_code0 but with an extra flowCache parameter
 static size_t print_country6_code_fc(struct printbuf *kafka_line_buffer,
-    const void *ipv6, struct flowCache *flow_cache) {
+    const void *vipv6, struct flowCache *flow_cache) {
   (void)flow_cache;
-  return print_country6_code0(kafka_line_buffer, ipv6);
+  const struct in6_addr ipv6 = get_ipv6(vipv6);
+  return geoip_decorator(kafka_line_buffer, ipv6, print_country6_code_nl);
 }
 
 size_t print_country6_code(struct printbuf *kafka_line_buffer,
@@ -1610,7 +1665,7 @@ size_t print_country6_code(struct printbuf *kafka_line_buffer,
   }
 
   const struct in6_addr ipv6 = get_ipv6(buffer);
-  return print_country6_code0(kafka_line_buffer,&ipv6);
+  return geoip_decorator(kafka_line_buffer, ipv6, print_country6_code_nl);
 }
 
 size_t print_lan_country_code(struct printbuf *kafka_line_buffer,
@@ -1631,9 +1686,10 @@ size_t print_wan_country_code(struct printbuf *kafka_line_buffer,
 
 /// Wrapper to call print_AS6_0 with a flow_cache
 static size_t print_AS6_name_fc(struct printbuf *kafka_line_buffer,
-    const void *ipv6, struct flowCache *flow_cache) {
+    const void *vipv6, struct flowCache *flow_cache) {
   (void)flow_cache;
-  return print_AS6_name0(kafka_line_buffer, ipv6);
+  struct in6_addr ipv6 = get_ipv6(vipv6);
+  return geoip_decorator(kafka_line_buffer, ipv6, print_AS6_name_nl);
 }
 
 size_t print_lan_AS_name(struct printbuf *kafka_line_buffer,
