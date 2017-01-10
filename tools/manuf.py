@@ -1,4 +1,4 @@
-#/usr/bin/env python3
+#!/usr/bin/env python3
 
 import urllib.request
 import csv
@@ -10,7 +10,7 @@ urls = [
 	'https://standards.ieee.org/develop/regauth/oui28/mam.csv',
 	'https://standards.ieee.org/develop/regauth/oui36/oui36.csv']
 
-with open('manuf','w') as manuf:
+with open('manuf','w',encoding='utf8') as manuf:
 	for url in urls:
 		url_fetcher = urllib.request.urlopen(url)
 		reader = csv.DictReader(codecs.iterdecode(url_fetcher, 'utf-8'))
