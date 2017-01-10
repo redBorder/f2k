@@ -151,4 +151,7 @@ coverage-html: coverage
 	genhtml --branch-coverage ${COVERAGE_INFO} --output-directory \
 				${COVERAGE_OUTPUT_DIRECTORY} > coverage.out
 
+rpm: clean
+	$(MAKE) -C packaging/rpm
+
 -include $(DEPS)
