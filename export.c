@@ -490,7 +490,6 @@ size_t process_direction(struct printbuf *kafka_line_buffer,
  * @param kafka_line_buffer   unused
  * @param vbuffer             Buffer where MAC address is
  * @param real_field_len      Length of buffer (needs to be 6)
- * @param real_field_offset   Offset of mac in buffer
  * @param flowCache           unused
  */
 static void save_mac(uint8_t *dst_buffer, const char *src_buffer_mac_name,
@@ -514,7 +513,6 @@ static void save_mac(uint8_t *dst_buffer, const char *src_buffer_mac_name,
  * @param  kafka_line_buffer   Buffer to print MAC
  * @param  vbuffer             MAC buffer
  * @param  real_field_len      MAC length
- * @param  real_field_offset   MAC offset
  * @return                     [description]
  */
 static size_t process_mac0(uint8_t *dst_buffer, const char *src_buffer_mac_name,
@@ -599,7 +597,6 @@ static void ipv4buf_to_6(uint8_t ipv6[16],const void *vbuffer){
   @param kafka_line_buffer Buffer to print net information
   @param vbuffer Buffer where net is
   @param real_field_len Length of buffer
-  @param real_field_offset Offset of net in buffer
   @param flowCache Flow cache information
   @param sensor_list_search_cb Callback to search in sensor information
   @param global_net_list_cb Callback to manage global nets list.
@@ -680,7 +677,6 @@ size_t print_net_name_v6(struct printbuf *kafka_line_buffer,
  * @param  kafka_line_buffer Kafka line buffer to print
  * @param  vbuffer           Buffer
  * @param  real_field_len    IPv4 length length
- * @param  real_field_offset IPv4 offset in buffer
  * @param  flowCache         Flow cache
  * @param  cb                Function to call with IPv6 buffer
  * @return                   Printed length
@@ -1732,7 +1728,6 @@ static const uint8_t http_host_id[] = {0x03, 0x00, 0x00, 0x50, 0x34, 0x02};
  * @param kafka_line_buffer          Buffer to print result
  * @param vbuffer                    Buffer with data
  * @param real_field_len             Length of attribute
- * @param real_field_offset          Offset of attribute because of variable len
  * @param flowCache                  Flow cache
  * @param expected_identifier        Expected CISCO identifier
  * @param expected_identifier_length Expected CISCO identifier length
@@ -2117,7 +2112,7 @@ size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
   if (NULL!=templateElement->export_fn) {
 #ifdef WITH_PRINT_BOUND_CHECKS
     // Valgrind can watch for out of bounds reads in the heap
-    const size_t copy_size = real_field_len + real_field_len_offset;
+    const size_t copy_size = real_field_len
     uint8_t *buffer_heap_copy = malloc(copy_size);
     memcpy(buffer_heap_copy, buffer, copy_size);
 #endif
