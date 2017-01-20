@@ -2110,7 +2110,7 @@ size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
   }
 
   if (NULL!=templateElement->export_fn) {
-#ifdef WITH_PRINT_BOUND_CHECKS
+#if WITH_PRINT_BOUND_CHECKS
     // Valgrind can watch for out of bounds reads in the heap
     const size_t copy_size = real_field_len
     uint8_t *buffer_heap_copy = malloc(copy_size);
@@ -2120,7 +2120,7 @@ size_t printNetflowRecordWithTemplate(struct printbuf *kafka_line_buffer,
     value_ret = templateElement->export_fn(kafka_line_buffer, buffer,
       real_field_len, flowCache);
 
-#ifdef WITH_PRINT_BOUND_CHECKS
+#if WITH_PRINT_BOUND_CHECKS
     free(buffer_heap_copy);
 #endif
   }
