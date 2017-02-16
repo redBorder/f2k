@@ -759,6 +759,9 @@ struct sensor {
     const char *ip_str;
   } network;
 
+  // Used for sensors with dynamic ip
+  const char *serial_number;
+
   /** Associated worker, so the same sensor always goes to the
   same worker, avoiding reordering and data races
   @todo worker by observation id? */
@@ -897,6 +900,12 @@ static int compare_bad_sensors(const void *_s1, const void *_s2) {
   return s1->ip > s2->ip ? 1 : (s2->ip == s1->ip ? 0 : -1);
 }
 
+/**
+ * Compares two sensors to avoid duplicates in the binary tree
+ * @param  _s1 Current sensor
+ * @param  _s2 New sensor
+ * @return     Different from zero if both sensors are considered equal
+ */
 static int compare_sensors(const void *_s1, const void *_s2) {
   const struct sensor *s1 = _s1;
   const struct sensor *s2 = _s2;
@@ -904,10 +913,17 @@ static int compare_sensors(const void *_s1, const void *_s2) {
   assert(s1->magic == SENSOR_MAGIC);
   assert(s2->magic == SENSOR_MAGIC);
 
-  uint8_t ipv6[16];
-  apply_netmask(ipv6, s1->network.ip.network, s2->network.ip.networkMask);
+  if (NULL != s1->serial_number && NULL != s2->serial_number) {
+    return strcmp(s1->serial_number, s2->serial_number);
+  }
 
-  return memcmp(ipv6, &s2->network.ip, sizeof(ipv6));
+  if (NULL == s1->serial_number && NULL == s2->serial_number) {
+    uint8_t ipv6[16];
+    apply_netmask(ipv6, s1->network.ip.network, s2->network.ip.networkMask);
+    return memcmp(ipv6, &s2->network.ip, sizeof(ipv6));
+  }
+
+  return 1;
 }
 
 static struct bad_sensor *find_bad_sensor(uint64_t ip,
@@ -976,41 +992,40 @@ static uint32_t parse_observation_id_number(const char *debug_ip_str,
   return oid;
 }
 
-static struct sensor *parse_sensor(json_t *jsensor, const char *ip_str) {
+/**
+ * Parses the obervation ID data from a JSON sensor object
+ * @param  jsensor         JSON object with sensor data
+ * @param  sensor          Sensor struct to store the info
+ * @param  observations_id Observations ID to iterate through
+ * @param  id              Used to identify the sensor on errors
+ * @return                 Zero on success, != 0 in other case.
+ */
+static int parse_observations_id0(json_t *jsensor, struct sensor *sensor,
+                                  json_t **observations_id, const char *id) {
   static const char observations_id_key[] = "observations_id";
-  const char *observation_id_key = NULL;
-  json_t *observation_id = NULL;
 
   if (!json_is_object(jsensor)) {
-    traceEvent(TRACE_ERROR, "%s in not an object in config file.\n", ip_str);
-    return NULL;
+    traceEvent(TRACE_ERROR, "%s in not an object in config file.\n", id);
+    return 1;
   }
 
-  json_t *observations_id = json_object_get(jsensor, observations_id_key);
+  *observations_id = json_object_get(jsensor, observations_id_key);
   if (!observations_id) {
     traceEvent(TRACE_ERROR, "Sensor %s has not \"%s\" property in config file",
-               ip_str, observations_id_key);
-    return NULL;
+               id, observations_id_key);
+    return 1;
   }
 
-  if (!json_is_object(observations_id)) {
+  if (!json_is_object(*observations_id)) {
     traceEvent(TRACE_ERROR, "\"%s\" property is not an object in sensor %s",
-               observations_id_key, ip_str);
-    return NULL;
+               observations_id_key, id);
+    return 1;
   }
 
-  if (0 == json_object_size(observations_id)) {
+  if (0 == json_object_size(*observations_id)) {
     traceEvent(TRACE_ERROR, "No \"%s\" defined in sensor %s",
-               observations_id_key, ip_str);
-    return NULL;
-  }
-
-  struct sensor *sensor = calloc(1, sizeof(*sensor));
-  if (unlikely(NULL == sensor)) {
-    traceEvent(TRACE_ERROR,
-               "Can't allocate sensor of network %s memory (out of memory?)",
-               ip_str);
-    return NULL;
+               observations_id_key, id);
+    return 1;
   }
 
 #ifdef SENSOR_MAGIC
@@ -1018,12 +1033,19 @@ static struct sensor *parse_sensor(json_t *jsensor, const char *ip_str) {
 #endif
   sensor->refcnt.value = 1;
 
-  const bool parse_address_rc = safe_parse_address(ip_str, &sensor->network.ip);
-  if (!parse_address_rc) {
-    traceEvent(TRACE_ERROR, "Couldn't parse %s sensor address", ip_str);
-    free(sensor);
-    return NULL;
-  }
+  return 0;
+}
+
+/**
+ * Parses the obervation ID data from a JSON sensor object
+ * @param  sensor          Sensor struct to store the info
+ * @param  observations_id Observations ID to iterate through
+ * @param  id              Used to identify the sensor on errors
+ */
+static void parse_observations_id(struct sensor *sensor,
+                                  json_t *observations_id, const char *id) {
+  const char *observation_id_key = NULL;
+  json_t *observation_id = NULL;
 
   rd_avl_init(&sensor->observations_id_db, observation_id_cmp, 0);
 
@@ -1033,10 +1055,9 @@ static struct sensor *parse_sensor(json_t *jsensor, const char *ip_str) {
     observation_id_t *cur_observation_id = NULL;
 
     const uint32_t observation_id_n =
-        parsing_default_oid
-            ? 0
-            : parse_observation_id_number(ip_str, observation_id_key,
-                                          &observation_id_ok);
+        parsing_default_oid ? 0
+                            : parse_observation_id_number(
+                                  id, observation_id_key, &observation_id_ok);
 
     if (!observation_id_ok) {
       continue;
@@ -1055,6 +1076,77 @@ static struct sensor *parse_sensor(json_t *jsensor, const char *ip_str) {
                         list_node);
     }
   }
+}
+
+/**
+ * Parse a JSON object representing a sensor identified by its serial number
+ * @param  jsensor       JSON object containing the information.
+ * @param  serial_number Serial number of the sensor
+ * @return               Sensor data parsed
+ */
+static struct sensor *parse_serial_number_sensor(json_t *jsensor,
+                                                 const char *serial_number) {
+  json_t *observations_id = NULL;
+
+  struct sensor *sensor = calloc(1, sizeof(*sensor));
+  if (unlikely(NULL == sensor)) {
+    traceEvent(TRACE_ERROR, "Can't allocate sensor %s memory (out of memory?)",
+               serial_number);
+    return NULL;
+  }
+
+  const int rc =
+      parse_observations_id0(jsensor, sensor, &observations_id, serial_number);
+  if (rc) {
+    traceEvent(TRACE_ERROR,
+               "Can't parse sensor observations_id %s memory (out of memory?)",
+               serial_number);
+    return NULL;
+  }
+
+  // FIXME release memory
+  sensor->serial_number = calloc(strlen(serial_number) + 1, sizeof(char));
+  memcpy(&sensor->serial_number, &serial_number, strlen(serial_number) + 1);
+
+  parse_observations_id(sensor, observations_id, serial_number);
+
+  return sensor;
+}
+
+/**
+ * Parse a JSON object representing a sensor identified by its network
+ * @param  jsensor       JSON object containing the information.
+ * @param  ip_str        IP of the sensor
+ * @return               Sensor data parsed
+ */
+static struct sensor *parse_network_sensor(json_t *jsensor,
+                                           const char *ip_str) {
+  json_t *observations_id = NULL;
+
+  struct sensor *sensor = calloc(1, sizeof(*sensor));
+  if (unlikely(NULL == sensor)) {
+    traceEvent(TRACE_ERROR, "Can't allocate sensor %s memory (out of memory?)",
+               ip_str);
+    return NULL;
+  }
+
+  const int rc =
+      parse_observations_id0(jsensor, sensor, &observations_id, ip_str);
+  if (rc) {
+    traceEvent(TRACE_ERROR,
+               "Can't parse sensor observations_id %s memory (out of memory?)",
+               ip_str);
+    return NULL;
+  }
+
+  const bool parse_address_rc = safe_parse_address(ip_str, &sensor->network.ip);
+  if (!parse_address_rc) {
+    traceEvent(TRACE_ERROR, "Couldn't parse %s sensor address", ip_str);
+    free(sensor);
+    return NULL;
+  }
+
+  parse_observations_id(sensor, observations_id, ip_str);
 
   return sensor;
 }
@@ -1078,24 +1170,83 @@ static struct rb_sensors_db *allocate_rb_sensors_db() {
   return database;
 }
 
+/**
+ * Read information from sensors identified by its network
+ * @param  database         Database to add the sensor data
+ * @param  sensors_networks JSON object containing sensors
+ * @param  worker_list      Workers list
+ * @param  worker_list_size Size of the worker list
+ * @return                  True on success
+ */
 static bool read_rb_config_sensors_networks(struct rb_sensors_db *database,
                                             json_t *sensors_networks,
                                             worker_t **worker_list,
                                             size_t worker_list_size) {
-
   const char *network = NULL;
   json_t *network_config = NULL;
   size_t worker_idx = 0;
 
   json_object_foreach(sensors_networks, network, network_config) {
     if (!json_is_object(network_config)) {
-      traceEvent(TRACE_ERROR, "%s sensor network is not an object in config"
-                              " file.",
-                 network);
+      traceEvent(TRACE_ERROR,
+                 "%s sensor network is not an object in config file.", network);
       continue;
     }
 
-    struct sensor *sensor = parse_sensor(network_config, network);
+    struct sensor *sensor = parse_network_sensor(network_config, network);
+    if (NULL == sensor) {
+      continue;
+    }
+
+    sensor->worker = worker_list[worker_idx++];
+    if (worker_idx >= worker_list_size) {
+      worker_idx = 0;
+    }
+
+    struct sensor *old_sensor =
+        rd_avl_insert(&database->sensors.avl, sensor, &sensor->avl_node);
+
+    if (old_sensor) {
+      traceEvent(TRACE_ERROR,
+                 "Error: Network %s match with network %s. Discarding old one.",
+                 sensor->network.ip_str, old_sensor->network.ip_str);
+      rb_sensor_decref(old_sensor);
+    }
+
+    SLIST_INSERT_HEAD(&database->sensors_list, sensor, list_node);
+  }
+
+  return true;
+}
+
+/**
+ * Read information from sensors identified by its serial number
+ * @param  database         Database to add the sensor data
+ * @param  sensors_networks JSON object containing sensors
+ * @param  worker_list      Workers list
+ * @param  worker_list_size Size of the worker list
+ * @return                  True on success
+ */
+static bool read_rb_config_sensors_serial_numbers(
+    struct rb_sensors_db *database, json_t *sensors_serial_numbers,
+    worker_t **worker_list, size_t worker_list_size) {
+
+  const char *serial_number = NULL;
+  json_t *serial_number_config = NULL;
+  size_t worker_idx = 0;
+
+  json_object_foreach(sensors_serial_numbers, serial_number,
+                      serial_number_config) {
+
+    if (!json_is_object(serial_number_config)) {
+      traceEvent(TRACE_ERROR,
+                 "%s sensors_serial_numbers is not an object in config file.",
+                 serial_number);
+      continue;
+    }
+
+    struct sensor *sensor =
+        parse_serial_number_sensor(serial_number_config, serial_number);
     if (NULL == sensor) {
       continue;
     }
@@ -1145,21 +1296,37 @@ struct rb_sensors_db *read_rb_config(const char *json_path,
   if (database && database->root) {
     json_t *sensors_networks =
         json_object_get(database->root, "sensors_networks");
+    json_t *sensors_serial_numbers =
+        json_object_get(database->root, "sensors_serial_numbers");
 
-    if (NULL == sensors_networks) {
+    if (NULL == sensors_networks && NULL == sensors_serial_numbers) {
       traceEvent(TRACE_ERROR, "Could not load %s(%d): %s.\n", json_path,
                  error.line, error.text);
-    } else {
+      return database;
+    }
+
+    if (NULL != sensors_serial_numbers) {
+      const bool rc = read_rb_config_sensors_serial_numbers(
+          database, sensors_serial_numbers, worker_list, worker_list_size);
+      if (!rc) {
+        goto fail;
+      }
+    }
+
+    if (NULL != sensors_networks) {
       const bool rc = read_rb_config_sensors_networks(
           database, sensors_networks, worker_list, worker_list_size);
       if (!rc) {
-        delete_rb_sensors_db(database);
-        database = NULL;
+        goto fail;
       }
     }
   }
 
   return database;
+
+fail:
+  delete_rb_sensors_db(database);
+  return NULL;
 }
 
 static struct sensor dummy_sensor(const uint64_t ip) {
