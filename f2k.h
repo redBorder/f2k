@@ -246,6 +246,11 @@ typedef struct {
   } kafka;
 
   struct {
+    rd_kafka_t            *rk;
+    rd_kafka_topic_t      *rkt;
+  } kafka_discarder;
+
+  struct {
     rd_kafka_conf_t *conf;
     char *topic;
   } kafka_consumer;
