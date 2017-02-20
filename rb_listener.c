@@ -86,16 +86,26 @@ static void* netFlowCollectLoop0(struct port_collector *collector) {
       qpacket->netflow_device_ip = ntohl(fromHostV4.sin_addr.s_addr);
       qpacket->sensor = get_sensor(
         readOnlyGlobals.rb_databases.sensors_info, qpacket->netflow_device_ip);
+
       if(NULL==qpacket->sensor) {
-        const size_t bufsize = 1024;
-        char buf[bufsize];
-        const int bad_sensor_added = addBadSensor(
-        readOnlyGlobals.rb_databases.sensors_info, qpacket->netflow_device_ip);
-        if(bad_sensor_added) {
-          traceEvent(TRACE_WARNING,
-            "Received a packet from the unknow sensor %s on port %u.",
-                      _intoaV4(qpacket->netflow_device_ip,buf,bufsize),
-                      collector->port);
+        // Discard flow from unknow sensors to discard topic
+        if (NULL != readOnlyGlobals.kafka_discarder.rk) {
+          rd_kafka_produce(readOnlyGlobals.kafka_discarder.rkt,
+                           RD_KAFKA_PARTITION_UA, RD_KAFKA_MSG_F_COPY,
+                           qpacket->buffer, qpacket->buffer_len,
+                           &qpacket->netflow_device_ip,
+                           sizeof(qpacket->netflow_device_ip), NULL);
+        } else {
+          const size_t bufsize = 1024;
+          char buf[bufsize];
+          const int bad_sensor_added = addBadSensor(
+          readOnlyGlobals.rb_databases.sensors_info, qpacket->netflow_device_ip);
+          if(bad_sensor_added) {
+            traceEvent(TRACE_WARNING,
+              "Received a packet from the unknow sensor %s on port %u.",
+                        _intoaV4(qpacket->netflow_device_ip,buf,bufsize),
+                        collector->port);
+          }
         }
       } else {
         worker_t *worker = sensor_worker(qpacket->sensor);

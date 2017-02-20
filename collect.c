@@ -1945,24 +1945,29 @@ static QueuedPacket *get_packet(worker_t *worker, rd_kafka_t *rk) {
       goto clean_rk_message;
     }
 
-    const uint32_t sensor_ip = *(const uint32_t *)rkmessage->key;
-    struct sensor *sensor =
-        get_sensor(readOnlyGlobals.rb_databases.sensors_info, sensor_ip);
-
-    if (!sensor) {
-      goto clean_rk_message;
-    }
-
     packet = calloc(1, sizeof(QueuedPacket));
     if (NULL == packet) {
       goto clean_rk_message;
     }
 
+    packet->netflow_device_ip = *(const uint32_t *)rkmessage->key;
+    packet->sensor = get_sensor(readOnlyGlobals.rb_databases.sensors_info,
+                                packet->netflow_device_ip);
     packet->buffer = rkmessage->payload;
     packet->buffer_len = rkmessage->len;
     packet->original_message = rkmessage;
-    packet->netflow_device_ip = sensor_ip;
-    packet->sensor = sensor;
+
+    if (!packet->sensor) {
+      // Discard flow from unknow sensors to discard topic
+      if (NULL != readOnlyGlobals.kafka_discarder.rk) {
+        rd_kafka_produce(readOnlyGlobals.kafka_discarder.rkt,
+                         RD_KAFKA_PARTITION_UA, RD_KAFKA_MSG_F_COPY,
+                         packet->buffer, packet->buffer_len,
+                         &packet->netflow_device_ip,
+                         sizeof(packet->netflow_device_ip), NULL);
+        goto clean_rk_message;
+      }
+    }
 
     return packet;
 
