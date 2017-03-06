@@ -1965,8 +1965,9 @@ static QueuedPacket *get_packet(worker_t *worker, rd_kafka_t *rk) {
                          packet->buffer, packet->buffer_len,
                          &packet->netflow_device_ip,
                          sizeof(packet->netflow_device_ip), NULL);
-        goto clean_rk_message;
       }
+
+      goto clean_rk_message;
     }
 
     return packet;
