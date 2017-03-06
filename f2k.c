@@ -134,6 +134,7 @@ static const struct option long_options[] = {
 #ifdef HAVE_LIBRDKAFKA
   { "kafka",                            required_argument,       NULL, 229 },
   { "kafka-netflow-consumer",           required_argument,       NULL, 230 },
+  { "kafka-discarder",                  required_argument,       NULL, 231 },
   { "rdkafka-opt",                      required_argument,       NULL, 'X' },
   { "rdkafka-netflow-consumer-opt",     required_argument,       NULL, 'Y' },
   { "use-kafka-random-partitioner",     no_argument,             NULL, 'p' },
@@ -679,6 +680,7 @@ static void usage() {
   printf("--event-log <file>                  | Dump relevant activities into the specified log file\n");
 #ifdef HAVE_LIBRDKAFKA
   printf("--kafka <broker IP>:<topic>         | Deliver flows to the specified Apache Kafka broker. Example localhost:test\n");
+  printf("--kafka-discarder <broker>:<topic>  | Deliver flows from unknows IP to the specified Apache Kafka broker. Example localhost:test\n");
   printf("--use-kafka-random-partitioner      | Use random partitioning in kafka");
 #endif
   printf("--hosts-path                        | Path to your own /etc/hosts, /etc/networks and vlans mapping\n");
@@ -940,10 +942,14 @@ static int parseOptions(int argc, char* argv[], const bool reparse_options) {
 #ifdef HAVE_LIBRDKAFKA
   readOnlyGlobals.kafka.use_client_mac_partitioner = 1;
   char *kafka_topic = NULL;
+  char *kafka_discarder_topic = NULL;
   rd_kafka_conf_t *rk_conf = reparse_options ? NULL : rd_kafka_conf_new();
+  rd_kafka_conf_t *rk_discarder_conf = reparse_options ? NULL : rd_kafka_conf_new();
   rd_kafka_topic_conf_t *rk_nf_consumer_topic_conf = reparse_options ? NULL :
     rd_kafka_topic_conf_new();
   rd_kafka_topic_conf_t *rkt_conf = reparse_options ? NULL :
+    rd_kafka_topic_conf_new();
+  rd_kafka_topic_conf_t *rkt_discarder_conf = reparse_options ? NULL :
     rd_kafka_topic_conf_new();
   if (!reparse_options) {
     readOnlyGlobals.kafka_consumer.conf = rd_kafka_conf_new();
@@ -1074,7 +1080,7 @@ static int parseOptions(int argc, char* argv[], const bool reparse_options) {
                            "n:O:s:S:T:u:U:x:vz:"
                            "G"
 #ifdef HAVE_LIBRDKAFKA
-                           "X:Y:p\xe6"
+                           "X:Y:Z:p\xe6\xe7"
 #endif
 #ifdef HAVE_ZOOKEEPER
                            "Z:"
@@ -1327,6 +1333,16 @@ static int parseOptions(int argc, char* argv[], const bool reparse_options) {
       }
       break;
 
+    case 231:
+      {
+        const bool rc = parse_kafka_broker_topic_arg(optarg, rk_discarder_conf,
+          &kafka_discarder_topic);
+        if (!rc) {
+          exit(0);
+        }
+      }
+      break;
+
     case 'X':
       parse_kafka_config(rk_conf, rkt_conf, optarg);
       break;
@@ -1334,6 +1350,10 @@ static int parseOptions(int argc, char* argv[], const bool reparse_options) {
     case 'Y':
       parse_kafka_config(readOnlyGlobals.kafka_consumer.conf,
         rk_nf_consumer_topic_conf, optarg);
+      break;
+
+    case 'Z':
+      parse_kafka_config(rk_discarder_conf, rkt_discarder_conf, optarg);
       break;
 
 #endif /* HAVE_LIBRDKAFKA */
@@ -1491,6 +1511,8 @@ udns_config_err:
 
     parse_kafka_config(rk_conf, NULL, "socket.keepalive.enable=true");
     parse_kafka_config(rk_conf, NULL, "socket.max.fails=3");
+    parse_kafka_config(rk_discarder_conf, NULL, "socket.keepalive.enable=true");
+    parse_kafka_config(rk_discarder_conf, NULL, "socket.max.fails=3");
 
     if (readOnlyGlobals.kafka.use_client_mac_partitioner) {
       rd_kafka_topic_conf_set_partitioner_cb(rkt_conf,
@@ -1514,7 +1536,26 @@ udns_config_err:
       exit(0);
     }
 
+    if (NULL != kafka_discarder_topic) {
+      readOnlyGlobals.kafka_discarder.rk = rd_kafka_new(
+          RD_KAFKA_PRODUCER, rk_discarder_conf, errstr, sizeof(errstr));
+      if (unlikely(NULL == readOnlyGlobals.kafka_discarder.rk)) {
+        traceEvent(TRACE_ERROR, "Unable to create kafka handler: %s", errstr);
+        exit(0);
+      }
+
+      readOnlyGlobals.kafka_discarder.rkt = rd_kafka_topic_new(
+          readOnlyGlobals.kafka_discarder.rk, kafka_discarder_topic, rkt_discarder_conf);
+      if (unlikely(NULL == readOnlyGlobals.kafka_discarder.rkt)) {
+        traceEvent(TRACE_ERROR, "Unable to create a kafka topic");
+        rd_kafka_destroy(readOnlyGlobals.kafka_discarder.rk);
+        readOnlyGlobals.kafka_discarder.rk = NULL;
+        exit(0);
+      }
+    }
+
     free(kafka_topic);
+    free(kafka_discarder_topic);
 
     if (rd_kafka_topic_conf_set(rk_nf_consumer_topic_conf,
                                 "offset.store.method", "broker", errstr,
@@ -2447,4 +2488,3 @@ int main(int argc, char *argv[]) {
 }
 
 /* ******************************** */
-
