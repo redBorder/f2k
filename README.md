@@ -6,23 +6,27 @@
 Netflow to
 [Json](http://www.json.org/)/[Kafka](https://kafka.apache.org/) collector.
 
-# Setup
+## Setup
 To use it, you only need to do a typical `./configure && make && make install`
 
-# Usage
-## Basic usage
+## Usage
+
+### Basic usage
 
 The most important configuration parameters are:
 
-- Input/output parameters:
+- Output parameters:
     - `--kafka=127.0.0.1@rb_flow`, broker@topic to send netflow
+
+- Input parameters: Can be either UDP port or Kafka topic
     - `--collector-port=2055`, Collector port to listen netflow
+    - `--kafka-netflow-consumer=kafka@rb_flow_pre`, Kafka host/topic to listen for netflow
 
 - Configuration
   - `--rb-config=/opt/rb/etc/f2k/config.json`, File with sensors
     config (see [Sensor config](#sensor-config))
 
-## Sensors config
+### Sensors config
 You need to specify each sensor you want to read netflow from in a JSON file:
 ```json
 {
@@ -47,6 +51,7 @@ With this file, you will be listening for netflow coming from
 will be sent with that `sensor_ip`, `sensor_name` and `observation_id` keys.
 
 ## Others configuration parameters
+
 ### Multi-thread
 `--num-threads=N` can be used to specify the number of netflow processing
 threads.
@@ -72,7 +77,7 @@ You can include more flow information, like many object names, with the option
 `--hosts-path=/opt/rb/etc/objects/`. This folder needs to have files with the
 provided names in order to f2k read them.
 
-#### Mac vendor information (`mac_vendor`)
+### Mac vendor information (`mac_vendor`)
 With `--mac-vendor-list=mac_vendors` f2k can translate flow source and
 destination macs, and they will be sending in JSON output as `in_src_mac_name`,
 `out_src_mac_name`, and so on.
@@ -86,7 +91,7 @@ The file `mac_vendors` should be like:
 And you can generate it using `make manuf`, that will obtain it automatically
 from [IANA Registration Authority](http://standards.ieee.org/develop/regauth/).
 
-#### Applications/engine ID (`applications`, `engines`)
+### Applications/engine ID (`applications`, `engines`)
 `f2k` can translate applications and engine ID if you specify a list with them,
 like:
 
@@ -109,12 +114,12 @@ like:
     ...
     ```
 
-#### Hosts, domains, vlan (`hosts`, `http_domains`, `vlans`)
+### Hosts, domains, vlan (`hosts`, `http_domains`, `vlans`)
 You can include more information about the flow source and destination (
 `src_name` and `dst_name`) using a hosts list, using the same format as
 `/etc/hosts`. The same can be used with files `vlan`, `domains`, `macs`.
 
-#### Netflow probe nets
+### Netflow probe nets
 You can specify per netflow probe home nets, so they will be taking into account
 when solving client/target IP.
 
@@ -132,7 +137,7 @@ You could specify them using `home_nets`:
 }}}
 ```
 
-#### DNS
+### DNS
 `f2k` can make reverse DNS in order to obtain some hosts names. To enable them,
 you must use:
 - `enable-ptr-dns`, general enable
@@ -140,6 +145,7 @@ you must use:
 - `dns-cache-timeout-s`, Entry cache timeout
 
 ### Template cache
+
 #### Using folder
 You can specify a folder to save/load templates using
 `--template-cache=/opt/rb/var/f2k/templates`.
@@ -152,9 +158,22 @@ read them with `--zk-timeout=30`. Note that you need to compile `f2k` using
 
 ### [librdkafka](https://github.com/edenhill/librdkafka) options
 All [librdkafka options](https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md).
-  can be used using `-X` parameter. The argument will be passed directly to
-  librdkafka config, so you can use whatever config you need.
+can be used using `-X` (flow producer), `Y` (flow consumer), or `Z`
+(flow discarder) parameter. The argument will be passed directly to librdkafka
+config, so you can use whatever config you need.
 
-  Recommended options are:
-- `-X=socket.max.fails=3`,
-- `-X=delivery.report.only.error=true`,
+Example:
+
+```bash
+--kafka-discarder=kafka@rb_flow_discard     # Define host and topic
+--kafka-netflow-consumer=kafka@rb_flow_pre  # Define host and topic
+-X=socket.max.fails=3                       # Define configuration for flow producer
+-X=retry.backoff.ms=100                     # Define configuration for flow producer
+-Y=group.id=f2k                             # Define configuration for consumer
+-Z=group.id=f2k                             # Define configuration for discard producer
+```
+
+Recommended options are:
+
+- `socket.max.fails=3`,
+- `delivery.report.only.error=true`,

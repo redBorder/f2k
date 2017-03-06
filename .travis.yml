@@ -32,12 +32,16 @@ after_success:
   - coveralls --exclude /usr/lib --exclude tests --gcov-options '\-lp'
 
 before_deploy:
+  - docker run -v $(pwd):/app redborder/dev-containers:f2k make clean
+  - docker run -v $(pwd):/app redborder/dev-containers:f2k ./configure
+  - docker run -v $(pwd):/app redborder/dev-containers:f2k make
   - tar -cvzf f2k-${TRAVIS_TAG}.tar.gz f2k
 
 deploy:
   provider: releases
+  file: f2k-${TRAVIS_TAG}.tar.gz
+  skip_cleanup: true
   api_key:
     secure: YWOfroVEPC+4IfQrSvaP8HExFpFzSYjnOh/tvNA63iOxYi4SuR04NfjgtQMEnlJsRV05HM6LqAUyyzQhGgfqjvO3CACtGXtzFixDFKo3hdpJ0RmCeRcQSDLDTCYpuyMFXuCrqmT6INRLRa7E7wnYdaJI5lfZjqGit7wlbYpFOzSeKqFHNrMxpp74owRXvAuGLh6VMT4FpvBxuxWE7+Xos35eNR5WmSQwMIAw5LNE5QqJB1Fu0UjYNkSaLRecN8rsf8EXwJg7HA7Gw1CacSccuar4jhdo1pOWPUP1OZTP772Y3r/vtWXqmmTcoh1BcsUbt5v4HVS7cqHJDVffGegtYvQobkOPaHf3fsPcW0OgwrRTJUD3GwPRNQSvZG5r+ZZdKDs4f72brldVZl0HYI3zjZoGUOTThGsrU1l5uiDkbMnOO9wq14r2wKIFl9l3iS88KF23G4C+pLCrIUVxEglFLVh6dVoYMkHXTHaPoZiDwVPXzsiIsGxqxYitAHX7aOgm9F/JYKjEVVzbA0f2PW9A7LC0+AptqJEfRgC6Z798PAKgRcQBaM/7l5wHBySngTK6ZzjuRPq8DtKRr/ZRGRoBqnwUSTdBoYp27Ij7kf6cVgaZa+xa8Y3pyVVdev3bHG7v02a5oJ/Gzr425iR8Rs+MSEfGQdlNjXWkGHs3Yxu2X5k=
-  file: f2k-${TRAVIS_TAG}.tar.gz
   on:
     tags: true
