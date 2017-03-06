@@ -205,6 +205,9 @@ free_listener:
 }
 
 void wakeUpListenerList(listener_list *list) {
+  if (readOnlyGlobals.kafka_consumer.topic) {
+    return;
+  }
   struct port_collector *i = NULL;
   listener_list_foreach(i,list)
     wakeUpListener(i);
