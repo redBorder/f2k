@@ -1950,14 +1950,15 @@ static QueuedPacket *get_packet(worker_t *worker, rd_kafka_t *rk) {
       goto clean_rk_message;
     }
 
-    packet->netflow_device_ip = *(const uint32_t *)rkmessage->key;
-    packet->sensor = get_sensor(readOnlyGlobals.rb_databases.sensors_info,
-                                packet->netflow_device_ip);
+    packet->netflow_device_ip = ntohl(*(const uint32_t *)rkmessage->key);
     packet->buffer = rkmessage->payload;
     packet->buffer_len = rkmessage->len;
     packet->original_message = rkmessage;
 
-    if (!packet->sensor) {
+    packet->sensor = get_sensor(readOnlyGlobals.rb_databases.sensors_info,
+                                packet->netflow_device_ip);
+
+    if (NULL == packet->sensor) {
       // Discard flow from unknow sensors to discard topic
       if (NULL != readOnlyGlobals.kafka_discarder.rk) {
         rd_kafka_produce(readOnlyGlobals.kafka_discarder.rkt,
