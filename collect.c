@@ -1987,6 +1987,8 @@ static void *netFlowConsumerLoop(void *vworker) {
   // traceEvent(TRACE_NORMAL,"Creating consumer loop");
 
   if (readOnlyGlobals.kafka_consumer.topic) {
+    traceEvent(TRACE_NORMAL, "Creating kafka consumer in topic %s",
+               readOnlyGlobals.kafka_consumer.topic);
     rk = init_kafka_consumer();
   }
 
