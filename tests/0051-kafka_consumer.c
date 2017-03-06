@@ -128,7 +128,7 @@ static int prepare_test_nf9(void **state) {
 
 #define TEST(mrecord, mrecord_size, mcheckdata, mcheckdata_sz, ...) {  \
 		.host_list_path = NULL,                                        \
-		.netflow_src_ip = 0x04030201,                                  \
+		.netflow_src_ip = 0x01020304,                                  \
 		.record = mrecord,                                             \
 		.record_size = mrecord_size,                                   \
 		.checkdata = mcheckdata,                                       \
