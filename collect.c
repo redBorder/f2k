@@ -1818,9 +1818,18 @@ static struct string_list *dissectNetflowV9V10(worker_t *worker,
     observation_id_n);
 
   if (!observation_id) {
-    traceEvent(TRACE_ERROR,
-      "Received sensor %s flow with unknown observation id %"PRIu32,
-      sensor_ip_string(sensor_object), observation_id_n);
+    // Dump flow from unknown observation id
+    if (NULL != readOnlyGlobals.kafka_discarder.rk) {
+      rd_kafka_produce(readOnlyGlobals.kafka_discarder.rkt,
+                       RD_KAFKA_PARTITION_UA, RD_KAFKA_MSG_F_COPY,
+                       _buffer, bufferLen,
+                       &netflow_device_ip, sizeof(netflow_device_ip), NULL);
+    } else {
+      traceEvent(TRACE_ERROR,
+                 "Received sensor %s flow with unknown observation id %" PRIu32,
+                 sensor_ip_string(sensor_object), observation_id_n);
+    }
+
     return NULL;
   }
 
