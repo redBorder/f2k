@@ -107,8 +107,8 @@ const char* getStandardFieldId(size_t id);
 
 #ifdef HAVE_UDNS
 #define X_UDNS \
-	X(STANDARD_ENTERPRISE_ID, DNS_CLIENT_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DNS_CLIENT_NAME", "client_name", "client_name", "Client name obtained via reversed DNS" ,print_client_name, NO_CHILDS)\
-	X(STANDARD_ENTERPRISE_ID, DNS_TARGET_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DNS_TARGET_NAME", "target_name", "target_name", "Target name obtained via reversed DNS" ,print_target_name, NO_CHILDS)
+	X(STANDARD_ENTERPRISE_ID, DNS_CLIENT_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DNS_CLIENT_NAME", "lan_ip_name", "lan_ip_name", "Client name obtained via reversed DNS" ,print_client_name, NO_CHILDS)\
+	X(STANDARD_ENTERPRISE_ID, DNS_TARGET_NAME, PRIVATE_ENTITY_ID, QUOTE_OUTPUT, "DNS_TARGET_NAME", "wan_ip_name", "wan_ip_name", "Target name obtained via reversed DNS" ,print_target_name, NO_CHILDS)
 #else
 #define X_UDNS
 #endif
