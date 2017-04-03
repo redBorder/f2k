@@ -926,6 +926,7 @@ static bool parse_kafka_broker_topic_arg(const char *const_arg,
   char *config = NULL;
   asprintf(&config, "metadata.broker.list=%s", broker);
   parse_kafka_config(rk_conf, NULL, config);
+  free(config);
 
   *ret_topic = strdup(topic);
   return true;
@@ -2483,6 +2484,13 @@ int main(int argc, char *argv[]) {
   }
 
   shutdown_f2k();
+
+  if (NULL != readOnlyGlobals.kafka_discarder.rkt) {
+    rd_kafka_topic_destroy(readOnlyGlobals.kafka_discarder.rkt);
+  }
+  if (NULL != readOnlyGlobals.kafka_discarder.rk) {
+    rd_kafka_destroy(readOnlyGlobals.kafka_discarder.rk);
+  }
 
   return(0);
 }
