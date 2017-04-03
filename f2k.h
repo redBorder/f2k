@@ -166,6 +166,11 @@ struct fileList {
   struct fileList *next;
 };
 
+struct product_type {
+  int type;
+  char *name;
+};
+
 typedef struct {
   bool becomeDaemon;
   // will transform L2, L3 and L4 src/dst into lan/wan
@@ -283,6 +288,9 @@ typedef struct {
     rd_thread_t **dns_poll_threads;
   } udns;
 #endif
+
+  struct product_type **product_type_list;
+  size_t product_type_list_len;
 
   struct rb_databases rb_databases;
   char templates_database_path[PATH_MAX];

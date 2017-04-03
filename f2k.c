@@ -113,6 +113,7 @@ static const struct option long_options[] = {
   { "num-threads",                      required_argument,       NULL, 'O' },
   { "snaplen",                          required_argument,       NULL, 's' },
   { "sample-rate",                      required_argument,       NULL, 'S' },
+  { "product-type-list",                required_argument,       NULL, 'P' },
   { "version",                          no_argument,             NULL, 'v' },
 
 #ifdef HAVE_PF_RING
@@ -631,6 +632,7 @@ static void usage() {
          "                                    | 2 - Full verbose logging\n");
 
   printf("[--daemon-mode|-G]                  | Start as daemon.\n");
+  printf("[--product-type-list|-P]            | JSON file with the product type mapping.\n");
 
   printf("[--num-threads|-O] <# threads>      | Number of packet fetcher threads\n"
          "                                    | [default=%zu]. Use 1 unless you know\n"
@@ -1242,6 +1244,52 @@ static int parseOptions(int argc, char* argv[], const bool reparse_options) {
       }
 
       if(readOnlyGlobals.numProcessThreads <= 0) readOnlyGlobals.numProcessThreads = 1;
+      break;
+
+    case 'P':
+      {
+        json_error_t error;
+        json_t *json = json_load_file(optarg, 0, &error);
+
+        if (!json || !json_is_array(json)) {
+          traceEvent(TRACE_ERROR, "Error reading product type dictionary: %s",
+                     optarg);
+          return (-1);
+        }
+
+        readOnlyGlobals.product_type_list_len = json_array_size(json);
+        readOnlyGlobals.product_type_list = calloc(
+            readOnlyGlobals.product_type_list_len, sizeof(struct product_type));
+
+        size_t index;
+        json_t *value;
+        json_array_foreach(json, index, value) {
+          json_t *json_type = json_object_get(value, "type");
+          json_t *json_name = json_object_get(value, "name");
+
+          if (!json_is_integer(json_type)) {
+            traceEvent(TRACE_ERROR, "\"type\" is not integer");
+            return (-1);
+          }
+          if (!json_is_string(json_name)) {
+            traceEvent(TRACE_ERROR, "\"name\" is not string");
+            return (-1);
+          }
+
+          const int type = json_integer_value(json_type);
+          const char *name = json_string_value(json_name);
+
+          struct product_type *product = calloc(1, sizeof(struct product_type));
+
+          product->name = strdup(name);
+          product->type = type;
+
+          readOnlyGlobals.product_type_list[index] = product;
+        }
+
+        json_decref(json);
+      }
+
       break;
 
     case 'h':
@@ -2482,6 +2530,14 @@ int main(int argc, char *argv[]) {
       rd_kafka_poll(readOnlyGlobals.kafka.rk, 1000/* 1sec */);
     }
   }
+
+  int i = 0;
+  for(i = 0; i < (int)readOnlyGlobals.product_type_list_len; i++) {
+    free(readOnlyGlobals.product_type_list[i]->name);
+    free(readOnlyGlobals.product_type_list[i]);
+  }
+
+  free(readOnlyGlobals.product_type_list);
 
   shutdown_f2k();
 
