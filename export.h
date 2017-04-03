@@ -321,6 +321,10 @@ size_t print_mac_vendor(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     struct flowCache *flowCache);
 
+size_t print_product_name(struct printbuf *kafka_line_buffer,
+                          const void *buffer, const size_t real_field_len,
+                          struct flowCache *flowCache);
+
 #ifdef HAVE_GEOIP
 
 size_t print_AS_ipv4(struct printbuf * kafka_line_buffer,

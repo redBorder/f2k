@@ -1352,6 +1352,36 @@ size_t print_ipv6_dst_addr(struct printbuf *kafka_line_buffer,
     real_field_len);
 }
 
+size_t print_product_name(struct printbuf *kafka_line_buffer,
+                          const void *vbuffer, const size_t real_field_len,
+                          struct flowCache *flowCache) {
+
+  assert_multi(kafka_line_buffer, vbuffer);
+  unused_params(flowCache);
+
+  const uint8_t *buffer = vbuffer;
+  const uint64_t number = net2number(buffer, real_field_len);
+
+  int i;
+  char *product_name = NULL;
+  size_t product_name_len = 0;
+  for(i = 0; i < (int) readOnlyGlobals.product_type_list_len; i++) {
+    if(readOnlyGlobals.product_type_list[i]->type == (int)number) {
+      product_name = readOnlyGlobals.product_type_list[i]->name;
+      product_name_len = strlen(product_name);
+      break;
+    }
+  }
+
+
+  if (product_name) {
+    printbuf_memappend_fast(kafka_line_buffer, product_name, product_name_len);
+    return kafka_line_buffer->bpos - product_name_len;
+  }
+
+  return printbuf_memappend_fast_n10(kafka_line_buffer, number);
+}
+
 #ifdef HAVE_GEOIP
 
 size_t print_country_code(struct printbuf *kafka_line_buffer,
