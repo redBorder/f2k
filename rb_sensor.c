@@ -1372,7 +1372,10 @@ static void rb_sensor_delete(struct sensor *sensor) {
     observation_id_decref(node);
 	}
 
-  observation_id_decref(sensor->default_observation_id);
+  if(NULL != sensor->default_observation_id) {
+    observation_id_decref(sensor->default_observation_id);
+  }
+
 	free(sensor);
 }
 
