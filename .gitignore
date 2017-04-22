@@ -27,3 +27,8 @@ config.log.old
 /coverage.info
 /coverage.out
 /coverage.out.html/
+
+# RPM
+SOURCES
+pkgs
+

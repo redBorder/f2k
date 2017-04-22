@@ -1,0 +1,12 @@
+[Unit]
+Description=f2k - Netflow to Json/Kafka collector
+
+[Service]
+ExecStart=/usr/bin/f2k /etc/sysconfig/f2k
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+User=f2k
+Group=f2k
+
+[Install]
+WantedBy=multi-user.target
