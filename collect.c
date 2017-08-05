@@ -1846,8 +1846,6 @@ static struct string_list *dissectNetflowV9V10(worker_t *worker,
     string_list_concat(&kafka_string_list,_kafka_string_list);
   } /* for */
 
-  observation_id_decref(observation_id);
-
   return kafka_string_list;
 }
 
@@ -1895,7 +1893,6 @@ static struct string_list *dissectNetFlow(worker_t *worker,
       observation_id_n);
     struct string_list *ret = dissectNetFlowV5(worker, sensor_object,
       observation_id, the5Record);
-    observation_id_decref(observation_id);
     return ret;
   } else {
     traceEvent(TRACE_ERROR,"Uknown flow version %d",flowVersion);
@@ -1930,7 +1927,6 @@ static void pop_all_templates(template_queue_t *template_queue) {
     }
 
     save_template(qtemplate->observation_id, qtemplate->template);
-    observation_id_decref(qtemplate->observation_id);
     free(qtemplate->template);
     free(qtemplate);
   }
@@ -2021,7 +2017,6 @@ static void *netFlowConsumerLoop(void *vworker) {
         struct string_list *sl = dissectNetFlow(worker, packet->sensor,
                     packet->netflow_device_ip, packet->buffer,
                     packet->buffer_len);
-        rb_sensor_decref(packet->sensor);
         send_string_list_to_kafka(sl);
       }
 
