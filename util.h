@@ -56,6 +56,7 @@
 #endif
 
 typedef struct sensor_s sensor_t;
+typedef struct sensors_db_s sensors_db_t;
 
 /* ********* Packets queue ************ */
 typedef struct queued_packet_s {
@@ -381,7 +382,7 @@ struct rb_databases{
   char *geoip_country_database_path;
   char *mac_vendor_database_path;
   char *sensors_info_path;
-  struct rb_sensors_db *sensors_info;
+  sensors_db_t *sensors_info;
 };
 
 void load_vlan_mapping();

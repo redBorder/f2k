@@ -24,6 +24,8 @@
 
 #include "rb_sensor.h"
 
+typedef struct observation_id_s observation_id_t;
+
 struct worker_stats {
   time_t first_flow_processed_timestamp, last_flow_processed_timestamp;
   uint64_t num_packets_received, num_dissected_flow_packets,
