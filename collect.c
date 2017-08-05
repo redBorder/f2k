@@ -1592,7 +1592,7 @@ static size_t dissect_nf9_option_flow(observation_id_t *observation_id,
 
   if ((snmp.name.buffer && snmp.name.size > 0) ||
       (snmp_description.name.buffer && snmp_description.name.size > 0)) {
-    observation_id_add_interface(observation_id, snmp.id,
+    observation_id_add_new_interface(observation_id, snmp.id,
       snmp.name.buffer, snmp.name.size,
       snmp_description.name.buffer, snmp_description.name.size);
   }
