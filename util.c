@@ -1655,7 +1655,7 @@ static void save_template_in_database(FlowSetV9Ipfix *template) {
   assert(template);
   struct rb_sensors_db *db = readOnlyGlobals.rb_databases.sensors_info;
   const uint32_t netflow_device_ip = template->templateInfo.netflow_device_ip;
-  struct sensor *sensor = get_sensor(db, netflow_device_ip);
+  sensor_t *sensor = get_sensor(db, netflow_device_ip);
 
   if (!sensor) {
     char buf[BUFSIZ];

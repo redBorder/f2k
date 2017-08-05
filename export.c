@@ -57,7 +57,7 @@ struct flowCache *new_flowCache(){
   return calloc(1,sizeof(struct flowCache));
 }
 
-void associateSensor(struct flowCache *flowCache, struct sensor *sensor){
+void associateSensor(struct flowCache *flowCache, sensor_t *sensor){
   assert_multi(flowCache, sensor);
 
   flowCache->sensor = sensor;

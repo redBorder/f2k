@@ -45,7 +45,6 @@ worker_t *new_collect_worker();
 /// @todo delete this FW declaration
 struct queued_packet_s;
 struct flowSetV9Ipfix;
-struct sensor;
 
 /** Adds a packet to worker
   @param qpacket Packet to add

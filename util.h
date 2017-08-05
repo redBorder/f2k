@@ -55,12 +55,14 @@
 #define ATOMIC_TEST_AND_SET(PTR) __sync_val_compare_and_swap(PTR, false, true)
 #endif
 
+typedef struct sensor_s sensor_t;
+
 /* ********* Packets queue ************ */
 typedef struct queued_packet_s {
   uint32_t netflow_device_ip;
   uint8_t *buffer;
   ssize_t buffer_len;
-  struct sensor *sensor;
+  sensor_t *sensor;
   rd_kafka_message_t *original_message;
 } QueuedPacket;
 
