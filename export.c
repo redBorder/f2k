@@ -1004,7 +1004,7 @@ static uint64_t get_direction_based_client_port(
 
 static uint64_t get_direction_based_target_port(
     const struct flowCache *flow_cache) {
-  assert(flowCache);
+  assert(flow_cache);
 
   const uint64_t client_port = get_direction_based_client_port(flow_cache);
   return (client_port == flow_cache->ports.src) ? flow_cache->ports.dst :
