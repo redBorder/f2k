@@ -22,19 +22,19 @@ script:
   - docker run -d --net test --ip 172.26.0.2 --name zookeeper wurstmeister/zookeeper
   - docker run -d --net test --ip 172.26.0.3 --name kafka -e KAFKA_ADVERTISED_HOST_NAME="172.26.0.3" -e KAFKA_ADVERTISED_PORT="9092" -e KAFKA_ZOOKEEPER_CONNECT="172.26.0.2:2181" -v /var/run/docker.sock:/var/run/docker.sock wurstmeister/kafka
   - docker run -v $(pwd):/app redborder/dev-containers:f2k ./configure
-  - docker run -v $(pwd):/app redborder/dev-containers:f2k make -j4
-  - docker run -v $(pwd):/app --net test -e CFLAGS=-w --link kafka redborder/dev-containers:f2k make checks -j4
+  - docker run -v $(pwd):/app redborder/dev-containers:f2k scl enable devtoolset-4 "make -j4"
+  - docker run -v $(pwd):/app --net test -e CFLAGS=-w --link kafka redborder/dev-containers:f2k scl enable devtoolset-4 "make checks -j4"
 
 after_success:
   - docker run -v $(pwd):/app redborder/dev-containers:f2k make clean
   - docker run -v $(pwd):/app redborder/dev-containers:f2k ./configure --enable-coverage
-  - docker run -v $(pwd):/app -e CFLAGS=-w --link kafka --net test redborder/dev-containers:f2k make coverage
+  - docker run -v $(pwd):/app -e CFLAGS=-w --link kafka --net test redborder/dev-containers:f2k scl enable devtoolset-4 "make coverage"
   - coveralls --exclude /usr/lib --exclude tests --gcov-options '\-lp'
 
 before_deploy:
   - docker run -v $(pwd):/app redborder/dev-containers:f2k make clean
   - docker run -v $(pwd):/app redborder/dev-containers:f2k ./configure
-  - docker run -v $(pwd):/app redborder/dev-containers:f2k make
+  - docker run -v $(pwd):/app redborder/dev-containers:f2k scl enable devtoolset-4 make
   - tar -cvzf f2k-${TRAVIS_TAG}.tar.gz f2k
 
 deploy:
