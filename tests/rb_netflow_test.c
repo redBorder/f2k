@@ -447,7 +447,6 @@ static struct string_list *test_flow_i(const struct test_params *params,
       struct string_list *ret = dissectNetFlow(
           worker, sensor_object, params->netflow_src_ip, params->record,
           params->record_size);
-      rb_sensor_decref(sensor_object);
 
       pthread_mutex_unlock(&worker->packetsQueue.rfq_lock);
       pthread_mutex_unlock(&worker->templates_queue.rfq_lock);

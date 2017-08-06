@@ -55,12 +55,15 @@
 #define ATOMIC_TEST_AND_SET(PTR) __sync_val_compare_and_swap(PTR, false, true)
 #endif
 
+typedef struct sensor_s sensor_t;
+typedef struct sensors_db_s sensors_db_t;
+
 /* ********* Packets queue ************ */
 typedef struct queued_packet_s {
   uint32_t netflow_device_ip;
   uint8_t *buffer;
   ssize_t buffer_len;
-  struct sensor *sensor;
+  sensor_t *sensor;
   rd_kafka_message_t *original_message;
 } QueuedPacket;
 
@@ -379,7 +382,7 @@ struct rb_databases{
   char *geoip_country_database_path;
   char *mac_vendor_database_path;
   char *sensors_info_path;
-  struct rb_sensors_db *sensors_info;
+  sensors_db_t *sensors_info;
 };
 
 void load_vlan_mapping();

@@ -509,7 +509,7 @@ static void deepPacketDecode(u_short thread_id __attribute__((unused)),
         //struct sockaddr_in fromHostV4;
         //dissectSflow((char*)&p[payload_shift], payloadLen, &fromHostV4); /* sFlow */
       } else{
-        struct sensor *sensor_object = get_sensor(
+        sensor_t *sensor_object = get_sensor(
                   readOnlyGlobals.rb_databases.sensors_info, src.ipType.ipv4);
         if(NULL==sensor_object) {
           const size_t bufsize = 1024;

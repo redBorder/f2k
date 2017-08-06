@@ -76,7 +76,7 @@ static void zk_template_get_completed(int rc, const char *value, int value_len,
   if(new_template) {
     ATOMIC_OP(add, fetch,
       &readWriteGlobals->collectionStats.num_zk_templates_received.value, 1);
-    struct sensor *s = get_sensor(readOnlyGlobals.rb_databases.sensors_info,
+    sensor_t *s = get_sensor(readOnlyGlobals.rb_databases.sensors_info,
       new_template->templateInfo.netflow_device_ip);
     if(NULL == s) {
       traceEvent(TRACE_NORMAL,"Received template from ZK of unknown sensor "

@@ -61,7 +61,7 @@ struct flowCache {
   }address;
 
   /// Sensor associated
-  const struct sensor *sensor;
+  const sensor_t *sensor;
   observation_id_t *observation_id;
 
   /// Flow time related information
@@ -80,7 +80,7 @@ struct flowCache {
 struct flowCache *new_flowCache();
 uint64_t flowCache_packets(const struct flowCache *);
 uint64_t flowCache_octets(const struct flowCache *);
-void associateSensor(struct flowCache *flowCache, struct sensor *sensor);
+void associateSensor(struct flowCache *flowCache, sensor_t *sensor);
 bool guessDirection(struct flowCache *cache);
 void free_flowCache(struct flowCache *cache);
 

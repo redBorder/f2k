@@ -120,6 +120,9 @@ function checks {
         "#include <netinet/in.h>
          #include <libnetfilter_queue/libnetfilter_queue.h>"
 
+    mkl_lib_check "dsensorsdb" "" fail CC "-ldsensorsdb" \
+        "#include <dsensorsdb.h>"
+
     mkl_compile_check sctp HAVE_SCTP disable CC "" \
         "#include <netinet/in.h>
          #include <netinet/sctp.h>
