@@ -301,7 +301,7 @@ static int prepare_test_nf10_home_nets_normalize(void **state) {
 
 	static const struct checkdata_value checkdata_values_v6_1[] =
 	CHECKDATA("lan_ip", "2001:0428:ce00:2011:0d5a:6069:2467:9bd1",
-			    "2001:0428:ce00:0000:0000:0000:0000:0000/48",
+			    "2001:428:ce00::/48",
 			    "users6",
 		  "wan_ip", "2001:0008:0000:0000:0000:0000:0000:0001",
 			    NULL,
@@ -313,7 +313,7 @@ static int prepare_test_nf10_home_nets_normalize(void **state) {
 			    NULL,
 			    NULL,
 		  "lan_ip", "2001:0428:ce00:2011:0d5a:6069:2467:9bd1",
-			    "2001:0428:ce00:0000:0000:0000:0000:0000/48",
+			    "2001:428:ce00::/48",
 			    "users6",
 			    "downstream");
 
@@ -344,7 +344,7 @@ static int prepare_test_nf10_home_nets_dont_normalize(void **state) {
 
 	static const struct checkdata_value checkdata_values_v6_1[] =
 	CHECKDATA("src", "2001:0428:ce00:2011:0d5a:6069:2467:9bd1",
-			    "2001:0428:ce00:0000:0000:0000:0000:0000/48",
+			    "2001:428:ce00::/48",
 			    "users6",
 		  "dst", "2001:0008:0000:0000:0000:0000:0000:0001",
 			    NULL,
@@ -356,7 +356,7 @@ static int prepare_test_nf10_home_nets_dont_normalize(void **state) {
 			    NULL,
 			    NULL,
 		  "dst", "2001:0428:ce00:2011:0d5a:6069:2467:9bd1",
-			    "2001:0428:ce00:0000:0000:0000:0000:0000/48",
+			    "2001:428:ce00::/48",
 			    "users6",
 			    NULL);
 
