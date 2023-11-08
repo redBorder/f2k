@@ -87,7 +87,7 @@ static void zk_template_get_completed(int rc, const char *value, int value_len,
       return;
     }
     save_template_async(s,new_template);
-    traceEvent(TRACE_NORMAL,"Added template from ZK [device "
+    traceEvent(TRACE_INFO,"Added template from ZK [device "
       "%s][observation domain id %"PRIu32"][template id %"PRIu16"]",
       _intoaV4(new_template->templateInfo.netflow_device_ip, buf, sizeof(buf)),
       new_template->templateInfo.observation_domain_id,
