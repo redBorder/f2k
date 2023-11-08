@@ -7,11 +7,11 @@ URL: https://github.com/redBorder/f2k
 Source0: %{name}-%{version}.tar.gz
 
 BuildRequires: gcc git make librd-devel librdkafka-devel GeoIP-devel libpcap-devel 
-BuildRequires: udns-devel libzookeeper-devel rb_macs_vendors jansson-devel python34
+BuildRequires: udns-devel libzookeeper-devel rb_macs_vendors jansson-devel python3
 
 Summary: Netflow to Json/Kafka collector
 Group:   Development/Libraries/C and C++
-Requires: librd0 librdkafka1 libpcap libzookeeper rb_macs_vendors jansson
+Requires: librd0 librdkafka libpcap libzookeeper rb_macs_vendors jansson
 
 %description
 %{summary}
@@ -20,6 +20,7 @@ Requires: librd0 librdkafka1 libpcap libzookeeper rb_macs_vendors jansson
 %setup -qn %{name}-%{version}
 
 %build
+export CFLAGS=" -fcommon"
 ./configure --prefix=/usr
 make
 make manuf
@@ -55,5 +56,7 @@ exit 0
 /var/lib/f2k
 
 %changelog
+* Tue Oct 3 2023 David Vanhoucke <dvanhoucke@redborder.com> - 2.0.0-1
+- first spec version
 * Tue Jan 10 2017 Alberto Rodríguez <arodriguez@redborder.com> - 1.0.1-1
 - first spec version
