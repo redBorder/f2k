@@ -1,0 +1,74 @@
+name: RPM Build and Upload
+
+on:
+  push:
+    branches:
+      - 'master'
+      - 'main'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        run: |
+          TAG=$(tr -d '[:space:]' < ./VERSION)
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          # Do not overwrite an already published release
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists, skipping release. Bump VERSION to publish a new one."
+            echo "SKIP=true" >> "$GITHUB_ENV"
+          fi
+        shell: bash
+
+      - name: Run Docker Container
+        if: env.SKIP != 'true'
+        run: docker run --privileged -d --name builder --network host rockylinux:9 /bin/sleep infinity
+
+      - name: Install build tools RPM
+        if: env.SKIP != 'true'
+        run: |
+          docker cp ./ builder:/build
+          docker exec builder bash -c "yum install -y epel-release && yum install -y make git mock"
+          docker exec builder bash -c "rm -rf /etc/mock/default.cfg"
+
+      - name: Setup SDK
+        if: env.SKIP != 'true'
+        run: |
+          docker exec builder bash -c "curl https://raw.githubusercontent.com/redBorder/repoinit/master/sdk9.cfg > /build/sdk9.cfg"
+          docker exec builder bash -c "echo \"config_opts['use_host_resolv'] = True\" >> /build/sdk9.cfg"
+          docker exec builder bash -c "ln -s /build/sdk9.cfg /etc/mock/default.cfg"
+
+      - name: Build RPM using mock
+        if: env.SKIP != 'true'
+        run: |
+          docker exec builder bash -c "git config --global --add safe.directory /build"
+          # Call packaging Makefile directly: top level 'make rpm' needs ./configure first
+          docker exec builder bash -c "cd /build/ && make -C packaging/rpm VERSION=${{ env.TAG }}"
+
+      - name: Copy RPMS
+        if: env.SKIP != 'true'
+        run: |
+          docker cp builder:/build/packaging/rpm/pkgs/. ./rpms
+
+      - name: Delete non-.rpm files
+        if: env.SKIP != 'true'
+        run: |
+          find ./rpms -type f -not -name '*.rpm' -exec rm {} \;
+
+      - name: Release
+        if: env.SKIP != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./rpms/*
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
