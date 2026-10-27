@@ -1606,7 +1606,7 @@ static size_t dissect_nf9_option_flow(observation_id_t *observation_id,
 
     switch (field_id) {
     case APPLICATION_ID:
-      app.id = net2number(buffer + cursor, field_len);
+      app.id = application_id_number(buffer + cursor, field_len);
       break;
     case APPLICATION_NAME:
       app.name.buffer = buffer + cursor;

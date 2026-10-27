@@ -421,6 +421,14 @@ struct counted_string extract_yt_user_referer(const struct counted_string *refer
 struct counted_string extract_dropbox_user(const struct counted_string *host,const struct counted_string *url);
 uint64_t net2number(const void *buffer,const uint16_t real_field_len);
 
+/** Application id (NetFlow field 95) as a number, for any field length.
+ * Up to 8 bytes it is the big endian number. Longer ids (FortiGate sends
+ * 9 bytes: classification engine id + 8 bytes selector) keep the
+ * classification engine id in the most significant byte and the 7 least
+ * significant bytes of the selector.
+ */
+uint64_t application_id_number(const void *buffer, const uint16_t len);
+
 /* ****************************************************** */
 /* End of ENEO stuffs                                     */
 /* ****************************************************** */
