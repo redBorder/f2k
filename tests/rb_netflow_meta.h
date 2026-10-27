@@ -65,7 +65,9 @@
 #define TEMPLATE_BYTES_0(entity, length, pen) \
 				TEMPLATE_ENTITY(entity, length)
 #define TEMPLATE_BYTES_9(entity, length, pen) \
-				TEMPLATE_PRIVATE_ENTITY(entity, length, pen) \
+				TEMPLATE_PRIVATE_ENTITY(entity, length, pen)
+#define TEMPLATE_BYTES_12356(entity, length, pen) \
+				TEMPLATE_PRIVATE_ENTITY(entity, length, pen)
 
 #define TEMPLATE_BYTES(entity, length, pen, ...) \
 				TEMPLATE_BYTES_##pen(entity, length, pen),

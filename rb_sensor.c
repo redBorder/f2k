@@ -1208,7 +1208,9 @@ static bool template_equal(const FlowSetV9Ipfix *template1,
   for (i=0; i<template1->templateInfo.fieldCount; ++i) {
     const bool field_equal =
       template1->fields[i].fieldId == template2->fields[i].fieldId &&
-      template1->fields[i].fieldLen == template2->fields[i].fieldLen;
+      template1->fields[i].fieldLen == template2->fields[i].fieldLen &&
+      template1->fields[i].enterprise_number ==
+        template2->fields[i].enterprise_number;
 
     if (!field_equal) {
       return false;
@@ -1278,7 +1280,14 @@ void save_template(observation_id_t *observation_id,
     uint16_t fieldId;
     for (fieldId=0; fieldId<new_template->templateInfo.fieldCount; ++fieldId) {
       const uint16_t entity_id = new_template->fields[fieldId].fieldId;
-      new_template->fields[fieldId].v9_template = find_template(entity_id);
+      const uint32_t pen = new_template->fields[fieldId].enterprise_number;
+      /* Only IANA fields and Cisco (PEN 9) fields share the IANA/Cisco ID
+         space of our templates table. Other vendors' private fields (e.g.
+         Fortinet) would be decoded as unrelated standard fields
+         (bytes, pkts, IPs...), so they are ignored */
+      new_template->fields[fieldId].v9_template =
+        (pen == 0 || pen == CISCO_ENTERPRISE_ID) ? find_template(entity_id)
+                                                 : NULL;
     }
   }
 

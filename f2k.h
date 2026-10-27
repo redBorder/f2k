@@ -116,6 +116,8 @@ typedef struct flow_ver9_template_field {
   const V9V10TemplateElementId *v9_template;
   uint16_t fieldId;
   uint16_t fieldLen;
+  /// IPFIX Private Enterprise Number. 0 for IANA standard fields.
+  uint32_t enterprise_number;
 } V9V10TemplateField;
 
 typedef struct flow_ver9_ipfix_simple_template {
