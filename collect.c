@@ -969,8 +969,11 @@ static size_t dissect_ipfix_option_template_params(FlowSetV9Ipfix *new_template,
  * @param observation_id Observation id the template belongs
  * @param sbuffer Option template buffer
  * @param dissect_option_template_params Callback to extract template parameters
+ * @param handle_ipfix True if IPFIX (fields can carry an enterprise number)
+ * @return Bytes consumed from sbuffer, or 0 if the template could not be
+ *         parsed (the rest of the set must be discarded)
  */
-static void dissect_option_template(const struct sensor *sensor,
+static size_t dissect_option_template(const struct sensor *sensor,
                                           uint32_t netflow_device_ip,
                                           observation_id_t *observation_id,
                                           const struct sized_buffer *sbuffer,
@@ -979,8 +982,9 @@ static void dissect_option_template(const struct sensor *sensor,
                                               FlowSetV9Ipfix *,const void *,
                                               size_t, size_t *, size_t *,
                                               const struct sensor *,
-                                              const observation_id_t *)) {
-  static const size_t max_num_entries = 4;
+                                              const observation_id_t *),
+                                          bool handle_ipfix) {
+  static const size_t max_num_entries = 128;
   const uint8_t *buffer = sbuffer->buffer;
   FlowSetV9Ipfix new_template = {
     .templateInfo = {
@@ -998,22 +1002,19 @@ static void dissect_option_template(const struct sensor *sensor,
     sensor, observation_id);
   if (unlikely(0 == cursor)) {
     /* bad template */
-    return;
+    return 0;
   }
 
-  new_template.templateInfo.fieldCount = scope_field_count + field_count;
-  if (unlikely(new_template.templateInfo.fieldCount > max_num_entries)) {
-    traceEvent(TRACE_ERROR, "Too much fields (%"PRIu16" > %zu) for sensor %s"
-      " observation id %"PRIu32
-      " option template. Interesting fields should be firsts",
-      new_template.templateInfo.fieldCount,
-      max_num_entries, sensor_ip_string(sensor),
+  const size_t num_entries = scope_field_count + field_count;
+  if (unlikely(num_entries > max_num_entries)) {
+    traceEvent(TRACE_ERROR, "Too much fields (%zu > %zu) for sensor %s"
+      " observation id %"PRIu32" option template",
+      num_entries, max_num_entries, sensor_ip_string(sensor),
       observation_id_num(observation_id));
-
-    new_template.templateInfo.fieldCount = max_num_entries;
+    return 0;
   }
 
-  const size_t num_entries = new_template.templateInfo.fieldCount;
+  new_template.templateInfo.fieldCount = num_entries;
   const size_t expected_buffer_min_size =
     cursor + sizeof(V9FlowSet) * num_entries;
   if (unlikely(sbuffer->size < expected_buffer_min_size)) {
@@ -1021,7 +1022,7 @@ static void dissect_option_template(const struct sensor *sensor,
       "len option template %zu entries, sensor %s observation id %"PRIu32,
       sbuffer->size, expected_buffer_min_size, num_entries,
       sensor_ip_string(sensor), observation_id_num(observation_id));
-    return;
+    return 0;
   }
 
   // Prepare template
@@ -1032,28 +1033,54 @@ static void dissect_option_template(const struct sensor *sensor,
       observation_id_num(observation_id));
   }
 
-  V9V10TemplateField fields[num_entries];
+  V9V10TemplateField fields[num_entries ? num_entries : 1];
 
   // Scope fields
   size_t i;
-  for (i = 0; i < num_entries; ++i, cursor += sizeof(V9FlowSet)) {
+  for (i = 0; i < num_entries; ++i) {
     /* Note: NF9 scopes will be ignored in dissect_option_flow */
-    const V9FlowSet *set = (const V9FlowSet*)&buffer[cursor];
+    if (unlikely(cursor + sizeof(V9FlowSet) > sbuffer->size)) {
+      traceEvent(TRACE_ERROR, "Option template too big for buffer, sensor %s "
+        "observation id %"PRIu32, sensor_ip_string(sensor),
+        observation_id_num(observation_id));
+      return 0;
+    }
 
-    fields[i].fieldId = ntohs(set->templateId);
+    const V9FlowSet *set = (const V9FlowSet*)&buffer[cursor];
+    const bool is_enterprise_specific = handle_ipfix && (buffer[cursor] & 0x80);
+
+    fields[i].fieldId = ntohs(set->templateId) & (handle_ipfix ? 0x7FFF
+                                                               : 0xFFFF);
     fields[i].fieldLen = ntohs(set->flowsetLen);
     fields[i].v9_template = NULL;
+    fields[i].enterprise_number = 0;
+    cursor += sizeof(V9FlowSet);
+
+    if (is_enterprise_specific) {
+      uint32_t pen;
+      if (unlikely(cursor + sizeof(pen) > sbuffer->size)) {
+        traceEvent(TRACE_ERROR, "Option template too big for buffer, sensor "
+          "%s observation id %"PRIu32, sensor_ip_string(sensor),
+          observation_id_num(observation_id));
+        return 0;
+      }
+      memcpy(&pen, &buffer[cursor], sizeof(pen));
+      fields[i].enterprise_number = ntohl(pen);
+      cursor += sizeof(pen);
+    }
 
     if(unlikely(readOnlyGlobals.enable_debug)) {
       traceEvent(TRACE_NORMAL,
-        " => %s [%zu/%zu][fieldId=%"PRIu16"][len=%"PRIu16"]",
+        " => %s [%zu/%zu][fieldId=%"PRIu16"][PEN=%"PRIu32"][len=%"PRIu16"]",
                  i < scope_field_count ? "SCOPE" : "FIELD",
-                 i, num_entries, fields[i].fieldId, fields[i].fieldLen);
+                 i, num_entries, fields[i].fieldId,
+                 fields[i].enterprise_number, fields[i].fieldLen);
     }
   }
 
   new_template.fields = fields;
   save_template(observation_id, &new_template);
+  return cursor;
 }
 
 /**  Dissect a flow template
@@ -1136,6 +1163,13 @@ static size_t dissect_flow_template(worker_t *worker,
 
       fields[fieldId].fieldId = ntohs(set->templateId) & 0x7FFF;
       fields[fieldId].fieldLen = ntohs(set->flowsetLen);
+      fields[fieldId].v9_template = NULL;
+      fields[fieldId].enterprise_number = 0;
+      if (is_enterprise_specific) {
+        uint32_t pen;
+        memcpy(&pen, &buffer[displ + sizeof(V9FlowSet)], sizeof(pen));
+        fields[fieldId].enterprise_number = ntohl(pen);
+      }
 
       /* Variable lenght fields */
       if (fields[fieldId].fieldLen != 0xffff) {
@@ -1144,9 +1178,9 @@ static size_t dissect_flow_template(worker_t *worker,
 
       if (unlikely(readOnlyGlobals.enable_debug)) {
         traceEvent(TRACE_NORMAL,
-          "[%d] fieldId=%d/PEN=%s/len=%d [tot=%zu] [%02X %02X %02X %02X]",
+          "[%d] fieldId=%d/PEN=%"PRIu32"/len=%d [tot=%zu] [%02X %02X %02X %02X]",
           1+fieldId, fields[fieldId].fieldId,
-          is_enterprise_specific ? "true" : "false",
+          fields[fieldId].enterprise_number,
           fields[fieldId].fieldLen, displ - sizeof(V9TemplateDef),
           buffer[displ], buffer[displ+1], buffer[displ+2], buffer[displ+3]);
       }
@@ -1201,8 +1235,6 @@ static int dissectNetFlowV9V10TemplateSet(worker_t *worker,
                                 observation_id_t *observation_id,
                                 bool handle_ipfix) {
 
-  V9FlowSet flow_set;
-  V9IpfixSimpleTemplate template;
   const uint8_t *buffer = _buffer->buffer;
   const size_t buffer_len = _buffer->size;
   const uint32_t netflow_device_ip = sensor->netflow_device_ip;
@@ -1240,25 +1272,30 @@ static int dissectNetFlowV9V10TemplateSet(worker_t *worker,
     is_option_template = 0;
   }
 
-  memcpy(&flow_set, &buffer[displ], sizeof(flow_set));
-  flow_set.templateId = ntohs(flow_set.templateId);
-  flow_set.flowsetLen = ntohs(flow_set.flowsetLen);
   displ += sizeof(V9TemplateHeader);
 
   if (is_option_template) {
-    memcpy(&template.templateId, &buffer[displ], 2);
-    template.templateId = htons(template.templateId);
-    template.fieldCount = (flow_set.flowsetLen - 14)/4;
+    /* An options template set can hold several option templates. If we only
+       read the first one, the data of the others would be decoded with any
+       stale (flow) template with the same id */
+    static const size_t min_option_template_size =
+      sizeof(V9OptionTemplate) + sizeof(V9FlowSet);
+    while (displ + min_option_template_size <= buffer_len) {
+      const struct sized_buffer ot_buffer = {
+        .buffer = &buffer[displ],
+        .size = buffer_len - displ
+      };
 
-    const struct sized_buffer ot_buffer = {
-      .buffer = &buffer[displ],
-      .size = _buffer->size - displ
-    };
-
-    dissect_option_template(sensor->sensor, netflow_device_ip,
-      observation_id, &ot_buffer,
-      handle_ipfix ? dissect_ipfix_option_template_params
-                   : dissect_nf9_option_template_params);
+      const size_t consumed = dissect_option_template(sensor->sensor,
+        netflow_device_ip, observation_id, &ot_buffer,
+        handle_ipfix ? dissect_ipfix_option_template_params
+                     : dissect_nf9_option_template_params,
+        handle_ipfix);
+      if (0 == consumed) {
+        break;
+      }
+      displ += consumed;
+    }
 
     return 1;
   } else {
@@ -1535,8 +1572,31 @@ static size_t dissect_nf9_option_flow(observation_id_t *observation_id,
   size_t template_idx = 0;
   for (template_idx = 0; template_idx < template_fields; ++template_idx) {
     const V9V10TemplateField *field = &template->fields[template_idx];
-    const uint16_t field_id = field->fieldId;
-    const uint16_t field_len = field->fieldLen;
+    /* Private enterprise fields don't share the IANA ids we look for */
+    const uint16_t field_id = field->enterprise_number ? 0 : field->fieldId;
+    uint16_t field_len = field->fieldLen;
+
+    if (field_len == 0xFFFF) {
+      /* IPFIX variable length field */
+      if (cursor + 1 > buffer_size) {
+        cursor = buffer_size;
+        break;
+      }
+
+      if (buffer[cursor] < 255) {
+        field_len = buffer[cursor];
+        cursor += 1;
+      } else {
+        uint16_t len16;
+        if (cursor + 3 > buffer_size) {
+          cursor = buffer_size;
+          break;
+        }
+        memcpy(&len16, &buffer[cursor + 1], sizeof(len16));
+        field_len = ntohs(len16);
+        cursor += 3;
+      }
+    }
 
     if (cursor + field_len > buffer_size) {
       /* Delete last padding */
@@ -1546,7 +1606,7 @@ static size_t dissect_nf9_option_flow(observation_id_t *observation_id,
 
     switch (field_id) {
     case APPLICATION_ID:
-      app.id = net2number(buffer + cursor, field_len);
+      app.id = application_id_number(buffer + cursor, field_len);
       break;
     case APPLICATION_NAME:
       app.name.buffer = buffer + cursor;
@@ -1609,7 +1669,13 @@ static size_t dissect_option_flow_set(observation_id_t *observation_id,
       .size = sbuffer->size - cursor,
     };
 
-    cursor += dissect_nf9_option_flow(observation_id, template, &buffer_flow);
+    const size_t consumed = dissect_nf9_option_flow(observation_id, template,
+      &buffer_flow);
+    if (0 == consumed) {
+      /* Avoid an infinite loop with zero-length records */
+      break;
+    }
+    cursor += consumed;
   }
 
   return cursor;

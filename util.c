@@ -260,6 +260,26 @@ uint64_t net2number(const void *vbuffer, const uint16_t real_field_len) {
   };
 }
 
+uint64_t application_id_number(const void *vbuffer, const uint16_t len) {
+  const uint8_t *buffer = vbuffer;
+  uint64_t ret = 0;
+  uint16_t i;
+
+  if (len <= 8) {
+    for (i = 0; i < len; ++i) {
+      ret = (ret << 8) | buffer[i];
+    }
+    return ret;
+  }
+
+  /* Classification engine id + 7 least significant bytes of selector id */
+  ret = buffer[0];
+  for (i = len - 7; i < len; ++i) {
+    ret = (ret << 8) | buffer[i];
+  }
+  return ret;
+}
+
 /* ******************************************** */
 
 struct AS_info

@@ -92,6 +92,8 @@ struct id_name_description_assoc {
   char *name; ///< id name
   char *description; ///< Id description
   rd_avl_node_t avl_node; ///< AVL node
+  /// Next node of the observation id (to free name/description at the end)
+  struct id_name_description_assoc *next;
 };
 
 /// Typedef to maintain coherency
@@ -118,7 +120,9 @@ static int name_id_description_cmp(const void *vnode1, const void *vnode2,
   assert(node1->magic == magic);
   assert(node2->magic == magic);
 
-  return node2->id - node1->id;
+  /* Do not return the uint64_t difference: truncated to int it breaks the
+     AVL ordering (and makes different ids compare equal) */
+  return (node2->id > node1->id) - (node2->id < node1->id);
 }
 
 /**
@@ -138,7 +142,7 @@ static int application_id_cmp(const void *aid1, const void *aid2) {
  * @return      app_id->id name_id_description_cmp
  */
 static int selector_id_cmp(const void *sid1, const void *sid2) {
-  return name_id_description_cmp(sid1, sid2, APPLICATION_ID_MAGIC);
+  return name_id_description_cmp(sid1, sid2, SELECTOR_ID_MAGIC);
 }
 
 /**
@@ -176,6 +180,9 @@ struct observation_id_s {
   rd_avl_t applications;
   rd_avl_t selectors;
   rd_avl_t interfaces;
+  /// All applications/selectors/interfaces nodes. Their name and description
+  /// are malloc()ed, so they must be freed before freeing memctx
+  struct id_name_description_assoc *id_name_descriptions;
   rd_memctx_t memctx;
   char *enrichment;
 
@@ -230,6 +237,13 @@ static void observation_id_done(observation_id_t *observation_id) {
 		free_v9_ipfix_template(node);
 	}
 
+	struct id_name_description_assoc *assoc = observation_id->id_name_descriptions;
+	while (assoc) {
+		free(assoc->name);
+		free(assoc->description);
+		assoc = assoc->next;
+	}
+
 	rd_memctx_freeall(&observation_id->memctx);
 	rd_memctx_destroy(&observation_id->memctx);
 	free(observation_id);
@@ -248,7 +262,8 @@ static int observation_id_cmp(const void *vobs_id1, const void *vobs_id2) {
   assert_observation_id(observation_id1);
   assert_observation_id(observation_id2);
 
-  return observation_id1->observation_id - observation_id2->observation_id;
+  return (observation_id1->observation_id > observation_id2->observation_id) -
+    (observation_id1->observation_id < observation_id2->observation_id);
 }
 
 /** Find a (id, name, description) tuple
@@ -286,31 +301,31 @@ static bool string_equal(const char *old, const char *new, size_t new_len) {
 }
 
 /** Update an id_name_description_assoc string if needed
- * @param memctx   Allocation memory context
+ * @note Strings are malloc()ed, not allocated in the observation id memctx:
+ *       librd does not allow rd_memctx_free() on RD_MEMCTX_F_TRACK contexts
+ *       (it aborts), and names change while f2k is running.
  * @param old      Old string
  * @param new      New string
  * @param new_size New string length
- * @return         True if all ok, false if allocation fails
+ * @return         True if all ok, false if allocation fails (old is kept)
  */
-static bool id_name_description_update_string(rd_memctx_t *memctx,
-    char **old, const char *new, const size_t new_len,
-    const char *memory_error_msg, const char *memory_error_field) {
+static bool id_name_description_update_string(char **old, const char *new,
+    const size_t new_len, const char *memory_error_msg,
+    const char *memory_error_field) {
   assert(old);
 
   if (unlikely(!string_equal(*old, new, new_len))) {
-    if (*old) {
-      rd_memctx_free(memctx, *old);
-    }
-
-    *old = rd_memctx_malloc(memctx, new_len + 1);
-    if (unlikely(NULL == *old)) {
+    char *updated = malloc(new_len + 1);
+    if (unlikely(NULL == updated)) {
       traceEvent(TRACE_ERROR, "Couldn't allocate %s %s", memory_error_msg,
         memory_error_field);
       return false;
     }
 
-    memcpy(*old, new, new_len);
-    (*old)[new_len] = '\0';
+    memcpy(updated, new, new_len);
+    updated[new_len] = '\0';
+    free(*old);
+    *old = updated;
   }
 
   return true;
@@ -318,7 +333,8 @@ static bool id_name_description_update_string(rd_memctx_t *memctx,
 
 /** Add a (id, name, description) node to an AVL
  * @param avl              AVL
- * @param memctx           Allocations memory context
+ * @param memctx           Memory context to allocate new nodes
+ * @param nodes            List of all nodes, to free their strings at the end
  * @param id               Tuple ID
  * @param name             Tuple name
  * @param name_len         Tuple name length
@@ -328,65 +344,53 @@ static bool id_name_description_update_string(rd_memctx_t *memctx,
  * @param magic            Magic to assert coherency, ignored if !NDEBUG
  */
 static void add_id_name_description(rd_avl_t *avl, rd_memctx_t *memctx,
+    struct id_name_description_assoc **nodes,
     uint64_t id, const char *name, size_t name_len,
     const char *description, size_t description_len,
     const char *memory_error_msg, uint64_t magic) {
   assert(avl);
+  assert(nodes);
 
   struct id_name_description_assoc *current = find_id_description_assoc(avl, id,
     magic);
 
-  const bool node_in_avl = current;
-  if (unlikely(!node_in_avl)) {
-    current = rd_memctx_calloc(memctx, 1, sizeof(*current));
-    if (unlikely(NULL == current)) {
-      traceEvent(TRACE_ERROR, "Couldn't allocate %s node", memory_error_msg);
-      goto err;
-    }
+  if (current) {
+    /* On allocation error the old string is kept */
+    id_name_description_update_string(&current->name, name, name_len,
+      memory_error_msg, "name");
+    id_name_description_update_string(&current->description, description,
+      description_len, memory_error_msg, "description");
+    return;
+  }
+
+  /* Nodes are only released with the whole memctx (rd_memctx_freeall) */
+  current = rd_memctx_calloc(memctx, 1, sizeof(*current));
+  if (unlikely(NULL == current)) {
+    traceEvent(TRACE_ERROR, "Couldn't allocate %s node", memory_error_msg);
+    return;
+  }
 
 #ifndef NDEBUG
-    current->magic = magic;
+  current->magic = magic;
 #else
-    (void)magic;
+  (void)magic;
 #endif
-    current->id = id;
-  }
+  current->id = id;
 
-  const bool name_rc = id_name_description_update_string(memctx, &current->name,
+  const bool name_rc = id_name_description_update_string(&current->name,
     name, name_len, memory_error_msg, "name");
-  if (unlikely(!name_rc)) {
-    goto err;
-  }
-
-  const bool description_rc = id_name_description_update_string(memctx,
+  const bool description_rc = id_name_description_update_string(
     &current->description, description, description_len, memory_error_msg,
     "description");
-  if (unlikely(!description_rc)) {
-    goto err;
+  if (unlikely(!name_rc || !description_rc)) {
+    free(current->name);
+    free(current->description);
+    return; /* node memory goes back with memctx */
   }
 
-  if (unlikely(!node_in_avl)) {
-    RD_AVL_INSERT(avl, current, avl_node);
-  }
-
-  return;
-
-err:
-  if (current) {
-    if (node_in_avl) {
-      RD_AVL_REMOVE_ELM(avl, current);
-    }
-
-    if (current->name) {
-      rd_memctx_free(memctx, current->name);
-    }
-
-    if (current->description) {
-      rd_memctx_free(memctx, current->description);
-    }
-
-    rd_memctx_free(memctx, current);
-  }
+  current->next = *nodes;
+  *nodes = current;
+  RD_AVL_INSERT(avl, current, avl_node);
 }
 
 void observation_id_add_application_id(observation_id_t *observation_id,
@@ -396,7 +400,8 @@ void observation_id_add_application_id(observation_id_t *observation_id,
   assert(observation_id);
 
   add_id_name_description(&observation_id->applications,
-    &observation_id->memctx, application_id, application_name,
+    &observation_id->memctx, &observation_id->id_name_descriptions,
+    application_id, application_name,
     application_name_len, NULL, 0, "APPLICATION_ID", APPLICATION_ID_MAGIC);
 }
 
@@ -407,7 +412,8 @@ void observation_id_add_selector_id(observation_id_t *observation_id,
   assert(observation_id);
 
   add_id_name_description(&observation_id->selectors,
-    &observation_id->memctx, selector_id, selector_name,
+    &observation_id->memctx, &observation_id->id_name_descriptions,
+    selector_id, selector_name,
     selector_name_len, NULL, 0, "SELECTOR_ID", SELECTOR_ID_MAGIC);
 }
 
@@ -419,7 +425,8 @@ void observation_id_add_interface(observation_id_t *observation_id,
   assert(observation_id);
 
   add_id_name_description(&observation_id->interfaces,
-    &observation_id->memctx, interface_id, interface_name,
+    &observation_id->memctx, &observation_id->id_name_descriptions,
+    interface_id, interface_name,
     interface_name_len, interface_description, interface_description_len,
     "INTERFACE_ID", INTERFACE_ID_MAGIC);
 }
@@ -585,7 +592,8 @@ static bool parse_observation_id_enrichment(observation_id_t *observation_id,
 
       if(!(strlen(observation_id->enrichment)>0)) {
         /* We don't need to mantain a null buffer if enrichment == {} */
-        rd_memctx_free(&observation_id->memctx, observation_id->enrichment);
+        /* Can't rd_memctx_free() on a _F_TRACK memctx (librd aborts). It is
+           released with the rest of the memctx */
         observation_id->enrichment = NULL;
       }
     }
@@ -1208,7 +1216,9 @@ static bool template_equal(const FlowSetV9Ipfix *template1,
   for (i=0; i<template1->templateInfo.fieldCount; ++i) {
     const bool field_equal =
       template1->fields[i].fieldId == template2->fields[i].fieldId &&
-      template1->fields[i].fieldLen == template2->fields[i].fieldLen;
+      template1->fields[i].fieldLen == template2->fields[i].fieldLen &&
+      template1->fields[i].enterprise_number ==
+        template2->fields[i].enterprise_number;
 
     if (!field_equal) {
       return false;
@@ -1278,7 +1288,14 @@ void save_template(observation_id_t *observation_id,
     uint16_t fieldId;
     for (fieldId=0; fieldId<new_template->templateInfo.fieldCount; ++fieldId) {
       const uint16_t entity_id = new_template->fields[fieldId].fieldId;
-      new_template->fields[fieldId].v9_template = find_template(entity_id);
+      const uint32_t pen = new_template->fields[fieldId].enterprise_number;
+      /* Only IANA fields and Cisco (PEN 9) fields share the IANA/Cisco ID
+         space of our templates table. Other vendors' private fields (e.g.
+         Fortinet) would be decoded as unrelated standard fields
+         (bytes, pkts, IPs...), so they are ignored */
+      new_template->fields[fieldId].v9_template =
+        (pen == 0 || pen == CISCO_ENTERPRISE_ID) ? find_template(entity_id)
+                                                 : NULL;
     }
   }
 

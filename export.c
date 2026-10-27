@@ -1169,7 +1169,11 @@ static size_t print_application_id0(struct printbuf *kafka_line_buffer,
   const uint8_t *buffer = vbuffer;
   assert_multi(kafka_line_buffer, buffer);
   if (unlikely(4 != real_field_len)) {
-    traceEvent(TRACE_ERROR, "APP_ID length %zu != 4", real_field_len);
+    /* Other lengths (e.g. FortiGate 9 bytes) only print the name, if known.
+       Do not log it as an error: it would be logged for every flow */
+    if (unlikely(readOnlyGlobals.enable_debug)) {
+      traceEvent(TRACE_WARNING, "APP_ID length %zu != 4", real_field_len);
+    }
     return 0;
   }
 
@@ -1191,7 +1195,7 @@ static size_t print_application_id_name0(struct printbuf *kafka_line_buffer,
     const void *buffer, const size_t real_field_len,
     observation_id_t *observation_id) {
 
-  const uint64_t appid = net2number(buffer,real_field_len);
+  const uint64_t appid = application_id_number(buffer,real_field_len);
 
   if (appid == 0) {
     return 0;
